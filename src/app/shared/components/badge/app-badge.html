@@ -1,0 +1,14 @@
+<span
+  class="app-badge"
+  [class.app-badge--success]="variant() === 'success'"
+  [class.app-badge--warning]="variant() === 'warning'"
+  [class.app-badge--danger]="variant() === 'danger'"
+  [class.app-badge--info]="variant() === 'info'"
+  [class.app-badge--neutral]="variant() === 'neutral'"
+  [class.app-badge--primary]="variant() === 'primary'"
+  [class.app-badge--brown]="variant() === 'brown'"
+  [class.app-badge--gold]="variant() === 'gold'"
+  [class.app-badge--violet]="variant() === 'violet'"
+>
+  <ng-content />
+</span>

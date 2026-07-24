@@ -1,0 +1,82 @@
+<section class="comercio-stats">
+  <app-page-header
+    title="Estadísticas"
+    subtitle="Rendimiento del programa de beneficios"
+  />
+
+  @if (loading()) {
+    <app-loading message="Cargando estadísticas..." />
+  } @else {
+    <div class="comercio-stats__kpis">
+      <app-stat-card label="Total usos histórico" [value]="totalUsages()" />
+      <app-stat-card label="Socios únicos" [value]="uniqueMembers()" hint="Este mes" />
+      <app-stat-card
+        label="Validaciones del mes"
+        [value]="stats()?.validationsMonth ?? 0"
+      />
+    </div>
+
+    <app-card title="Usos por promoción (este mes)">
+      @if (promoBars().length === 0) {
+        <app-empty-state title="Sin datos" description="Aún no hay usos registrados." />
+      } @else {
+        <ul class="bars">
+          @for (bar of promoBars(); track bar.name) {
+            <li>
+              <div class="bars__label">
+                <span>{{ bar.name }}</span>
+                <strong>{{ bar.value }}</strong>
+              </div>
+              <div class="bars__track">
+                <div class="bars__fill" [style.width]="bar.percent + '%'"></div>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </app-card>
+
+    <app-card title="Detalle de consumos recientes">
+      @if (recentConsumptions().length === 0) {
+        <app-empty-state
+          title="Sin consumos"
+          description="Los usos de beneficios aparecerán aquí."
+        />
+      } @else {
+        <div class="table-wrap">
+          <table class="consumptions">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Socio</th>
+                <th>Beneficio</th>
+                <th>Descuento</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of recentConsumptions(); track item.id) {
+                <tr>
+                  <td>{{ item.redeemedAt | dateEs }}</td>
+                  <td>
+                    <div class="consumptions__member">
+                      <strong>{{ item.memberName }}</strong>
+                      <span>{{ item.memberCode }}</span>
+                    </div>
+                  </td>
+                  <td>{{ item.benefitTitle }}</td>
+                  <td>{{ item.discountApplied }}</td>
+                  <td>
+                    <app-badge [variant]="item.status === 'Exitosa' ? 'success' : 'danger'">
+                      {{ item.status }}
+                    </app-badge>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </app-card>
+  }
+</section>

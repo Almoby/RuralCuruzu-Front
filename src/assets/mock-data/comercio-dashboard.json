@@ -1,0 +1,21 @@
+{
+  "merchantId": "m-001",
+  "merchantName": "Farmacia Central",
+  "activePromotions": 2,
+  "validationsToday": 3,
+  "validationsMonth": 48,
+  "uniqueMembersMonth": 22,
+  "validationsTrend": [
+    { "label": "Lun", "value": 6 },
+    { "label": "Mar", "value": 8 },
+    { "label": "Mié", "value": 5 },
+    { "label": "Jue", "value": 9 },
+    { "label": "Vie", "value": 11 },
+    { "label": "Sáb", "value": 7 },
+    { "label": "Dom", "value": 2 }
+  ],
+  "topPromotions": [
+    { "name": "15% venta libre", "value": 36 },
+    { "name": "2x1 vitaminas", "value": 12 }
+  ]
+}

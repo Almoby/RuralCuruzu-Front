@@ -1,0 +1,250 @@
+<section class="admin-page members">
+  <app-page-header title="Gestión de Socios" [subtitle]="subtitle()">
+    <app-button variant="primary" (click)="openCreate()">
+      <app-icon name="plus" [size]="16" />
+      Nuevo socio
+    </app-button>
+  </app-page-header>
+
+  <div class="members__toolbar">
+    <div class="members__toolbar-search">
+      <app-search
+        placeholder="Buscar por nombre, DNI o número..."
+        [searchTerm]="searchTerm()"
+        (valueChange)="onSearch($event)"
+      />
+    </div>
+    <div class="members__toolbar-filter">
+      <span class="members__filter-icon" aria-hidden="true">
+        <app-icon name="filter" [size]="16" />
+      </span>
+      <app-select
+        placeholder="Filtrar..."
+        [options]="filterOptions"
+        [formControl]="filterControl"
+      />
+    </div>
+  </div>
+
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando socios..." />
+    }
+
+    @case ('error') {
+      <div class="members__state">
+        <app-alert variant="error" message="No se pudieron cargar los socios." />
+        <button type="button" class="members__retry" (click)="retry()">Reintentar</button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin socios"
+        description="No hay socios que coincidan con la búsqueda o el filtro."
+      />
+    }
+
+    @default {
+      <div class="members-table">
+        <div class="members-table__scroll">
+          <table class="members-table__table">
+            <thead>
+              <tr>
+                <th>Socio</th>
+                <th>N° Socio</th>
+                <th>Categoría</th>
+                <th>Estado cuota</th>
+                <th>Cuota</th>
+                <th>Vencimiento</th>
+                <th class="members-table__th-actions">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (member of filteredMembers(); track member.id) {
+                <tr>
+                  <td>
+                    <div class="members-table__person">
+                      <span class="members-table__avatar" aria-hidden="true">
+                        {{ initialsFromName(member.fullName) }}
+                      </span>
+                      <span class="members-table__person-text">
+                        <span class="members-table__name">{{ member.fullName }}</span>
+                        <span class="members-table__email">{{ member.email }}</span>
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="members-table__code">{{ member.memberCode }}</span>
+                  </td>
+                  <td>
+                    <app-badge [variant]="memberPlanBadge(member.category)">
+                      {{ member.category }}
+                    </app-badge>
+                  </td>
+                  <td>
+                    <app-badge [variant]="feeStatusBadge(member.feeStatus)">
+                      {{ feeStatusLabel(member.feeStatus) }}
+                    </app-badge>
+                  </td>
+                  <td>
+                    <span class="members-table__fee">{{ formatMemberFee(member.monthlyFee) }}</span>
+                  </td>
+                  <td>
+                    <span class="members-table__due">{{ formatMemberDate(member.nextDueDate) }}</span>
+                  </td>
+                  <td class="members-table__actions">
+                    <button
+                      type="button"
+                      class="members-table__action"
+                      title="Ver detalle"
+                      aria-label="Ver detalle de {{ member.fullName }}"
+                      (click)="openDetail(member)"
+                    >
+                      <app-icon name="eye" [size]="16" />
+                    </button>
+                    <button
+                      type="button"
+                      class="members-table__action"
+                      title="Editar"
+                      aria-label="Editar a {{ member.fullName }}"
+                      (click)="openEdit(member)"
+                    >
+                      <app-icon name="edit" [size]="16" />
+                    </button>
+                    @if (member.isActive) {
+                      <button
+                        type="button"
+                        class="members-table__action members-table__action--danger"
+                        title="Desactivar"
+                        aria-label="Desactivar a {{ member.fullName }}"
+                        (click)="askDeactivate(member)"
+                      >
+                        <app-icon name="trash" [size]="16" />
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="members-cards">
+          @for (member of filteredMembers(); track member.id) {
+            <article class="members-card">
+              <div class="members-card__top">
+                <div class="members-table__person">
+                  <span class="members-table__avatar" aria-hidden="true">
+                    {{ initialsFromName(member.fullName) }}
+                  </span>
+                  <span class="members-table__person-text">
+                    <span class="members-table__name">{{ member.fullName }}</span>
+                    <span class="members-table__email">{{ member.email }}</span>
+                  </span>
+                </div>
+                <div class="members-card__actions">
+                  <button
+                    type="button"
+                    class="members-table__action"
+                    title="Ver detalle"
+                    aria-label="Ver detalle de {{ member.fullName }}"
+                    (click)="openDetail(member)"
+                  >
+                    <app-icon name="eye" [size]="16" />
+                  </button>
+                  <button
+                    type="button"
+                    class="members-table__action"
+                    title="Editar"
+                    aria-label="Editar a {{ member.fullName }}"
+                    (click)="openEdit(member)"
+                  >
+                    <app-icon name="edit" [size]="16" />
+                  </button>
+                  @if (member.isActive) {
+                    <button
+                      type="button"
+                      class="members-table__action members-table__action--danger"
+                      title="Desactivar"
+                      aria-label="Desactivar a {{ member.fullName }}"
+                      (click)="askDeactivate(member)"
+                    >
+                      <app-icon name="trash" [size]="16" />
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <dl class="members-card__meta">
+                <div>
+                  <dt>N° Socio</dt>
+                  <dd>{{ member.memberCode }}</dd>
+                </div>
+                <div>
+                  <dt>Categoría</dt>
+                  <dd>
+                    <app-badge [variant]="memberPlanBadge(member.category)">
+                      {{ member.category }}
+                    </app-badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Estado cuota</dt>
+                  <dd>
+                    <app-badge [variant]="feeStatusBadge(member.feeStatus)">
+                      {{ feeStatusLabel(member.feeStatus) }}
+                    </app-badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Cuota</dt>
+                  <dd>{{ formatMemberFee(member.monthlyFee) }}</dd>
+                </div>
+                <div>
+                  <dt>Vencimiento</dt>
+                  <dd>{{ formatMemberDate(member.nextDueDate) }}</dd>
+                </div>
+              </dl>
+            </article>
+          }
+        </div>
+      </div>
+    }
+  }
+
+  <app-member-create-modal
+    [open]="createOpen()"
+    [submitting]="submitting()"
+    (close)="closeCreate()"
+    (save)="saveCreate($event)"
+  />
+
+  <app-member-edit-modal
+    [open]="editOpen()"
+    [member]="editingMember()"
+    [submitting]="submitting()"
+    (close)="closeEdit()"
+    (save)="saveEdit($event)"
+  />
+
+  <app-member-detail-modal
+    [open]="detailOpen()"
+    [member]="detailMember()"
+    [loading]="detailLoading()"
+    (close)="closeDetail()"
+  />
+
+  <app-confirm-dialog
+    [open]="confirmOpen()"
+    title="Desactivar socio"
+    [message]="
+      '¿Desactivar a ' + (memberToDeactivate()?.fullName ?? 'este socio') + '? Podrás reactivarlo luego.'
+    "
+    confirmLabel="Desactivar"
+    cancelLabel="Cancelar"
+    [danger]="true"
+    (confirm)="confirmDeactivate()"
+    (cancel)="cancelDeactivate()"
+  />
+</section>

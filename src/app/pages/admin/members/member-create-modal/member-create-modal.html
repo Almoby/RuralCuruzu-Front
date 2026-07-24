@@ -1,0 +1,73 @@
+<app-modal [open]="open()" title="Nuevo Socio" size="lg" (close)="onClose()">
+  <form class="member-create" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="member-create__grid">
+      <app-input
+        label="Nombre"
+        placeholder="Nombre"
+        formControlName="firstName"
+        [error]="fieldError('firstName')"
+      />
+      <app-input
+        label="Apellido"
+        placeholder="Apellido"
+        formControlName="lastName"
+        [error]="fieldError('lastName')"
+      />
+      <app-input
+        label="DNI"
+        placeholder="00.000.000"
+        formControlName="documentNumber"
+        [error]="fieldError('documentNumber')"
+      />
+      <app-input
+        label="Fecha de Nacimiento"
+        type="date"
+        formControlName="birthDate"
+        [error]="fieldError('birthDate')"
+      />
+      <app-input
+        label="Email"
+        type="email"
+        placeholder="correo@email.com"
+        formControlName="email"
+        [error]="fieldError('email')"
+      />
+      <app-input
+        label="Teléfono"
+        type="tel"
+        placeholder="+54 9 11..."
+        formControlName="phone"
+        [error]="fieldError('phone')"
+      />
+    </div>
+
+    <app-input
+      label="Dirección"
+      placeholder="Calle, número, ciudad"
+      formControlName="address"
+      [error]="fieldError('address')"
+    />
+
+    <div class="member-create__grid">
+      <app-select
+        label="Categoría"
+        formControlName="category"
+        [options]="categoryOptions"
+        [error]="fieldError('category')"
+      />
+      <app-select
+        label="Estado"
+        formControlName="isActive"
+        [options]="statusOptions"
+        [error]="fieldError('isActive')"
+      />
+    </div>
+  </form>
+
+  <div modalFooter class="member-create__footer">
+    <button type="button" class="member-create__cancel" (click)="onClose()">Cancelar</button>
+    <app-button variant="primary" [disabled]="submitting()" [fullWidth]="true" (click)="onSubmit()">
+      Crear socio
+    </app-button>
+  </div>
+</app-modal>

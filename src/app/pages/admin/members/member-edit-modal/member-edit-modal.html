@@ -1,0 +1,94 @@
+<app-modal [open]="open()" title="Editar Socio" size="xl" (close)="onClose()">
+  <form class="member-edit" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <section class="member-edit__section" aria-labelledby="edit-personal-title">
+      <h3 id="edit-personal-title" class="member-edit__section-title">Datos personales</h3>
+
+      <div class="member-edit__fields">
+        <app-input
+          label="Apellido y Nombre / Razón Social *"
+          placeholder="Apellido y Nombre / Razón Social"
+          formControlName="fullName"
+          [error]="fieldError('fullName')"
+        />
+
+        <app-input
+          label="Dirección Postal *"
+          placeholder="Dirección postal"
+          formControlName="address"
+          [error]="fieldError('address')"
+        />
+
+        <div class="member-edit__row">
+          <app-input
+            label="Fecha de Nacimiento *"
+            type="date"
+            formControlName="birthDate"
+            [error]="fieldError('birthDate')"
+          />
+          <app-input
+            label="D.N.I. / C.I. / L.E. *"
+            placeholder="00.000.000"
+            formControlName="documentNumber"
+            [error]="fieldError('documentNumber')"
+          />
+        </div>
+
+        <app-input
+          label="Teléfono *"
+          type="tel"
+          placeholder="+54 9 11..."
+          formControlName="phone"
+          [error]="fieldError('phone')"
+        />
+
+        <app-input
+          label="E-mail *"
+          type="email"
+          placeholder="correo@email.com"
+          formControlName="email"
+          [error]="fieldError('email')"
+        />
+
+        <app-input
+          label="CUIT N° *"
+          placeholder="20-00000000-0"
+          formControlName="cuit"
+          [error]="fieldError('cuit')"
+        />
+      </div>
+    </section>
+
+    <section class="member-edit__section" aria-labelledby="edit-establishment-title">
+      <div class="member-edit__section-head">
+        <h3 id="edit-establishment-title" class="member-edit__section-title">
+          Establecimiento u ocupación
+        </h3>
+        <span class="member-edit__required">Obligatorio</span>
+      </div>
+
+      <div class="member-edit__fields">
+        <app-input
+          label="Nombre del Establecimiento u Ocupación"
+          placeholder="Nombre del establecimiento u ocupación"
+          formControlName="establishmentName"
+          [error]="fieldError('establishmentName')"
+        />
+        <app-input
+          label="Dirección del Establecimiento"
+          placeholder="Dirección del establecimiento"
+          formControlName="establishmentAddress"
+          [error]="fieldError('establishmentAddress')"
+        />
+      </div>
+    </section>
+
+    <app-button
+      variant="primary"
+      type="submit"
+      [fullWidth]="true"
+      [disabled]="submitting()"
+    >
+      Editar Socio
+    </app-button>
+  </form>
+</app-modal>

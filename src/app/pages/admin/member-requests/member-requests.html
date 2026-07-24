@@ -1,0 +1,126 @@
+<section class="admin-page requests">
+  <app-page-header title="Solicitudes de Adhesión" [subtitle]="subtitle()">
+    @if (unprocessedBadge(); as badgeText) {
+      <span class="requests__header-badge">
+        <app-badge variant="warning">
+          <app-icon name="clock" [size]="12" />
+          {{ badgeText }}
+        </app-badge>
+      </span>
+    }
+  </app-page-header>
+
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando solicitudes..." />
+    }
+
+    @case ('error') {
+      <div class="requests__state">
+        <app-alert variant="error" message="No se pudieron cargar las solicitudes." />
+        <button type="button" class="requests__retry" (click)="retry()">Reintentar</button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin solicitudes"
+        description="Todavía no hay solicitudes de adhesión para mostrar."
+      />
+    }
+
+    @case ('success') {
+      <div class="requests__summary" aria-label="Resumen de solicitudes">
+        <article class="requests__summary-card requests__summary-card--pending">
+          <p class="requests__summary-value">{{ summary().pending }}</p>
+          <p class="requests__summary-label">Pendientes</p>
+        </article>
+        <article class="requests__summary-card requests__summary-card--approved">
+          <p class="requests__summary-value">{{ summary().approved }}</p>
+          <p class="requests__summary-label">Aprobadas</p>
+        </article>
+        <article class="requests__summary-card requests__summary-card--rejected">
+          <p class="requests__summary-value">{{ summary().rejected }}</p>
+          <p class="requests__summary-label">Rechazadas</p>
+        </article>
+      </div>
+
+      <div class="requests__tabs" role="tablist" aria-label="Filtro de solicitudes">
+        @for (tab of tabs(); track tab.id) {
+          <button
+            type="button"
+            class="requests__tab"
+            role="tab"
+            [attr.aria-selected]="filter() === tab.id"
+            [class.requests__tab--active]="filter() === tab.id"
+            (click)="setFilter(tab.id)"
+          >
+            {{ tab.label }} ({{ tab.count }})
+          </button>
+        }
+      </div>
+
+      @if (filtered().length === 0) {
+        <app-empty-state
+          title="Sin resultados"
+          description="No hay solicitudes para el filtro seleccionado."
+        />
+      } @else {
+        <div class="requests__list">
+          @for (item of filtered(); track item.id) {
+            <article class="requests__card">
+              <div class="requests__card-left">
+                <span class="requests__avatar" aria-hidden="true">
+                  <app-icon name="user" [size]="20" />
+                </span>
+
+                <div class="requests__card-body">
+                  <h3 class="requests__name">{{ item.fullName }}</h3>
+                  <p class="requests__email">{{ item.email }}</p>
+                  <div class="requests__badges">
+                    <app-badge [variant]="requestStatusBadge(item.status)">
+                      <app-icon [name]="statusIcon(item.status)" [size]="12" />
+                      {{ item.status }}
+                    </app-badge>
+                    <app-badge [variant]="categoryBadge(item.category)">
+                      {{ membershipTypeLabel(item.category) }}
+                    </app-badge>
+                  </div>
+
+                  @if (item.status === RequestStatus.Aprobada && item.notes) {
+                    <p class="requests__note">📝 {{ item.notes }}</p>
+                  }
+                </div>
+              </div>
+
+              <div class="requests__card-right">
+                <time class="requests__date" [attr.datetime]="item.submittedAt">
+                  {{ item.submittedAt | dateEs }}
+                </time>
+
+                <app-button
+                  [variant]="actionVariant(item)"
+                  size="sm"
+                  (click)="openDetail(item)"
+                >
+                  <app-icon name="eye" [size]="14" />
+                  {{ actionLabel(item) }}
+                </app-button>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    }
+  }
+
+  <app-request-detail-modal
+    [open]="detailOpen()"
+    [request]="selected()"
+    [mode]="detailMode()"
+    [submitting]="submitting()"
+    (close)="closeDetail()"
+    (approve)="approve($event)"
+    (reject)="reject($event)"
+  />
+</section>

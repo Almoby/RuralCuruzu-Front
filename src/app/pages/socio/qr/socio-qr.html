@@ -1,0 +1,26 @@
+<section class="socio-qr">
+  <app-page-header
+    title="Mi QR"
+    subtitle="Presentalo en los comercios para acceder a tus beneficios"
+  />
+
+  <app-card>
+    <div class="socio-qr__panel">
+      <app-badge variant="success">QR Activo</app-badge>
+
+      <div class="socio-qr__frame">
+        <img [src]="qrUrl()" [alt]="'Código QR de ' + memberCode()" width="240" height="240" />
+      </div>
+
+      <div class="socio-qr__identity">
+        <strong>{{ memberName() }}</strong>
+        <span>{{ memberCode() }}</span>
+      </div>
+
+      <p class="socio-qr__note">
+        Podés usar este QR en todos los comercios adheridos. El QR se renueva automáticamente cada
+        mes.
+      </p>
+    </div>
+  </app-card>
+</section>

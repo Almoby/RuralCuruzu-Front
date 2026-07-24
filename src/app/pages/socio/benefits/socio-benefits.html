@@ -1,0 +1,106 @@
+<section class="socio-benefits">
+  <app-page-header
+    title="Beneficios y Comercios"
+    [subtitle]="availableCount() + ' beneficios disponibles para vos'"
+  />
+
+  <div class="socio-benefits__toolbar">
+    <app-search
+      placeholder="Buscar beneficios o comercios..."
+      [searchTerm]="searchTerm()"
+      (valueChange)="onSearch($event)"
+    />
+
+    <div class="filter-chips" role="group" aria-label="Filtros">
+      <button
+        type="button"
+        class="filter-chips__chip"
+        [class.filter-chips__chip--active]="filter() === 'all'"
+        (click)="setFilter('all')"
+      >
+        Todos
+      </button>
+      <button
+        type="button"
+        class="filter-chips__chip"
+        [class.filter-chips__chip--active]="filter() === 'promo'"
+        (click)="setFilter('promo')"
+      >
+        Promociones
+      </button>
+      <button
+        type="button"
+        class="filter-chips__chip"
+        [class.filter-chips__chip--active]="filter() === 'discount'"
+        (click)="setFilter('discount')"
+      >
+        Descuento
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <app-loading message="Cargando beneficios..." />
+  } @else if (filtered().length === 0) {
+    <app-empty-state
+      title="Sin beneficios"
+      description="No encontramos beneficios con esa búsqueda."
+    />
+  } @else {
+    <div class="benefit-grid">
+      @for (benefit of filtered(); track benefit.id) {
+        <app-card>
+          <article class="benefit-card">
+            <div class="benefit-card__top">
+              <app-badge variant="neutral">{{ benefit.categoryName }}</app-badge>
+              <app-badge variant="primary">{{ benefit.discountLabel }}</app-badge>
+            </div>
+            <h3>{{ benefit.title }}</h3>
+            <p class="benefit-card__merchant">{{ benefit.merchantName }}</p>
+            <p class="benefit-card__desc">{{ benefit.description }}</p>
+            <app-button variant="outline" size="sm" (click)="openDetail(benefit)">
+              Ver detalle
+            </app-button>
+          </article>
+        </app-card>
+      }
+    </div>
+  }
+
+  <app-modal
+    [open]="detailOpen()"
+    title="Detalle del beneficio"
+    (close)="closeDetail()"
+  >
+    @if (selected(); as benefit) {
+      <div class="benefit-detail">
+        <div class="benefit-detail__badges">
+          <app-badge variant="primary">{{ benefit.discountLabel }}</app-badge>
+          <app-badge variant="neutral">{{ benefit.categoryName }}</app-badge>
+        </div>
+        <h3>{{ benefit.title }}</h3>
+        <p class="benefit-detail__merchant">Comercio: {{ benefit.merchantName }}</p>
+        @if (benefit.address) {
+          <p class="benefit-detail__meta">{{ benefit.address }}</p>
+        }
+        <p>{{ benefit.description }}</p>
+        <p class="benefit-detail__meta">
+          Vigencia: {{ benefit.validFrom | dateEs }}
+          @if (benefit.validTo) {
+            — {{ benefit.validTo | dateEs }}
+          }
+        </p>
+        @if (benefit.terms) {
+          <div class="benefit-detail__terms">
+            <strong>Términos</strong>
+            <p>{{ benefit.terms }}</p>
+          </div>
+        }
+      </div>
+    }
+
+    <div modalFooter>
+      <app-button variant="secondary" (click)="closeDetail()">Cerrar</app-button>
+    </div>
+  </app-modal>
+</section>

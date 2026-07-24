@@ -1,0 +1,10 @@
+<div class="toast-host" aria-live="polite" aria-relevant="additions">
+  @for (toast of notifications(); track toast.id) {
+    <app-alert
+      [variant]="toast.type"
+      [message]="toast.message"
+      [dismissible]="true"
+      (dismissed)="dismiss(toast.id)"
+    />
+  }
+</div>

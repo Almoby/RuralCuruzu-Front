@@ -1,0 +1,24 @@
+<div class="app-input" [class.app-input--error]="!!error()" [class.app-input--disabled]="isDisabled">
+  @if (label()) {
+    <label class="app-input__label" [attr.for]="id()">{{ label() }}</label>
+  }
+
+  <input
+    class="app-input__field"
+    [id]="id()"
+    [attr.type]="type()"
+    [placeholder]="placeholder()"
+    [disabled]="isDisabled"
+    [value]="value()"
+    [attr.aria-invalid]="!!error()"
+    [attr.aria-describedby]="error() ? id() + '-error' : hint() ? id() + '-hint' : null"
+    (input)="onInput($event)"
+    (blur)="onBlur()"
+  />
+
+  @if (error()) {
+    <p class="app-input__error" [id]="id() + '-error'">{{ error() }}</p>
+  } @else if (hint()) {
+    <p class="app-input__hint" [id]="id() + '-hint'">{{ hint() }}</p>
+  }
+</div>

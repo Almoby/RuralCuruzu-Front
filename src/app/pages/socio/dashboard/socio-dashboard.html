@@ -1,0 +1,88 @@
+<section class="socio-dashboard">
+  <app-page-header title="Mi Panel" [subtitle]="'Socio ' + memberCode()" />
+
+  @if (loading()) {
+    <app-loading message="Cargando tu panel..." />
+  } @else {
+    <div class="socio-dashboard__greeting">
+      <h2>Hola, {{ greetingName() }}</h2>
+      <p>Código de socio <strong>{{ memberCode() }}</strong></p>
+    </div>
+
+    @if (feeUpToDate()) {
+      <div class="estado-banner estado-banner--success" role="status">
+        <div class="estado-banner__title">Cuota al día</div>
+        <p class="estado-banner__text">
+          Tu membresía está activa. Podés disfrutar de todos los beneficios en comercios adheridos.
+        </p>
+      </div>
+    } @else {
+      <div class="estado-banner estado-banner--warning" role="status">
+        <div class="estado-banner__title">Cuota pendiente</div>
+        <p class="estado-banner__text">
+          Regularizá tu cuota para seguir accediendo a los beneficios del programa.
+        </p>
+        <a class="estado-banner__link" [routerLink]="['/' + routes.socio.payments]">Ir a Mis Pagos</a>
+      </div>
+    }
+
+    <div class="socio-dashboard__stats">
+      <app-stat-card label="Mis pagos" [value]="paidFeesCount()" hint="Cuotas al día" />
+      <app-stat-card
+        label="Beneficios usados"
+        [value]="stats()?.redemptionsThisMonth ?? recentRedemptions().length"
+        hint="Este mes"
+      />
+      <app-stat-card
+        label="Ahorro estimado"
+        [value]="(stats()?.savingsEstimate ?? 0) | currencyArs"
+        hint="Acumulado"
+      />
+    </div>
+
+    <app-card title="Beneficios disponibles">
+      <a cardActions [routerLink]="['/' + routes.socio.benefits]" class="link-action">Ver todos</a>
+
+      @if (previewBenefits().length === 0) {
+        <p class="muted">No hay beneficios disponibles por el momento.</p>
+      } @else {
+        <div class="benefit-preview-grid">
+          @for (benefit of previewBenefits(); track benefit.id) {
+            <article class="benefit-preview">
+              <div class="benefit-preview__top">
+                <h3>{{ benefit.title }}</h3>
+                <app-badge variant="primary">{{ benefit.discountLabel }}</app-badge>
+              </div>
+              <p class="benefit-preview__merchant">{{ benefit.merchantName }}</p>
+              <p class="benefit-preview__desc">{{ benefit.description }}</p>
+            </article>
+          }
+        </div>
+      }
+    </app-card>
+
+    <app-card title="Últimos beneficios utilizados">
+      <a cardActions [routerLink]="['/' + routes.socio.history]" class="link-action">Ver historial</a>
+
+      @if (recentRedemptions().length === 0) {
+        <p class="muted">Todavía no utilizaste beneficios.</p>
+      } @else {
+        <ul class="usage-list">
+          @for (item of recentRedemptions(); track item.id) {
+            <li class="usage-list__item">
+              <div>
+                <strong>{{ item.benefitTitle }}</strong>
+                <span>{{ item.merchantName }}</span>
+              </div>
+              <div class="usage-list__meta">
+                <app-badge variant="success">{{ item.discountApplied }}</app-badge>
+                <time>{{ item.redeemedAt | dateEs }}</time>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+
+    </app-card>
+  }
+</section>

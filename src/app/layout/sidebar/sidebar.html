@@ -1,0 +1,62 @@
+<aside class="sidebar" [class.sidebar--open]="open()" aria-label="Barra lateral">
+  <div class="sidebar__brand">
+    <button
+      class="sidebar__close"
+      type="button"
+      aria-label="Cerrar menú"
+      (click)="onCloseClick()"
+    >
+      <app-icon name="close" [size]="18" />
+    </button>
+
+    <img
+      class="sidebar__logo"
+      src="assets/images/logo/logo-transparent.png"
+      alt="Sociedad Rural de Curuzú Cuatiá"
+      width="36"
+      height="36"
+    />
+
+    <div class="sidebar__brand-text">
+      <span class="sidebar__brand-name">Soc. Rural Curuzú Cuatiá</span>
+      <span class="sidebar__brand-subtitle">Soc. Rural Curuzú Cuatiá</span>
+    </div>
+  </div>
+
+  <nav class="sidebar__nav" aria-label="Menú principal">
+    <p class="sidebar__menu-label">MENÚ</p>
+
+    <ul class="sidebar__list">
+      @for (item of navItems(); track item.route) {
+        <li>
+          <a
+            class="sidebar__link"
+            [routerLink]="routeLink(item.route)"
+            routerLinkActive="sidebar__link--active"
+            [routerLinkActiveOptions]="{ exact: false }"
+            (click)="onNavigate()"
+          >
+            <span class="sidebar__link-main">
+              <app-icon class="sidebar__link-icon" [name]="item.icon" [size]="18" />
+              <span class="sidebar__link-label">{{ item.label }}</span>
+            </span>
+
+            <span class="sidebar__link-meta">
+              @if (isRequestsItem(item) && showPendingIndicator()) {
+                <span class="sidebar__pending-dot" aria-label="Solicitudes pendientes"></span>
+              }
+              <app-icon class="sidebar__chevron" name="chevron_right" [size]="14" />
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+  </nav>
+
+  <div class="sidebar__footer">
+    <button class="sidebar__logout" type="button" (click)="logout()">
+      <app-icon name="logout" [size]="16" />
+      Salir del portal
+    </button>
+  </div>
+</aside>

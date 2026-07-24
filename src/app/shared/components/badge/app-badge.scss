@@ -1,0 +1,56 @@
+.app-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+
+  &--success {
+    background-color: var(--color-success-bg);
+    color: var(--color-success);
+  }
+
+  &--warning {
+    background-color: var(--color-warning-bg);
+    color: var(--color-warning);
+  }
+
+  &--danger {
+    background-color: var(--color-danger-bg);
+    color: var(--color-danger);
+  }
+
+  &--info {
+    background-color: var(--color-info-bg);
+    color: var(--color-info);
+  }
+
+  &--neutral {
+    background-color: var(--color-neutral-bg);
+    color: var(--color-muted);
+  }
+
+  &--primary {
+    background-color: var(--color-primary-bg);
+    color: var(--color-primary);
+  }
+
+  &--brown {
+    background-color: #f5eee4;
+    color: #6b4419;
+  }
+
+  &--gold {
+    background-color: #f8f0d8;
+    color: #8a6a1a;
+  }
+
+  &--violet {
+    background-color: #f1eaf8;
+    color: #6d28d9;
+  }
+}

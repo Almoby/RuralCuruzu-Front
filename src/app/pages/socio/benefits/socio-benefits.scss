@@ -1,0 +1,121 @@
+.socio-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+
+  &__toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+
+  &__chip {
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: var(--color-white);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+
+    &:hover {
+      border-color: var(--color-primary);
+    }
+
+    &--active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: var(--color-white);
+    }
+  }
+}
+
+.benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.benefit-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 100%;
+
+  &__top {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  h3 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+  }
+
+  &__merchant {
+    margin: 0;
+    color: var(--color-brown);
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-sm);
+  }
+
+  &__desc {
+    margin: 0;
+    flex: 1;
+    color: var(--color-muted);
+    font-size: var(--font-size-sm);
+  }
+}
+
+.benefit-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+
+  &__badges {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  h3 {
+    margin: 0;
+  }
+
+  &__merchant {
+    margin: 0;
+    color: var(--color-brown);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__meta {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  &__terms {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+
+    strong {
+      display: block;
+      margin-bottom: var(--space-1);
+      font-size: var(--font-size-sm);
+    }
+
+    p {
+      margin: 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-muted);
+    }
+  }
+}

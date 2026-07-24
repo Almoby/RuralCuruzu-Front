@@ -1,0 +1,14 @@
+<div class="shell" [class.shell--sidebar-open]="sidebarOpen()">
+  <div class="shell__backdrop" (click)="closeSidebar()" aria-hidden="true"></div>
+
+  <div class="shell__sidebar">
+    <app-sidebar [open]="sidebarOpen()" (closed)="closeSidebar()" />
+  </div>
+
+  <div class="shell__main">
+    <app-header [title]="pageTitle()" (menuToggle)="toggleSidebar()" />
+    <main class="shell__content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

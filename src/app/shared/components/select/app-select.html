@@ -1,0 +1,34 @@
+<div class="app-select" [class.app-select--error]="!!error()" [class.app-select--disabled]="isDisabled">
+  @if (label()) {
+    <label class="app-select__label" [attr.for]="id()">{{ label() }}</label>
+  }
+
+  <div class="app-select__control">
+    <select
+      class="app-select__field"
+      [id]="id()"
+      [disabled]="isDisabled"
+      [value]="value()"
+      [attr.aria-invalid]="!!error()"
+      [attr.aria-describedby]="error() ? id() + '-error' : hint() ? id() + '-hint' : null"
+      (change)="onSelect($event)"
+      (blur)="onBlur()"
+    >
+      @if (placeholder()) {
+        <option value="" disabled [selected]="!value()">{{ placeholder() }}</option>
+      }
+
+      @for (option of options(); track option.value) {
+        <option [value]="option.value" [selected]="option.value === value()">
+          {{ option.label }}
+        </option>
+      }
+    </select>
+  </div>
+
+  @if (error()) {
+    <p class="app-select__error" [id]="id() + '-error'">{{ error() }}</p>
+  } @else if (hint()) {
+    <p class="app-select__hint" [id]="id() + '-hint'">{{ hint() }}</p>
+  }
+</div>

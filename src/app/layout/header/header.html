@@ -1,0 +1,35 @@
+<header class="header">
+  <div class="header__left">
+    <button
+      class="header__menu"
+      type="button"
+      aria-label="Abrir menú"
+      (click)="onMenuClick()"
+    >
+      <app-icon name="menu" [size]="20" />
+    </button>
+
+    <div class="header__titles">
+      <h1 class="header__title">{{ title() }}</h1>
+      <p class="header__date">{{ currentDateLabel() }}</p>
+    </div>
+  </div>
+
+  <div class="header__right">
+    @if (showBell()) {
+      <button class="header__icon-btn" type="button" aria-label="Notificaciones">
+        <app-icon name="bell" [size]="18" />
+      </button>
+    }
+
+    @if (user()) {
+      <span
+        class="header__initial"
+        [attr.aria-label]="'Usuario ' + userInitial()"
+        title="{{ user()?.fullName }}"
+      >
+        {{ userInitial() }}
+      </span>
+    }
+  </div>
+</header>

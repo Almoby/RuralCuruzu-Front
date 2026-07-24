@@ -1,0 +1,130 @@
+<section class="admin-page dashboard">
+  <app-page-header [title]="title()" [subtitle]="subtitle()" />
+
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando dashboard..." />
+    }
+
+    @case ('error') {
+      <div class="dashboard__state">
+        <app-alert variant="error" message="No se pudo cargar el dashboard. Intentá nuevamente." />
+        <button type="button" class="dashboard__retry" (click)="retry()">Reintentar</button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin datos para mostrar"
+        description="Todavía no hay información operativa disponible para el dashboard."
+      />
+    }
+
+    @case ('success') {
+      @if (stats(); as data) {
+        <!-- Fila 1: métricas superiores -->
+        <div class="dashboard__summary">
+          @for (card of summaryCards(); track card.id) {
+            <article class="dashboard__summary-card" [attr.data-tone]="card.tone">
+              <span class="dashboard__summary-icon" aria-hidden="true">
+                <app-icon [name]="card.icon" [size]="20" />
+              </span>
+
+              <div class="dashboard__summary-body">
+                <p class="dashboard__summary-title">{{ card.title }}</p>
+                <p class="dashboard__summary-value">{{ formatCardValue(card) }}</p>
+                <p
+                  class="dashboard__summary-trend"
+                  [attr.data-trend]="card.trendDirection"
+                >
+                  @if (card.showTrendIcon && trendIcon(card.trendDirection); as iconName) {
+                    <app-icon [name]="iconName" [size]="12" />
+                  }
+                  <span>{{ card.trendText }}</span>
+                </p>
+              </div>
+            </article>
+          }
+        </div>
+
+        <!-- Fila 2: métricas financieras -->
+        <div class="dashboard__financial">
+          @for (card of financialCards(); track card.id) {
+            <article class="dashboard__financial-card" [attr.data-tone]="card.tone">
+              <div class="dashboard__financial-head">
+                <span class="dashboard__financial-icon" aria-hidden="true">
+                  <app-icon [name]="card.icon" [size]="16" />
+                </span>
+                <p class="dashboard__financial-title">{{ card.title }}</p>
+              </div>
+
+              <p class="dashboard__financial-value">{{ formatCardValue(card) }}</p>
+
+              <p
+                class="dashboard__financial-trend"
+                [attr.data-trend]="card.trendDirection"
+              >
+                @if (card.showTrendIcon && trendIcon(card.trendDirection); as iconName) {
+                  <app-icon [name]="iconName" [size]="12" />
+                }
+                <span>{{ card.trendText }}</span>
+              </p>
+            </article>
+          }
+        </div>
+
+        <!-- Fila 3: cobranza + estado de socios -->
+        <div class="dashboard__charts">
+          <app-card [title]="data.monthlyCollections.title">
+            @if (collectionChartData(); as collectionData) {
+              <div class="dashboard__chart-box dashboard__chart-box--collection">
+                <canvas
+                  baseChart
+                  type="bar"
+                  [data]="collectionData"
+                  [options]="collectionChartOptions()"
+                  [legend]="true"
+                ></canvas>
+              </div>
+            } @else {
+              <p class="admin-page__hint">Sin datos de cobranza.</p>
+            }
+          </app-card>
+
+          <app-card [title]="data.memberStatus.title">
+            @if (memberStatusChartData(); as memberData) {
+              <div class="dashboard__chart-box dashboard__chart-box--donut">
+                <canvas
+                  baseChart
+                  type="doughnut"
+                  [data]="memberData"
+                  [options]="memberStatusChartOptions()"
+                  [legend]="true"
+                ></canvas>
+              </div>
+            } @else {
+              <p class="admin-page__hint">Sin datos de estado de socios.</p>
+            }
+          </app-card>
+        </div>
+
+        <!-- Fila 4: beneficios por comercio -->
+        <app-card [title]="data.benefitsByCommerce.title">
+          @if (commerceChartData(); as commerceData) {
+            <div class="dashboard__chart-box dashboard__chart-box--commerce">
+              <canvas
+                baseChart
+                type="bar"
+                [data]="commerceData"
+                [options]="commerceChartOptions()"
+                [legend]="false"
+              ></canvas>
+            </div>
+          } @else {
+            <p class="admin-page__hint">Sin consumos registrados.</p>
+          }
+        </app-card>
+      }
+    }
+  }
+</section>

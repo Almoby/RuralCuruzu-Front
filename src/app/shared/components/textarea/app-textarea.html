@@ -1,0 +1,28 @@
+<div
+  class="app-textarea"
+  [class.app-textarea--error]="!!error()"
+  [class.app-textarea--disabled]="isDisabled"
+>
+  @if (label()) {
+    <label class="app-textarea__label" [attr.for]="id()">{{ label() }}</label>
+  }
+
+  <textarea
+    class="app-textarea__field"
+    [id]="id()"
+    [placeholder]="placeholder()"
+    [disabled]="isDisabled"
+    [rows]="rows()"
+    [attr.aria-invalid]="!!error()"
+    [attr.aria-describedby]="error() ? id() + '-error' : hint() ? id() + '-hint' : null"
+    [value]="value()"
+    (input)="onInput($event)"
+    (blur)="onBlur()"
+  ></textarea>
+
+  @if (error()) {
+    <p class="app-textarea__error" [id]="id() + '-error'">{{ error() }}</p>
+  } @else if (hint()) {
+    <p class="app-textarea__hint" [id]="id() + '-hint'">{{ hint() }}</p>
+  }
+</div>

@@ -1,0 +1,35 @@
+<nav class="app-pagination" aria-label="Paginación">
+  <p class="app-pagination__info">
+    @if (total() === 0) {
+      Sin resultados
+    } @else {
+      Mostrando {{ from() }}–{{ to() }} de {{ total() }}
+    }
+  </p>
+
+  <div class="app-pagination__controls">
+    <button
+      class="app-pagination__btn"
+      type="button"
+      [disabled]="!canGoPrev()"
+      aria-label="Página anterior"
+      (click)="prev()"
+    >
+      Anterior
+    </button>
+
+    <span class="app-pagination__page">
+      Página {{ page() }} de {{ totalPages() }}
+    </span>
+
+    <button
+      class="app-pagination__btn"
+      type="button"
+      [disabled]="!canGoNext()"
+      aria-label="Página siguiente"
+      (click)="next()"
+    >
+      Siguiente
+    </button>
+  </div>
+</nav>

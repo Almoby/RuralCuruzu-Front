@@ -1,0 +1,81 @@
+<section class="comercio-promotions">
+  <app-page-header title="Mis Promociones" subtitle="Administrá tus beneficios activos">
+    <app-button (click)="openCreate()">Nueva Promoción</app-button>
+  </app-page-header>
+
+  @if (loading()) {
+    <app-loading message="Cargando promociones..." />
+  } @else if (promotions().length === 0) {
+    <app-empty-state
+      title="Sin promociones"
+      description="Creá tu primera promoción para atraer socios."
+    />
+  } @else {
+    <div class="promo-list">
+      @for (promo of promotions(); track promo.id) {
+        <app-card>
+          <article class="promo-item">
+            <div class="promo-item__header">
+              <div>
+                <h3>{{ promo.title }}</h3>
+                <p>{{ promo.description }}</p>
+              </div>
+              <app-badge [variant]="statusVariant(promo.status)">{{ promo.status }}</app-badge>
+            </div>
+            <div class="promo-item__meta">
+              <span>{{ promo.discountLabel }}</span>
+              <span>{{ promo.validFrom | dateEs }} — {{ promo.validTo | dateEs }}</span>
+              <span>{{ promo.redemptionsCount }} usos</span>
+            </div>
+            <app-button variant="outline" size="sm" (click)="openEdit(promo)">
+              Editar Promoción
+            </app-button>
+          </article>
+        </app-card>
+      }
+    </div>
+  }
+
+  <app-modal
+    [open]="modalOpen()"
+    [title]="editing() ? 'Editar Promoción' : 'Nueva Promoción'"
+    (close)="closeModal()"
+  >
+    <form class="promo-form" [formGroup]="form" (ngSubmit)="save()">
+      <app-input label="Título" formControlName="title" placeholder="Ej: 15% en venta libre" />
+      <app-textarea
+        label="Descripción"
+        formControlName="description"
+        placeholder="Detalle del beneficio"
+      />
+      <div class="promo-form__row">
+        <app-input
+          label="Descuento"
+          formControlName="discountLabel"
+          placeholder="15% OFF"
+        />
+        <app-input
+          label="% numérico (opcional)"
+          type="number"
+          formControlName="discountPercent"
+          placeholder="15"
+        />
+      </div>
+      <div class="promo-form__row">
+        <app-input label="Desde" type="date" formControlName="validFrom" />
+        <app-input label="Hasta" type="date" formControlName="validTo" />
+      </div>
+      @if (editing()) {
+        <app-select label="Estado" formControlName="status" [options]="statusOptions" />
+      }
+      <app-textarea label="Términos (opcional)" formControlName="terms" />
+    </form>
+
+    <div modalFooter>
+      <app-button variant="secondary" (click)="closeModal()">Cancelar</app-button>
+      <app-button [disabled]="saving()" (click)="save()">
+        {{ saving() ? 'Guardando...' : editing() ? 'Guardar cambios' : 'Crear promoción' }}
+      </app-button>
+    </div>
+  </app-modal>
+</section>

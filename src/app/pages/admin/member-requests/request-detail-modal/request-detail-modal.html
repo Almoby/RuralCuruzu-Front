@@ -1,0 +1,80 @@
+<app-modal
+  [open]="open()"
+  title="Solicitud de adhesión"
+  [subtitle]="modalSubtitle()"
+  (close)="onClose()"
+>
+  @if (request(); as item) {
+    <div class="request-detail">
+      <div class="request-detail__badges">
+        <app-badge [variant]="requestStatusBadge(item.status)">
+          <app-icon [name]="statusIcon(item.status)" [size]="12" />
+          {{ item.status }}
+        </app-badge>
+        <app-badge [variant]="categoryBadge(item.category)">
+          {{ membershipTypeLabel(item.category) }}
+        </app-badge>
+      </div>
+
+      <div class="request-detail__card">
+        @for (field of detailFields(); track field.id) {
+          <div class="request-detail__row">
+            <span class="request-detail__icon" aria-hidden="true">
+              <app-icon [name]="field.icon" [size]="16" />
+            </span>
+            <div class="request-detail__content">
+              <p class="request-detail__label">{{ field.label }}</p>
+              <p class="request-detail__value">{{ field.value }}</p>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if (item.rejectionReason && item.status === RequestStatus.Rechazada) {
+        <div class="request-detail__reason">
+          <p class="request-detail__label">Motivo de rechazo</p>
+          <p class="request-detail__value">{{ item.rejectionReason }}</p>
+        </div>
+      }
+
+      @if (isPending()) {
+        <div class="request-detail__note">
+          <app-textarea
+            label="Nota interna (opcional)"
+            placeholder="Ej: Documentación incompleta, verificar DNI..."
+            [formControl]="noteControl"
+            [rows]="3"
+          />
+        </div>
+      } @else if (item.notes) {
+        <div class="request-detail__reason">
+          <p class="request-detail__label">Nota interna</p>
+          <p class="request-detail__value">{{ item.notes }}</p>
+        </div>
+      }
+    </div>
+  }
+
+  @if (isPending()) {
+    <div modalFooter class="request-detail__actions">
+      <app-button
+        variant="danger-outline"
+        [disabled]="submitting()"
+        [fullWidth]="true"
+        (click)="onReject()"
+      >
+        <app-icon name="x_circle" [size]="16" />
+        Rechazar
+      </app-button>
+      <app-button
+        variant="primary"
+        [disabled]="submitting()"
+        [fullWidth]="true"
+        (click)="onApprove()"
+      >
+        <app-icon name="check_circle" [size]="16" />
+        Aprobar
+      </app-button>
+    </div>
+  }
+</app-modal>

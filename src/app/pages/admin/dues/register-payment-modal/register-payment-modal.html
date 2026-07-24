@@ -1,0 +1,83 @@
+<app-modal
+  [open]="open()"
+  title="Registrar pago"
+  subtitle="El pago quedará marcado como aprobado automáticamente"
+  size="lg"
+  (close)="onClose()"
+>
+  <form class="register-payment" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <app-select
+      label="Socio"
+      placeholder="Seleccionar socio..."
+      formControlName="memberId"
+      [options]="memberOptions()"
+      [error]="fieldError('memberId')"
+    />
+
+    <fieldset class="register-payment__methods">
+      <legend class="register-payment__legend">Método de pago</legend>
+      <div class="register-payment__method-grid" role="radiogroup" aria-label="Método de pago">
+        @for (method of methodChoices; track method.value) {
+          <button
+            type="button"
+            class="register-payment__method"
+            role="radio"
+            [attr.aria-checked]="selectedMethod() === method.value"
+            [class.register-payment__method--active]="selectedMethod() === method.value"
+            (click)="selectMethod(method.value)"
+            (keydown)="onMethodKeydown($event, method.value)"
+          >
+            <app-icon [name]="method.icon" [size]="16" />
+            <span>{{ method.label }}</span>
+          </button>
+        }
+      </div>
+      @if (fieldError('paymentMethod'); as methodError) {
+        <p class="register-payment__error">{{ methodError }}</p>
+      }
+    </fieldset>
+
+    @if (isCash()) {
+      <div class="register-payment__cash-note" role="status">
+        <app-icon name="check_circle" [size]="16" />
+        <p>{{ cashNote }}</p>
+      </div>
+    }
+
+    <div class="register-payment__row">
+      <app-input
+        label="Monto ($)"
+        type="number"
+        formControlName="amount"
+        [error]="fieldError('amount')"
+      />
+      <app-select
+        label="Período"
+        formControlName="period"
+        [options]="periodSelectOptions()"
+        [error]="fieldError('period')"
+      />
+    </div>
+
+    <app-input
+      label="Fecha de pago"
+      type="date"
+      formControlName="paidAt"
+      [error]="fieldError('paidAt')"
+    />
+
+    <app-textarea
+      label="Observación (opcional)"
+      placeholder="Ej: Pagó en secretaría el 8/6 a las 10hs"
+      formControlName="notes"
+      [rows]="3"
+    />
+  </form>
+
+  <div modalFooter class="register-payment__footer">
+    <button type="button" class="register-payment__cancel" (click)="onClose()">Cancelar</button>
+    <app-button variant="primary" [disabled]="submitting()" [fullWidth]="true" (click)="onSubmit()">
+      Registrar y marcar como abonado
+    </app-button>
+  </div>
+</app-modal>

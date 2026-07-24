@@ -1,0 +1,131 @@
+.member-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.member-detail__profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.member-detail__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+}
+
+.member-detail__identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.member-detail__name {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.member-detail__code {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+.member-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.member-detail__personal {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4) var(--space-5);
+}
+
+.member-detail__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.member-detail__label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.member-detail__value {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  word-break: break-word;
+}
+
+.member-detail__account {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: #f7f8f8;
+}
+
+.member-detail__account-title {
+  margin: 0 0 var(--space-3);
+  font-size: 0.72rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.member-detail__account-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.member-detail__account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.member-detail__account-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+.member-detail__account-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  text-align: right;
+
+  &--success {
+    color: var(--color-success);
+  }
+}
+
+@media (min-width: 640px) {
+  .member-detail__personal {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

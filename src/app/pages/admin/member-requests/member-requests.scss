@@ -1,0 +1,229 @@
+@use '../../../../styles/tokens' as *;
+
+.requests.admin-page {
+  max-width: none;
+  width: 100%;
+  gap: 1.1rem;
+}
+
+.requests__header-badge {
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.requests__state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.requests__retry {
+  appearance: none;
+  border: 1px solid $color-primary;
+  background: $color-primary;
+  color: $color-white;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: $font-weight-medium;
+  cursor: pointer;
+
+  &:hover {
+    background: #003938;
+  }
+}
+
+.requests__summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+
+  @media (min-width: $bp-sm) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.requests__summary-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 5.5rem;
+  padding: 1rem;
+  background: $color-white;
+  border: 1px solid #e8eaea;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(26 31 30 / 4%);
+}
+
+.requests__summary-value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: $font-weight-semibold;
+  line-height: 1.1;
+}
+
+.requests__summary-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: $color-muted;
+}
+
+.requests__summary-card--pending .requests__summary-value {
+  color: #b45309;
+}
+
+.requests__summary-card--approved .requests__summary-value {
+  color: $color-success;
+}
+
+.requests__summary-card--rejected .requests__summary-value {
+  color: $color-danger;
+}
+
+.requests__tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.requests__tab {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: $color-white;
+  color: $color-muted;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  &:hover {
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+
+  &--active {
+    background: $color-primary;
+    border-color: $color-primary;
+    color: $color-white;
+
+    &:hover {
+      color: $color-white;
+    }
+  }
+}
+
+.requests__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.requests__card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem 1rem;
+  padding: 0.95rem 1.05rem;
+  background: $color-white;
+  border: 1px solid #e8eaea;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(26 31 30 / 4%);
+}
+
+.requests__card-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.requests__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: $radius-full;
+  background: #e8f1f0;
+  color: $color-primary;
+}
+
+.requests__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.requests__name {
+  margin: 0;
+  font-size: 0.975rem;
+  font-weight: $font-weight-semibold;
+  color: $color-text;
+  line-height: 1.25;
+}
+
+.requests__email {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: $color-muted;
+}
+
+.requests__badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.1rem;
+}
+
+.requests__note {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: $color-success;
+}
+
+.requests__card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.requests__date {
+  font-size: 0.8125rem;
+  color: $color-muted;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+@media (max-width: 639px) {
+  .requests__card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .requests__card-right {
+    width: 100%;
+    margin-left: 0;
+    align-items: flex-end;
+    padding-left: 3.35rem;
+  }
+}

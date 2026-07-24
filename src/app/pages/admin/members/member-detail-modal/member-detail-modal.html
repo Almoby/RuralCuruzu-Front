@@ -1,0 +1,49 @@
+<app-modal [open]="open()" title="Detalle del Socio" size="lg" (close)="onClose()">
+  @if (loading()) {
+    <app-loading message="Cargando socio..." />
+  } @else if (member(); as item) {
+    <div class="member-detail">
+      <div class="member-detail__profile">
+        <div class="member-detail__avatar" aria-hidden="true">{{ initials() }}</div>
+        <div class="member-detail__identity">
+          <h3 class="member-detail__name">{{ item.fullName }}</h3>
+          <p class="member-detail__code">{{ item.memberCode }}</p>
+          <div class="member-detail__badges">
+            <app-badge [variant]="feeStatusBadge(item.feeStatus)">
+              {{ feeStatusLabel(item.feeStatus) }}
+            </app-badge>
+            <app-badge [variant]="memberPlanBadge(item.category)">
+              {{ item.category }}
+            </app-badge>
+          </div>
+        </div>
+      </div>
+
+      <section class="member-detail__personal" aria-label="Datos personales">
+        @for (field of personalFields(); track field.label) {
+          <div class="member-detail__field">
+            <p class="member-detail__label">{{ field.label }}</p>
+            <p class="member-detail__value">{{ field.value }}</p>
+          </div>
+        }
+      </section>
+
+      <section class="member-detail__account" aria-label="Estado de cuenta">
+        <h4 class="member-detail__account-title">Estado de cuenta</h4>
+        <div class="member-detail__account-rows">
+          @for (row of accountRows(); track row.label) {
+            <div class="member-detail__account-row">
+              <span class="member-detail__account-label">{{ row.label }}</span>
+              <span
+                class="member-detail__account-value"
+                [class.member-detail__account-value--success]="row.emphasis"
+              >
+                {{ row.value }}
+              </span>
+            </div>
+          }
+        </div>
+      </section>
+    </div>
+  }
+</app-modal>

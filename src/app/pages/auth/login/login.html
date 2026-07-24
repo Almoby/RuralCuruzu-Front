@@ -1,0 +1,68 @@
+<div class="login">
+  <header class="login__hero">
+    <img
+      class="login__logo"
+      src="assets/images/logo/logo.png"
+      alt="Sociedad Rural de Curuzú Cuatiá"
+    />
+    <h1 class="login__brand-title">Sociedad Rural de Curuzú Cuatiá</h1>
+    <p class="login__brand-subtitle">Plataforma de Beneficios y Gestión de Socios</p>
+  </header>
+
+  <main class="login__main">
+    <app-card class="login__card-shell">
+      <div class="login__card">
+        <header class="login__header">
+          <h2 class="login__title">Iniciar sesión</h2>
+          <p class="login__subtitle">Ingresá con tu cuenta</p>
+        </header>
+
+        @if (errorMessage()) {
+          <app-alert variant="error" [message]="errorMessage()" />
+        }
+
+        <form class="login__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+          <app-input
+            label="Email"
+            type="email"
+            placeholder="correo@ejemplo.com"
+            formControlName="email"
+            [error]="fieldError('email')"
+          />
+
+          <div class="login__password">
+            <app-input
+              label="Contraseña"
+              [type]="showPassword() ? 'text' : 'password'"
+              placeholder="••••••••"
+              formControlName="password"
+              [error]="fieldError('password')"
+            />
+            <button
+              class="login__password-toggle"
+              type="button"
+              [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+              (click)="togglePassword()"
+            >
+              <app-icon [name]="showPassword() ? 'eye_off' : 'eye'" [size]="16" />
+            </button>
+          </div>
+
+          <app-button type="submit" [fullWidth]="true" [disabled]="submitting()">
+            {{ submitting() ? 'Ingresando...' : 'Iniciar sesión' }}
+          </app-button>
+        </form>
+
+        <div class="login__register">
+          <p class="login__register-text">¿Todavía no sos socio?</p>
+          <a class="login__cta" [routerLink]="registerRoute">Quiero ser socio</a>
+        </div>
+
+        <p class="login__hint">
+          Demo: admin@srcc.local / admin123 · socio@srcc.local / socio123 · comercio@srcc.local /
+          comercio123
+        </p>
+      </div>
+    </app-card>
+  </main>
+</div>

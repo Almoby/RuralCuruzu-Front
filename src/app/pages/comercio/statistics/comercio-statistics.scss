@@ -1,0 +1,85 @@
+.comercio-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+
+  &__kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-4);
+  }
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+
+  &__label {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+    font-size: var(--font-size-sm);
+
+    span {
+      color: var(--color-text);
+    }
+
+    strong {
+      color: var(--color-primary);
+    }
+  }
+
+  &__track {
+    height: 10px;
+    border-radius: var(--radius-full);
+    background: var(--color-neutral-bg);
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    background: linear-gradient(90deg, var(--color-primary), #0a6b69);
+  }
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.consumptions {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+
+  th,
+  td {
+    padding: var(--space-3) var(--space-2);
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+  }
+
+  th {
+    color: var(--color-muted);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+  }
+
+  &__member {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      color: var(--color-text);
+    }
+
+    span {
+      color: var(--color-brown);
+      font-size: var(--font-size-xs);
+    }
+  }
+}

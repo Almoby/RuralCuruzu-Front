@@ -1,0 +1,270 @@
+@use '../../../../styles/tokens' as *;
+
+.member-request {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f3f4f4;
+}
+
+.member-request__hero {
+  background-color: $color-primary;
+  color: $color-white;
+}
+
+.member-request__hero-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  width: min(100%, 560px);
+  margin-inline: auto;
+  padding: 1rem 1rem 1.15rem;
+}
+
+.member-request__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0.1rem;
+  border-radius: 8px;
+  color: $color-white;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.member-request__back:hover {
+  background-color: rgb(255 255 255 / 12%);
+  text-decoration: none;
+  color: $color-white;
+}
+
+.member-request__hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.member-request__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: $font-weight-medium;
+  line-height: 1.3;
+  color: $color-white;
+}
+
+.member-request__subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-normal;
+  line-height: 1.4;
+  color: rgb(255 255 255 / 82%);
+}
+
+.member-request__main {
+  flex: 1;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.member-request__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: min(100%, 560px);
+  margin-inline: auto;
+}
+
+.member-request__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.member-request__type {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.member-request__type-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+  color: $color-text;
+}
+
+.member-request__segment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.member-request__segment-btn {
+  min-height: 2.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #d9dcde;
+  border-radius: 10px;
+  background-color: $color-white;
+  color: $color-muted;
+  font-size: 0.875rem;
+  font-weight: $font-weight-medium;
+  text-align: center;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.member-request__segment-btn:hover {
+  border-color: #c5c9ce;
+  color: $color-text;
+}
+
+.member-request__segment-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.member-request__segment-btn--active {
+  border-color: $color-primary;
+  background-color: #e6f0f0;
+  color: $color-primary;
+  box-shadow: inset 0 0 0 1px $color-primary;
+}
+
+.member-request__type-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: $color-muted;
+}
+
+.member-request__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1rem 1.05rem;
+  border: 1px solid #e8eaea;
+  border-radius: 12px;
+  background-color: $color-white;
+  box-shadow: 0 4px 14px rgb(26 31 30 / 5%);
+}
+
+.member-request__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+}
+
+.member-request__card-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $color-text;
+}
+
+.member-request__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background-color: #e6f0f0;
+  color: $color-primary;
+  font-size: 0.6875rem;
+  font-weight: $font-weight-medium;
+  line-height: 1.3;
+}
+
+.member-request__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.member-request__row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.member-request__field {
+  display: block;
+  width: 100%;
+}
+
+:host ::ng-deep .member-request__field .app-input,
+:host ::ng-deep .member-request__field .app-select {
+  gap: 0.35rem;
+}
+
+:host ::ng-deep .member-request__field .app-input__label,
+:host ::ng-deep .member-request__field .app-select__label {
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+}
+
+:host ::ng-deep .member-request__field .app-input__field,
+:host ::ng-deep .member-request__field .app-select__field {
+  min-height: 2.25rem;
+  height: 2.25rem;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border-color: #d9dcde;
+  font-size: 0.875rem;
+}
+
+:host ::ng-deep .member-request__field .app-select__field {
+  padding-right: 2.25rem;
+}
+
+:host ::ng-deep .member-request__form .app-button {
+  min-height: 2.5rem;
+  height: 2.5rem;
+  margin-top: 0.15rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: $font-weight-medium;
+}
+
+.member-request__terms {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background-color: #e8f1f0;
+  color: $color-primary;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+@media (min-width: $bp-md) {
+  .member-request__hero-inner,
+  .member-request__content {
+    width: min(100%, 560px);
+  }
+
+  .member-request__row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .member-request__main {
+    padding: 1.5rem 1.25rem 2.5rem;
+  }
+}
+
+@media (max-width: #{$bp-md - 1px}) {
+  .member-request__segment {
+    gap: 0.5rem;
+  }
+
+  .member-request__segment-btn {
+    font-size: 0.8125rem;
+    padding-inline: 0.5rem;
+  }
+}

@@ -1,0 +1,131 @@
+<section class="socio-payments">
+  <app-page-header title="Mis Pagos" subtitle="Cuotas y estado de cuenta" />
+
+  @if (loading()) {
+    <app-loading message="Cargando pagos..." />
+  } @else if (!currentFee()) {
+    <app-empty-state
+      title="Sin cuotas"
+      description="Todavía no hay cuotas asociadas a tu cuenta."
+    />
+  } @else {
+    @if (currentFee(); as fee) {
+      <app-card [title]="feeTitle(fee.period)">
+        <div class="current-fee">
+          <div class="current-fee__row">
+            <span>Monto</span>
+            <strong>{{ fee.amount | currencyArs }}</strong>
+          </div>
+          <div class="current-fee__row">
+            <span>Vencimiento</span>
+            <strong>{{ fee.dueDate | dateEs }}</strong>
+          </div>
+          <div class="current-fee__row">
+            <span>Estado</span>
+            <app-badge [variant]="feeBadgeVariant(fee.status)">
+              {{ feeStatusLabel(fee.status) }}
+            </app-badge>
+          </div>
+          @if (fee.paidAt) {
+            <div class="current-fee__row">
+              <span>Pagado el</span>
+              <strong>{{ fee.paidAt | dateEs }}</strong>
+            </div>
+          }
+        </div>
+      </app-card>
+    }
+
+    <app-card title="Opciones de pago">
+      <div class="payment-options">
+        <article class="payment-option">
+          <h3>Link de pago</h3>
+          <p>Pagá con Mercado Pago de forma rápida y segura desde tu celular o computadora.</p>
+          <app-button (click)="openLinkModal()">Ir al link de pago</app-button>
+        </article>
+
+        <article class="payment-option">
+          <h3>Transferencia bancaria</h3>
+          <ul>
+            <li><span>Titular</span> Sociedad Rural de Curuzú Cuatiá</li>
+            <li><span>CBU</span> 0170123456789012345678</li>
+            <li><span>Alias</span> SRCC.CUOTAS</li>
+            <li><span>CUIT</span> 30-71234567-8</li>
+          </ul>
+          <app-button variant="outline" (click)="openReportModal()">
+            Informar pago (comprobante)
+          </app-button>
+        </article>
+      </div>
+    </app-card>
+
+    <app-card title="Cuotas anteriores">
+      @if (previousFees().length === 0) {
+        <p class="muted">No hay cuotas anteriores para mostrar.</p>
+      } @else {
+        <ul class="fee-history">
+          @for (fee of previousFees(); track fee.id) {
+            <li>
+              <div>
+                <strong>{{ feeTitle(fee.period) }}</strong>
+                <span>{{ fee.amount | currencyArs }}</span>
+              </div>
+              <app-badge [variant]="feeBadgeVariant(fee.status)">
+                {{ feeStatusLabel(fee.status) }}
+              </app-badge>
+            </li>
+          }
+        </ul>
+      }
+    </app-card>
+  }
+
+  <app-modal
+    [open]="linkModalOpen()"
+    title="Link de pago"
+    (close)="closeLinkModal()"
+  >
+    <div class="link-modal">
+      <p>
+        Vas a ser redirigido a Mercado Pago para completar el pago de tu cuota de forma segura.
+      </p>
+      <p class="muted">
+        En este entorno de demostración el link es simulado y no realiza un cobro real.
+      </p>
+    </div>
+    <div modalFooter>
+      <app-button variant="secondary" (click)="closeLinkModal()">Cancelar</app-button>
+      <app-button (click)="closeLinkModal()">Continuar</app-button>
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="reportModalOpen()"
+    title="Informar pago"
+    (close)="closeReportModal()"
+  >
+    <form class="report-form" [formGroup]="reportForm" (ngSubmit)="submitReport()">
+      <app-input
+        label="Número de comprobante"
+        placeholder="Ej: TRANSF-123456"
+        formControlName="receiptNumber"
+        [error]="
+          reportForm.controls.receiptNumber.touched && reportForm.controls.receiptNumber.invalid
+            ? 'Ingresá el número de comprobante'
+            : ''
+        "
+      />
+      <app-textarea
+        label="Nota (opcional)"
+        placeholder="Detalle del pago o banco emisor"
+        formControlName="notes"
+      />
+    </form>
+    <div modalFooter>
+      <app-button variant="secondary" (click)="closeReportModal()">Cancelar</app-button>
+      <app-button [disabled]="submitting()" (click)="submitReport()">
+        {{ submitting() ? 'Enviando...' : 'Informar pago' }}
+      </app-button>
+    </div>
+  </app-modal>
+</section>

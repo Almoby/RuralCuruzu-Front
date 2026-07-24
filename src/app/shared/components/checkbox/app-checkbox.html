@@ -1,0 +1,15 @@
+<label class="app-checkbox" [class.app-checkbox--disabled]="isDisabled" [attr.for]="id()">
+  <input
+    class="app-checkbox__input"
+    type="checkbox"
+    [id]="id()"
+    [checked]="checked()"
+    [disabled]="isDisabled"
+    (change)="onToggle($event)"
+  />
+  <span class="app-checkbox__box" aria-hidden="true"></span>
+  @if (label()) {
+    <span class="app-checkbox__label">{{ label() }}</span>
+  }
+  <ng-content />
+</label>

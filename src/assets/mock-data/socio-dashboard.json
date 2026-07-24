@@ -1,0 +1,22 @@
+{
+  "memberCode": "S-0001",
+  "fullName": "Juan Pérez",
+  "feeStatusLabel": "Al día",
+  "nextDueDate": "2026-08-10",
+  "pendingAmount": 0,
+  "availableBenefits": 5,
+  "redemptionsThisMonth": 2,
+  "recentBenefits": [
+    { "name": "Farmacia Central", "value": 1 },
+    { "name": "La Estancia", "value": 1 }
+  ],
+  "savingsEstimate": 4250,
+  "usageTrend": [
+    { "label": "Feb", "value": 1 },
+    { "label": "Mar", "value": 2 },
+    { "label": "Abr", "value": 1 },
+    { "label": "May", "value": 3 },
+    { "label": "Jun", "value": 2 },
+    { "label": "Jul", "value": 2 }
+  ]
+}

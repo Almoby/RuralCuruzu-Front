@@ -1,0 +1,22 @@
+@if (payment(); as item) {
+  <article class="payment-card">
+    <div class="payment-card__top">
+      <div class="payment-card__identity">
+        <span class="payment-card__icon" aria-hidden="true">
+          <app-icon [name]="methodIcon()" [size]="18" />
+        </span>
+        <div class="payment-card__text">
+          <h3 class="payment-card__name">{{ item.memberName }}</h3>
+          <p class="payment-card__meta">{{ item.memberCode }} · {{ periodLabel() }}</p>
+          <p class="payment-card__method">{{ methodLabel() }}</p>
+        </div>
+      </div>
+      <p class="payment-card__amount">{{ amountLabel() }}</p>
+    </div>
+
+    <div class="payment-card__footer">
+      <span class="payment-card__date">{{ dateLabel() }}</span>
+      <app-badge [variant]="statusBadge()">{{ statusLabel() }}</app-badge>
+    </div>
+  </article>
+}

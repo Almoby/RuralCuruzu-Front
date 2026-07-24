@@ -1,0 +1,58 @@
+<section class="comercio-dashboard">
+  <app-page-header
+    title="Portal de comercio adherido"
+    [subtitle]="merchantName()"
+  />
+
+  @if (loading()) {
+    <app-loading message="Cargando inicio..." />
+  } @else {
+    <div class="comercio-dashboard__stats">
+      <app-stat-card
+        label="Promociones activas"
+        [value]="stats()?.activePromotions ?? previewPromotions().length"
+      />
+      <app-stat-card
+        label="Socios alcanzados"
+        [value]="stats()?.uniqueMembersMonth ?? 0"
+        hint="Este mes"
+      />
+      <app-stat-card
+        label="Usos de beneficios esta semana"
+        [value]="weekUsages()"
+      />
+    </div>
+
+    <app-card title="Mis promociones">
+      <a cardActions [routerLink]="['/' + routes.comercio.promotions]" class="link-action">
+        Gestionar
+      </a>
+
+      @if (previewPromotions().length === 0) {
+        <p class="muted">Todavía no tenés promociones activas.</p>
+      } @else {
+        <ul class="promo-preview">
+          @for (promo of previewPromotions(); track promo.id) {
+            <li>
+              <div>
+                <strong>{{ promo.title }}</strong>
+                <span>{{ promo.discountLabel }} · {{ promo.redemptionsCount }} usos</span>
+              </div>
+              <app-badge [variant]="statusVariant(promo.status)">{{ promo.status }}</app-badge>
+            </li>
+          }
+        </ul>
+      }
+    </app-card>
+
+    <article class="cta-card">
+      <div>
+        <h2>Validar QR de socio</h2>
+        <p>Escaneá el código del socio para aplicar el beneficio en el local.</p>
+      </div>
+      <app-button size="lg" variant="secondary" (click)="goToValidateQr()">
+        Ir a Validar QR
+      </app-button>
+    </article>
+  }
+</section>

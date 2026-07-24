@@ -1,0 +1,336 @@
+@use '../../../../styles/tokens' as *;
+
+.dashboard.admin-page {
+  max-width: none;
+  width: 100%;
+  gap: 1.15rem;
+}
+
+.dashboard__state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.dashboard__retry {
+  appearance: none;
+  border: 1px solid $color-primary;
+  background: $color-primary;
+  color: $color-white;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: $font-weight-medium;
+  cursor: pointer;
+
+  &:hover {
+    background: #003938;
+    border-color: #003938;
+  }
+}
+
+/* ─── Summary cards (fila 1) ─── */
+
+.dashboard__summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+
+  @media (min-width: $bp-sm) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (min-width: $bp-lg) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.dashboard__summary-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  min-height: 6.5rem;
+  padding: 1rem 1.05rem;
+  background: $color-white;
+  border: 1px solid #e8eaea;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(26 31 30 / 4%);
+}
+
+.dashboard__summary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: $radius-full;
+  background: #e8f1f0;
+  color: $color-primary;
+}
+
+.dashboard__summary-card[data-tone='success'] .dashboard__summary-icon {
+  background: #e7f6ec;
+  color: #1b7a3a;
+}
+
+.dashboard__summary-card[data-tone='warning'] .dashboard__summary-icon {
+  background: #f5eee4;
+  color: $color-brown;
+}
+
+.dashboard__summary-card[data-tone='violet'] .dashboard__summary-icon {
+  background: #f1eaf8;
+  color: #6d28d9;
+}
+
+.dashboard__summary-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.dashboard__summary-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+  color: $color-muted;
+  line-height: 1.3;
+}
+
+.dashboard__summary-value {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: $font-weight-semibold;
+  line-height: 1.15;
+  color: $color-text;
+}
+
+.dashboard__summary-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  color: $color-muted;
+
+  &[data-trend='increase'] {
+    color: $color-success;
+  }
+
+  &[data-trend='decrease'] {
+    color: $color-danger;
+  }
+
+  &[data-trend='neutral'] {
+    color: $color-muted;
+  }
+}
+
+/* ─── Financial cards (fila 2) ─── */
+
+.dashboard__financial {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+
+  @media (min-width: $bp-sm) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (min-width: $bp-lg) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.dashboard__financial-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  background: $color-white;
+  border: 1px solid #e8eaea;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(26 31 30 / 4%);
+}
+
+.dashboard__financial-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard__financial-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: $radius-full;
+  background: #e8f1f0;
+  color: $color-primary;
+}
+
+.dashboard__financial-card[data-tone='warning'] .dashboard__financial-icon {
+  background: #f5eee4;
+  color: $color-brown;
+}
+
+.dashboard__financial-card[data-tone='violet'] .dashboard__financial-icon {
+  background: #f1eaf8;
+  color: #6d28d9;
+}
+
+.dashboard__financial-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+  color: $color-muted;
+}
+
+.dashboard__financial-value {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: $font-weight-semibold;
+  line-height: 1.2;
+  color: $color-text;
+}
+
+.dashboard__financial-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.75rem;
+  color: $color-muted;
+
+  &[data-trend='increase'] {
+    color: $color-success;
+  }
+
+  &[data-trend='decrease'] {
+    color: $color-danger;
+  }
+
+  &[data-trend='neutral'] {
+    color: $color-muted;
+  }
+}
+
+/* ─── Charts row ─── */
+
+.dashboard__charts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+  align-items: stretch;
+
+  @media (min-width: $bp-lg) {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+/* Compact card chrome only for chart cards (app-card) */
+:host ::ng-deep {
+  .app-card__header {
+    padding: 0.7rem 0.85rem 0.35rem;
+    border-bottom: none;
+  }
+
+  .app-card__title {
+    font-size: 0.875rem;
+  }
+
+  .app-card__body {
+    padding: 0 0.75rem 0.7rem;
+  }
+}
+
+.dashboard__chart-box {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+
+  canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+.dashboard__chart-box--collection {
+  height: 240px;
+
+  @media (min-width: $bp-md) {
+    height: 255px;
+  }
+
+  @media (min-width: $bp-lg) {
+    height: 265px;
+  }
+
+  @media (min-width: $bp-xl) {
+    height: 275px;
+  }
+}
+
+.dashboard__chart-box--donut {
+  height: 240px;
+  max-width: 280px;
+  margin-inline: auto;
+
+  @media (min-width: $bp-md) {
+    height: 255px;
+  }
+
+  @media (min-width: $bp-lg) {
+    height: 265px;
+  }
+
+  @media (min-width: $bp-xl) {
+    height: 275px;
+  }
+}
+
+.dashboard__chart-box--commerce {
+  height: 200px;
+
+  @media (min-width: $bp-md) {
+    height: 210px;
+  }
+
+  @media (min-width: $bp-lg) {
+    height: 220px;
+  }
+
+  @media (min-width: $bp-xl) {
+    height: 230px;
+  }
+}
+
+@media (max-width: 639px) {
+  .dashboard__summary-card,
+  .dashboard__financial-card {
+    padding: 0.9rem;
+  }
+
+  .dashboard__summary-value {
+    font-size: 1.45rem;
+  }
+
+  .dashboard__financial-value {
+    font-size: 1.35rem;
+  }
+
+  .dashboard__chart-box--collection,
+  .dashboard__chart-box--donut {
+    height: 230px;
+  }
+
+  .dashboard__chart-box--commerce {
+    height: 190px;
+  }
+}

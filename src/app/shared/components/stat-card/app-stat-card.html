@@ -1,0 +1,40 @@
+<article class="app-stat-card">
+  <div class="app-stat-card__top">
+    <p class="app-stat-card__label">{{ label() }}</p>
+    @if (icon()) {
+      <span class="app-stat-card__icon" aria-hidden="true">
+        <app-icon [name]="icon()" [size]="16" />
+      </span>
+    }
+  </div>
+
+  <p class="app-stat-card__value">{{ value() }}</p>
+
+  @if (hint() || trend()) {
+    <div class="app-stat-card__meta">
+      @if (trend()) {
+        <span
+          class="app-stat-card__trend"
+          [class.app-stat-card__trend--up]="trend() === 'up'"
+          [class.app-stat-card__trend--down]="trend() === 'down'"
+          [class.app-stat-card__trend--neutral]="trend() === 'neutral'"
+        >
+          @switch (trend()) {
+            @case ('up') {
+              ↑
+            }
+            @case ('down') {
+              ↓
+            }
+            @default {
+              →
+            }
+          }
+        </span>
+      }
+      @if (hint()) {
+        <span class="app-stat-card__hint">{{ hint() }}</span>
+      }
+    </div>
+  }
+</article>

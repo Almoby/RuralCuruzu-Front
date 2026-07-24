@@ -1,0 +1,52 @@
+<div class="app-table">
+  <div class="app-table__scroll">
+    <table class="app-table__table">
+      <colgroup>
+        @for (column of columns(); track column.key) {
+          <col [attr.width]="column.width || null" />
+        }
+        @if (actionsTemplate()) {
+          <col />
+        }
+      </colgroup>
+      <thead>
+        <tr>
+          @for (column of columns(); track column.key) {
+            <th class="app-table__th">{{ column.label }}</th>
+          }
+          @if (actionsTemplate()) {
+            <th class="app-table__th app-table__th--actions">Acciones</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @if (rows().length === 0) {
+          <tr>
+            <td
+              class="app-table__empty"
+              [attr.colspan]="columns().length + (actionsTemplate() ? 1 : 0)"
+            >
+              {{ emptyMessage() }}
+            </td>
+          </tr>
+        } @else {
+          @for (row of rows(); track trackRow(row, $index); let i = $index) {
+            <tr class="app-table__row">
+              @for (column of columns(); track column.key) {
+                <td class="app-table__td">{{ cellValue(row, column.key) }}</td>
+              }
+              @if (actionsTemplate(); as actions) {
+                <td class="app-table__td app-table__td--actions">
+                  <ng-container
+                    [ngTemplateOutlet]="actions.template"
+                    [ngTemplateOutletContext]="{ $implicit: row, index: i }"
+                  />
+                </td>
+              }
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

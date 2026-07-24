@@ -1,0 +1,210 @@
+<section class="admin-page merchants">
+  <app-page-header title="Comercios Adheridos" [subtitle]="subtitle()">
+    <app-button variant="primary" (click)="openCreate()">
+      <app-icon name="plus" [size]="16" />
+      Nuevo comercio
+    </app-button>
+  </app-page-header>
+
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando comercios..." />
+    }
+
+    @case ('error') {
+      <div class="merchants__state">
+        <app-alert variant="error" message="No se pudieron cargar los comercios." />
+        <button type="button" class="merchants__retry" (click)="retry()">Reintentar</button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin comercios"
+        description="Todavía no hay comercios adheridos."
+      >
+        <app-button variant="primary" (click)="openCreate()">
+          <app-icon name="plus" [size]="16" />
+          Nuevo comercio
+        </app-button>
+      </app-empty-state>
+    }
+
+    @default {
+      <div class="merchants__layout">
+        <div class="merchants__list" role="list">
+          @for (merchant of merchants(); track merchant.id) {
+            <article
+              class="merchant-card"
+              role="listitem"
+              [class.merchant-card--selected]="selectedId() === merchant.id"
+              [class.merchant-card--inactive]="merchant.status === MerchantStatus.Inactivo"
+            >
+              <button
+                type="button"
+                class="merchant-card__main"
+                (click)="selectMerchant(merchant)"
+                [attr.aria-pressed]="selectedId() === merchant.id"
+              >
+                <span
+                  class="merchant-card__icon"
+                  [attr.data-tone]="categoryIcon(merchant.category).tone"
+                  aria-hidden="true"
+                >
+                  <app-icon [name]="categoryIcon(merchant.category).icon" [size]="20" />
+                </span>
+
+                <span class="merchant-card__content">
+                  <span class="merchant-card__title-row">
+                    <h3 class="merchant-card__name">{{ merchant.tradeName }}</h3>
+                    <app-badge [variant]="merchantStatusBadge(merchant.status)">
+                      {{ merchant.status }}
+                    </app-badge>
+                  </span>
+                  <span class="merchant-card__meta">
+                    {{ merchant.category }} · {{ merchant.cuit }}
+                  </span>
+                  <span class="merchant-card__consumptions">
+                    {{ merchant.consumptions }} consumos totales
+                  </span>
+                </span>
+              </button>
+
+              <div class="merchant-card__actions">
+                <button
+                  type="button"
+                  class="merchant-card__action"
+                  title="Editar"
+                  aria-label="Editar {{ merchant.tradeName }}"
+                  (click)="openEdit(merchant, $event)"
+                >
+                  <app-icon name="edit" [size]="16" />
+                </button>
+                <button
+                  type="button"
+                  class="merchant-card__action"
+                  [title]="merchant.status === MerchantStatus.Activo ? 'Desactivar' : 'Activar'"
+                  [attr.aria-label]="
+                    (merchant.status === MerchantStatus.Activo ? 'Desactivar' : 'Activar') +
+                    ' ' +
+                    merchant.tradeName
+                  "
+                  [disabled]="submitting()"
+                  (click)="toggleStatus(merchant, $event)"
+                >
+                  <app-icon
+                    [name]="merchant.status === MerchantStatus.Activo ? 'power_off' : 'power'"
+                    [size]="16"
+                  />
+                </button>
+                <button
+                  type="button"
+                  class="merchant-card__action merchant-card__action--danger"
+                  title="Eliminar"
+                  aria-label="Eliminar {{ merchant.tradeName }}"
+                  (click)="askDelete(merchant, $event)"
+                >
+                  <app-icon name="trash" [size]="16" />
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+
+        <aside class="merchants__detail" aria-label="Detalle del comercio">
+          @if (selected(); as item) {
+            <div class="merchant-detail">
+              <header class="merchant-detail__header">
+                <div>
+                  <h2 class="merchant-detail__name">{{ item.tradeName }}</h2>
+                  <div class="merchant-detail__badges">
+                    <app-badge [variant]="merchantStatusBadge(item.status)">
+                      {{ item.status }}
+                    </app-badge>
+                    <app-badge variant="neutral">{{ item.category }}</app-badge>
+                  </div>
+                </div>
+              </header>
+
+              <div class="merchant-detail__grid">
+                <div class="merchant-detail__field">
+                  <p class="merchant-detail__label">Razón social</p>
+                  <p class="merchant-detail__value">{{ item.name }}</p>
+                </div>
+                <div class="merchant-detail__field">
+                  <p class="merchant-detail__label">CUIT</p>
+                  <p class="merchant-detail__value">{{ item.cuit }}</p>
+                </div>
+                <div class="merchant-detail__field">
+                  <p class="merchant-detail__label">Email</p>
+                  <p class="merchant-detail__value">{{ item.email }}</p>
+                </div>
+                <div class="merchant-detail__field">
+                  <p class="merchant-detail__label">Teléfono</p>
+                  <p class="merchant-detail__value">{{ item.phone }}</p>
+                </div>
+                <div class="merchant-detail__field">
+                  <p class="merchant-detail__label">Contacto</p>
+                  <p class="merchant-detail__value">{{ item.contactPerson }}</p>
+                </div>
+                <div class="merchant-detail__field">
+                  <p class="merchant-detail__label">Alta</p>
+                  <p class="merchant-detail__value">{{ item.joinedAt | dateEs }}</p>
+                </div>
+                <div class="merchant-detail__field merchant-detail__field--full">
+                  <p class="merchant-detail__label">Dirección</p>
+                  <p class="merchant-detail__value">{{ item.address }}</p>
+                </div>
+                <div class="merchant-detail__field">
+                  <p class="merchant-detail__label">Promociones activas</p>
+                  <p class="merchant-detail__value">{{ item.activePromotionsCount }}</p>
+                </div>
+                <div class="merchant-detail__field">
+                  <p class="merchant-detail__label">Consumos totales</p>
+                  <p class="merchant-detail__value">{{ item.consumptions }}</p>
+                </div>
+              </div>
+
+              <div class="merchant-detail__footer">
+                <app-button variant="primary" (click)="openEdit(item)">
+                  Editar Comercio
+                </app-button>
+              </div>
+            </div>
+          } @else {
+            <div class="merchants__empty-detail">
+              <span class="merchants__empty-icon" aria-hidden="true">
+                <app-icon name="storefront" [size]="28" />
+              </span>
+              <p class="merchants__empty-text">Seleccioná un comercio para ver el detalle</p>
+            </div>
+          }
+        </aside>
+      </div>
+    }
+  }
+
+  <app-merchant-form-modal
+    [open]="formOpen()"
+    [merchant]="editing()"
+    [categories]="categories()"
+    [submitting]="submitting()"
+    (close)="closeForm()"
+    (save)="saveMerchant($event)"
+  />
+
+  <app-confirm-dialog
+    [open]="confirmOpen()"
+    title="Eliminar comercio"
+    [message]="
+      '¿Eliminar ' +
+      (merchantToDelete()?.tradeName ?? 'este comercio') +
+      '? Esta acción no se puede deshacer.'
+    "
+    confirmLabel="Eliminar"
+    cancelLabel="Cancelar"
+    [danger]="true"
+    (confirm)="confirmDelete()"
+    (cancel)="cancelDelete()"
+  />
+</section>

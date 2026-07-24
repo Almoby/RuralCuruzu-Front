@@ -1,0 +1,80 @@
+[
+  {
+    "id": "fee-001",
+    "memberId": "mem-001",
+    "memberCode": "S-0001",
+    "memberName": "Juan Pérez",
+    "period": "2026-05",
+    "amount": 3500,
+    "status": "Aprobado",
+    "dueDate": "2026-05-09",
+    "paidAt": "2026-05-09T12:00:00.000Z",
+    "paymentMethod": "Transferencia",
+    "receiptNumber": "REC-2026-0501"
+  },
+  {
+    "id": "fee-002",
+    "memberId": "mem-003",
+    "memberCode": "S-0003",
+    "memberName": "Carlos Rodríguez",
+    "period": "2026-03",
+    "amount": 4500,
+    "status": "Aprobado",
+    "dueDate": "2026-03-09",
+    "paidAt": "2026-03-09T12:00:00.000Z",
+    "paymentMethod": "Transferencia",
+    "receiptNumber": "REC-2026-0301"
+  },
+  {
+    "id": "fee-003",
+    "memberId": "mem-001",
+    "memberCode": "S-0001",
+    "memberName": "Juan Pérez",
+    "period": "2026-04",
+    "amount": 3500,
+    "status": "Aprobado",
+    "dueDate": "2026-04-09",
+    "paidAt": "2026-04-09T12:00:00.000Z",
+    "paymentMethod": "Débito",
+    "receiptNumber": "REC-2026-0401"
+  },
+  {
+    "id": "fee-004",
+    "memberId": "mem-001",
+    "memberCode": "S-0001",
+    "memberName": "Juan Pérez",
+    "period": "2026-03",
+    "amount": 3500,
+    "status": "Aprobado",
+    "dueDate": "2026-03-09",
+    "paidAt": "2026-03-09T14:00:00.000Z",
+    "paymentMethod": "Transferencia",
+    "receiptNumber": "REC-2026-0302"
+  },
+  {
+    "id": "fee-005",
+    "memberId": "mem-001",
+    "memberCode": "S-0001",
+    "memberName": "Juan Pérez",
+    "period": "2026-02",
+    "amount": 3500,
+    "status": "Aprobado",
+    "dueDate": "2026-02-09",
+    "paidAt": "2026-02-09T12:00:00.000Z",
+    "paymentMethod": "Link de pago",
+    "receiptNumber": "REC-2026-0201"
+  },
+  {
+    "id": "fee-006",
+    "memberId": "mem-002",
+    "memberCode": "S-0002",
+    "memberName": "María González",
+    "period": "2026-04",
+    "amount": 2800,
+    "status": "Aprobado",
+    "dueDate": "2026-04-09",
+    "paidAt": "2026-04-09T16:00:00.000Z",
+    "paymentMethod": "Transferencia",
+    "receiptNumber": "REC-2026-0402"
+  }
+]

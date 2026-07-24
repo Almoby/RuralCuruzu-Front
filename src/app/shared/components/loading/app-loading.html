@@ -1,0 +1,6 @@
+<div class="app-loading" [class.app-loading--fullscreen]="fullscreen()" role="status" aria-live="polite">
+  <div class="app-loading__spinner" aria-hidden="true"></div>
+  @if (message()) {
+    <p class="app-loading__message">{{ message() }}</p>
+  }
+</div>

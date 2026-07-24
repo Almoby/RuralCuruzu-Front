@@ -1,0 +1,80 @@
+<section class="admin-page dues">
+  <app-page-header title="Gestión de Cuotas" subtitle="Registro y control de pagos">
+    <div class="dues__header-actions">
+      <app-button variant="outline" [disabled]="submitting()" (click)="generateFees()">
+        <app-icon name="refresh" [size]="16" />
+        Generar cuotas
+      </app-button>
+      <app-button variant="primary" (click)="openPaymentModal()">
+        <app-icon name="plus" [size]="16" />
+        Registrar pago
+      </app-button>
+    </div>
+  </app-page-header>
+
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando cuotas..." />
+    }
+
+    @case ('error') {
+      <div class="dues__state">
+        <app-alert variant="error" message="No se pudieron cargar las cuotas." />
+        <button type="button" class="dues__retry" (click)="retry()">Reintentar</button>
+      </div>
+    }
+
+    @default {
+      <div class="dues__summary">
+        @for (card of summaryCards(); track card.label) {
+          <article class="dues__summary-card" [attr.data-tone]="card.tone">
+            <div class="dues__summary-head">
+              <span class="dues__summary-icon" aria-hidden="true">
+                <app-icon [name]="card.icon" [size]="16" />
+              </span>
+              <p class="dues__summary-label">{{ card.label }}</p>
+            </div>
+            <p class="dues__summary-value">{{ card.value }}</p>
+          </article>
+        }
+      </div>
+
+      <div class="dues__filters" role="tablist" aria-label="Filtro de pagos">
+        @for (tab of filterTabs(); track tab.value) {
+          <button
+            type="button"
+            class="dues__filter"
+            role="tab"
+            [attr.aria-selected]="filter() === tab.value"
+            [class.dues__filter--active]="filter() === tab.value"
+            (click)="setFilter(tab.value)"
+          >
+            {{ tab.label }} ({{ tab.count }})
+          </button>
+        }
+      </div>
+
+      @if (viewState() === 'empty') {
+        <app-empty-state
+          title="Sin pagos"
+          description="No hay movimientos para el filtro seleccionado."
+        />
+      } @else {
+        <div class="dues__grid">
+          @for (payment of filteredPayments(); track payment.id) {
+            <app-payment-card [payment]="payment" />
+          }
+        </div>
+      }
+    }
+  }
+
+  <app-register-payment-modal
+    [open]="paymentModalOpen()"
+    [members]="members()"
+    [periodOptions]="periodOptions()"
+    [submitting]="submitting()"
+    (close)="closePaymentModal()"
+    (save)="registerPayment($event)"
+  />
+</section>

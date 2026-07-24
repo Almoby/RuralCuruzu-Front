@@ -1,0 +1,54 @@
+.comercio-promotions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.promo-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.promo-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+
+    h3 {
+      margin: 0 0 var(--space-2);
+    }
+
+    p {
+      margin: 0;
+      color: var(--color-muted);
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    color: var(--color-brown);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+.promo-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+
+  &__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-4);
+  }
+}

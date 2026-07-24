@@ -1,0 +1,92 @@
+export interface ReportMetric {
+  id: string;
+  label: string;
+  value: number;
+  icon: string;
+  tone: 'primary' | 'warning' | 'info' | 'success';
+}
+
+export interface ReportChartSeries {
+  name: string;
+  color: string;
+  values: number[];
+}
+
+export interface MonthlyPaymentsReport {
+  title: string;
+  year: number;
+  labels: string[];
+  series: ReportChartSeries[];
+  yAxisMax: number;
+}
+
+export interface MemberDebtItem {
+  memberId: string;
+  memberName: string;
+  shortName: string;
+  memberCode: string;
+  amount: number;
+}
+
+export interface MemberDebtReport {
+  title: string;
+  items: MemberDebtItem[];
+  yAxisMax: number;
+}
+
+export interface OverdueMemberReport {
+  title: string;
+  items: MemberDebtItem[];
+}
+
+export interface MonthlyCollectedFeesReport {
+  title: string;
+  monthLabel: string;
+  monthOptions: string[];
+  items: MemberDebtItem[];
+}
+
+export interface BenefitUsageRankingItem {
+  rank: number;
+  title: string;
+  merchantName: string;
+  usesPerMonth: number;
+  tone: 'gold' | 'silver' | 'bronze' | 'neutral';
+}
+
+export interface BenefitUsageRanking {
+  title: string;
+  items: BenefitUsageRankingItem[];
+}
+
+export interface CommerceBenefitUsageItem {
+  name: string;
+  value: number;
+}
+
+export interface CommerceBenefitUsageReport {
+  title: string;
+  items: CommerceBenefitUsageItem[];
+  scale: number[];
+}
+
+export interface ExportReportRow {
+  section: string;
+  label: string;
+  value: string;
+}
+
+export interface ReportsDashboardResponse {
+  title: string;
+  subtitle: string;
+  metrics: ReportMetric[];
+  collectionsVsPending: MonthlyPaymentsReport;
+  debtByMember: MemberDebtReport;
+  overdueMembers: OverdueMemberReport;
+  monthlyCollectedFees: MonthlyCollectedFeesReport;
+  topBenefits: BenefitUsageRanking;
+  benefitsByCommerce: CommerceBenefitUsageReport;
+}
+
+/** @deprecated Prefer ReportsDashboardResponse */
+export type ReportSummary = ReportsDashboardResponse;

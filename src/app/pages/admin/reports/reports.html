@@ -1,0 +1,219 @@
+<section class="admin-page reports">
+  <app-page-header [title]="title()" [subtitle]="subtitle()">
+    <button
+      type="button"
+      class="reports__export"
+      [disabled]="exporting() || viewState() !== 'success'"
+      (click)="exportData()"
+    >
+      <app-icon name="download" [size]="15" />
+      Exportar datos
+    </button>
+  </app-page-header>
+
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Generando reportes..." />
+    }
+
+    @case ('error') {
+      <div class="reports__state">
+        <app-alert variant="error" message="No se pudieron cargar los reportes." />
+        <button type="button" class="reports__retry" (click)="retry()">Reintentar</button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin reportes"
+        description="Todavía no hay datos suficientes para generar reportes."
+      />
+    }
+
+    @default {
+      <div class="reports__metrics">
+        @for (metric of metrics(); track metric.id) {
+          <article class="reports__metric" [attr.data-tone]="metric.tone">
+            <div class="reports__metric-head">
+              <span class="reports__metric-icon" aria-hidden="true">
+                <app-icon [name]="metric.icon" [size]="16" />
+              </span>
+              <p class="reports__metric-label">{{ metric.label }}</p>
+            </div>
+            <p class="reports__metric-value">{{ metric.value }}</p>
+          </article>
+        }
+      </div>
+
+      <div class="reports__charts-row">
+        <article class="reports__card">
+          <h3 class="reports__card-title">{{ collectionsTitle() }}</h3>
+          @if (collectionsChartData(); as chartData) {
+            <div class="reports__chart-box reports__chart-box--line">
+              <canvas
+                baseChart
+                type="line"
+                [data]="chartData"
+                [options]="collectionsChartOptions()"
+                [legend]="true"
+              ></canvas>
+            </div>
+          } @else {
+            <p class="reports__empty-hint">Sin datos de cobranza.</p>
+          }
+        </article>
+
+        <article class="reports__card">
+          <h3 class="reports__card-title">{{ debtTitle() }}</h3>
+          @if (debtChartData(); as chartData) {
+            <div class="reports__chart-box reports__chart-box--bars">
+              <canvas
+                baseChart
+                type="bar"
+                [data]="chartData"
+                [options]="debtChartOptions()"
+                [legend]="false"
+              ></canvas>
+            </div>
+          } @else {
+            <p class="reports__empty-hint">No hay deuda acumulada.</p>
+          }
+        </article>
+      </div>
+
+      <div class="reports__third">
+        <div class="reports__third-left">
+          <article class="reports__card">
+            <h3 class="reports__card-title">{{ overdueTitle() }}</h3>
+            @if (overdueItems().length === 0) {
+              <p class="reports__empty-hint">No hay socios con cuota vencida.</p>
+            } @else {
+              <ul class="reports__member-list">
+                @for (item of overdueItems(); track item.memberId) {
+                  <li class="reports__member-row">
+                    <div class="reports__member-identity">
+                      <span class="reports__avatar" aria-hidden="true">
+                        {{ initialsFromName(item.memberName) }}
+                      </span>
+                      <span>
+                        <p class="reports__member-name">{{ item.memberName }}</p>
+                        <p class="reports__member-code">{{ item.memberCode }}</p>
+                      </span>
+                    </div>
+                    <div class="reports__member-amount reports__member-amount--danger">
+                      <p class="reports__member-value">{{ formatCurrency(item.amount) }}</p>
+                      <p class="reports__member-caption">deuda acum.</p>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          </article>
+
+          <article class="reports__card">
+            <div class="reports__card-head">
+              <h3 class="reports__card-title">{{ collectedTitle() }}</h3>
+              <div class="reports__month">
+                <button
+                  type="button"
+                  class="reports__month-btn"
+                  [attr.aria-expanded]="monthMenuOpen()"
+                  (click)="toggleMonthMenu()"
+                >
+                  {{ selectedMonth() || 'Mes' }}
+                  <span aria-hidden="true">↓</span>
+                </button>
+                @if (monthMenuOpen()) {
+                  <ul class="reports__month-menu" role="listbox">
+                    @for (month of monthOptions(); track month) {
+                      <li>
+                        <button
+                          type="button"
+                          class="reports__month-option"
+                          [class.reports__month-option--active]="selectedMonth() === month"
+                          (click)="selectMonth(month)"
+                        >
+                          {{ month }}
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+
+            @if (collectedItems().length === 0) {
+              <p class="reports__empty-hint">Sin cuotas cobradas para el período.</p>
+            } @else {
+              <ul class="reports__member-list">
+                @for (item of collectedItems(); track item.memberId) {
+                  <li class="reports__member-row">
+                    <div class="reports__member-identity">
+                      <span class="reports__avatar" aria-hidden="true">
+                        {{ initialsFromName(item.memberName) }}
+                      </span>
+                      <span>
+                        <p class="reports__member-name">{{ item.memberName }}</p>
+                        <p class="reports__member-code">{{ item.memberCode }}</p>
+                      </span>
+                    </div>
+                    <div class="reports__member-amount reports__member-amount--success">
+                      <p class="reports__member-value">{{ formatCurrency(item.amount) }}</p>
+                      <p class="reports__member-caption">deuda acum.</p>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          </article>
+        </div>
+
+        <article class="reports__card reports__ranking-card">
+          <h3 class="reports__card-title">{{ benefitsTitle() }}</h3>
+          @if (topBenefits().length === 0) {
+            <p class="reports__empty-hint">Sin datos de beneficios.</p>
+          } @else {
+            <ol class="reports__ranking">
+              @for (item of topBenefits(); track item.rank) {
+                <li class="reports__ranking-row">
+                  <span
+                    class="reports__rank"
+                    [attr.data-tone]="item.tone"
+                    aria-hidden="true"
+                  >
+                    {{ item.rank }}
+                  </span>
+                  <div class="reports__ranking-text">
+                    <p class="reports__ranking-title">{{ item.title }}</p>
+                    <p class="reports__ranking-meta">{{ item.merchantName }}</p>
+                  </div>
+                  <div class="reports__ranking-uses">
+                    <p class="reports__ranking-value">{{ item.usesPerMonth }}</p>
+                    <p class="reports__ranking-caption">usos/mes</p>
+                  </div>
+                </li>
+              }
+            </ol>
+          }
+        </article>
+      </div>
+
+      <article class="reports__card">
+        <h3 class="reports__card-title">{{ commerceTitle() }}</h3>
+        @if (commerceChartData(); as chartData) {
+          <div class="reports__chart-box reports__chart-box--commerce">
+            <canvas
+              baseChart
+              type="bar"
+              [data]="chartData"
+              [options]="commerceChartOptions()"
+              [legend]="false"
+            ></canvas>
+          </div>
+        } @else {
+          <p class="reports__empty-hint">Sin consumos en el mes actual.</p>
+        }
+      </article>
+    }
+  }
+</section>

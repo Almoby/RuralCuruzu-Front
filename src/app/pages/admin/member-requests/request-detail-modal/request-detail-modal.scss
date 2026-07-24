@@ -1,0 +1,89 @@
+@use '../../../../../styles/tokens' as *;
+
+.request-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.request-detail__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.request-detail__card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e8eaea;
+  border-radius: 12px;
+  background: #fafbfb;
+  overflow: hidden;
+}
+
+.request-detail__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 0.95rem;
+  border-bottom: 1px solid #eef1f1;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.request-detail__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 8px;
+  background: #e8f1f0;
+  color: $color-primary;
+  margin-top: 0.1rem;
+}
+
+.request-detail__content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.request-detail__label {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: $font-weight-medium;
+  color: $color-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.request-detail__value {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: $font-weight-medium;
+  color: $color-text;
+  word-break: break-word;
+}
+
+.request-detail__note,
+.request-detail__reason {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.request-detail__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  width: 100%;
+
+  @media (min-width: $bp-sm) {
+    grid-template-columns: 1fr 1fr;
+  }
+}

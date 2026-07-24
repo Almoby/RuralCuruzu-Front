@@ -1,0 +1,83 @@
+<section class="validate-qr">
+  <app-page-header
+    title="Validar QR"
+    subtitle="Escaneá el código del socio para validar el beneficio"
+  />
+
+  @if (loadingPromos()) {
+    <app-loading message="Cargando beneficios..." />
+  } @else {
+    <app-card title="Beneficio a validar">
+      <form [formGroup]="form">
+        <app-select
+          label="Beneficio a validar"
+          formControlName="promotionId"
+          [options]="benefitOptions()"
+          placeholder="Seleccioná un beneficio"
+        />
+      </form>
+    </app-card>
+
+    @if (view() === 'scan') {
+      <app-card>
+        <div class="scanner">
+          <div class="scanner__frame" aria-hidden="true">
+            <span class="scanner__corner scanner__corner--tl"></span>
+            <span class="scanner__corner scanner__corner--tr"></span>
+            <span class="scanner__corner scanner__corner--bl"></span>
+            <span class="scanner__corner scanner__corner--br"></span>
+            <p>Apuntá la cámara al QR del socio</p>
+          </div>
+
+          <div class="scanner__actions">
+            <app-button [disabled]="validating()" (click)="simulateValid()">
+              {{ validating() ? 'Validando...' : 'Simular QR válido' }}
+            </app-button>
+            <app-button variant="outline" [disabled]="validating()" (click)="simulateExpired()">
+              Simular QR vencido
+            </app-button>
+          </div>
+        </div>
+      </app-card>
+    }
+
+    @if (view() === 'success' && result(); as res) {
+      <div class="result result--success">
+        <h2>Beneficio aprobado!</h2>
+        <p>{{ res.message }}</p>
+        <div class="result__member">
+          <strong>{{ res.memberName }}</strong>
+          <span>{{ res.memberCode }}</span>
+          <div class="result__badges">
+            <app-badge variant="primary">Socio activo</app-badge>
+            <app-badge variant="success">Al día</app-badge>
+          </div>
+        </div>
+        @if (selectedBenefitLabel()) {
+          <p class="result__benefit">{{ selectedBenefitLabel() }}</p>
+        }
+        <app-button (click)="resetScanner()">Escanear otro QR</app-button>
+      </div>
+    }
+
+    @if (view() === 'rejected' && result(); as res) {
+      <div class="result result--rejected">
+        <h2>QR rechazado</h2>
+        <p class="result__reason">Cuota vencida</p>
+        <p>
+          {{ res.message || 'El socio no puede acceder a los beneficios hasta regularizar su cuota.' }}
+        </p>
+        @if (res.memberName) {
+          <div class="result__member">
+            <strong>{{ res.memberName }}</strong>
+            <span>{{ res.memberCode }}</span>
+          </div>
+        }
+        <p class="result__hint">
+          El socio no puede acceder a los beneficios mientras tenga la cuota vencida.
+        </p>
+        <app-button variant="outline" (click)="resetScanner()">Escanear otro QR</app-button>
+      </div>
+    }
+  }
+</section>

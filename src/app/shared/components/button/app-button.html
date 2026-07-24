@@ -1,0 +1,19 @@
+<button
+  class="app-button"
+  [class.app-button--primary]="variant() === 'primary'"
+  [class.app-button--secondary]="variant() === 'secondary'"
+  [class.app-button--outline]="variant() === 'outline'"
+  [class.app-button--ghost]="variant() === 'ghost'"
+  [class.app-button--danger]="variant() === 'danger'"
+  [class.app-button--soft]="variant() === 'soft'"
+  [class.app-button--danger-outline]="variant() === 'danger-outline'"
+  [class.app-button--sm]="size() === 'sm'"
+  [class.app-button--md]="size() === 'md'"
+  [class.app-button--lg]="size() === 'lg'"
+  [class.app-button--full]="fullWidth()"
+  [attr.type]="type()"
+  [disabled]="disabled()"
+  (click)="onClick($event)"
+>
+  <ng-content />
+</button>

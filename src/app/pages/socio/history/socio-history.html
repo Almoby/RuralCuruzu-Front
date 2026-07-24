@@ -1,0 +1,101 @@
+<section class="socio-history">
+  <app-page-header
+    title="Historial"
+    subtitle="Tus pagos y beneficios utilizados"
+  />
+
+  @if (loading()) {
+    <app-loading message="Cargando historial..." />
+  } @else {
+    <div class="socio-history__stats">
+      <app-stat-card label="Ahorro total" [value]="savings() | currencyArs" />
+      <app-stat-card label="Beneficios usados" [value]="usedBenefitsCount()" />
+      <app-stat-card label="Pagos realizados" [value]="paymentsCount()" />
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        class="tabs__tab"
+        [class.tabs__tab--active]="tab() === 'benefits'"
+        [attr.aria-selected]="tab() === 'benefits'"
+        (click)="setTab('benefits')"
+      >
+        Beneficios
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="tabs__tab"
+        [class.tabs__tab--active]="tab() === 'payments'"
+        [attr.aria-selected]="tab() === 'payments'"
+        (click)="setTab('payments')"
+      >
+        Pagos
+      </button>
+    </div>
+
+    @if (tab() === 'benefits') {
+      <app-card title="Beneficios utilizados">
+        @if (redemptions().length === 0) {
+          <app-empty-state
+            title="Sin usos"
+            description="Cuando uses un beneficio, aparecerá aquí."
+          />
+        } @else {
+          <ul class="history-list">
+            @for (item of redemptions(); track item.id) {
+              <li class="history-list__item">
+                <div>
+                  <strong>{{ item.benefitTitle }}</strong>
+                  <span>{{ item.merchantName }}</span>
+                </div>
+                <div class="history-list__right">
+                  <app-badge
+                    [variant]="item.status === 'Exitosa' ? 'success' : 'danger'"
+                  >
+                    {{ item.discountApplied }}
+                  </app-badge>
+                  <time>{{ item.redeemedAt | dateEs }}</time>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </app-card>
+    } @else {
+      <app-card title="Pagos de cuotas">
+        @if (fees().length === 0) {
+          <app-empty-state
+            title="Sin pagos"
+            description="Aún no registramos cuotas para tu cuenta."
+          />
+        } @else {
+          <ul class="history-list">
+            @for (fee of fees(); track fee.id) {
+              <li class="history-list__item">
+                <div>
+                  <strong>{{ feeTitle(fee.period) }}</strong>
+                  <span>{{ fee.amount | currencyArs }}</span>
+                </div>
+                <div class="history-list__right">
+                  <app-badge [variant]="feeBadgeVariant(fee.status)">
+                    {{ feeStatusLabel(fee.status) }}
+                  </app-badge>
+                  <time>
+                    @if (fee.paidAt) {
+                      {{ fee.paidAt | dateEs }}
+                    } @else {
+                      Vence {{ fee.dueDate | dateEs }}
+                    }
+                  </time>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </app-card>
+    }
+  }
+</section>
