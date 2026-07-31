@@ -17,4 +17,6 @@ export interface ApiError {
   message: string;
   code?: string;
   details?: string[];
+  /** Swagger `CampoError` items when present. */
+  fieldErrors?: Array<{ field?: string; message: string }>;
 }

@@ -1,6 +1,9 @@
 <section class="comercio-promotions">
-  <app-page-header title="Mis Promociones" subtitle="Administrá tus beneficios activos">
-    <app-button (click)="openCreate()">Nueva Promoción</app-button>
+  <app-page-header title="Mis Promociones" [subtitle]="activeSubtitle()">
+    <app-button (click)="openCreate()">
+      <app-icon name="plus" [size]="16" />
+      Nueva
+    </app-button>
   </app-page-header>
 
   @if (loading()) {
@@ -11,71 +14,128 @@
       description="Creá tu primera promoción para atraer socios."
     />
   } @else {
-    <div class="promo-list">
+    <div class="promo-grid">
       @for (promo of promotions(); track promo.id) {
-        <app-card>
-          <article class="promo-item">
-            <div class="promo-item__header">
-              <div>
-                <h3>{{ promo.title }}</h3>
-                <p>{{ promo.description }}</p>
+        <article class="promo-card">
+          <div class="promo-card__top">
+            <div class="promo-card__identity">
+              <span
+                class="promo-card__icon"
+                [attr.data-tone]="promoIconTone(promo)"
+                aria-hidden="true"
+              >
+                <app-icon [name]="promoIcon(promo)" [size]="16" />
+              </span>
+              <div class="promo-card__titles">
+                <h3 class="promo-card__title">{{ promo.title }}</h3>
+                <p class="promo-card__type">{{ promo.type }}</p>
               </div>
-              <app-badge [variant]="statusVariant(promo.status)">{{ promo.status }}</app-badge>
             </div>
-            <div class="promo-item__meta">
-              <span>{{ promo.discountLabel }}</span>
-              <span>{{ promo.validFrom | dateEs }} — {{ promo.validTo | dateEs }}</span>
-              <span>{{ promo.redemptionsCount }} usos</span>
+
+            <span
+              class="promo-card__value"
+              [attr.data-tone]="valueBadgeTone(promo)"
+            >
+              {{ promo.discountLabel }}
+            </span>
+          </div>
+
+          <p class="promo-card__desc">{{ promo.description }}</p>
+
+          <div class="promo-card__footer">
+            <div class="promo-card__stats">
+              <p class="promo-card__uses">{{ promo.redemptionsCount }} usos este mes</p>
+              <p class="promo-card__until">{{ formatUntil(promo.validTo) }}</p>
             </div>
-            <app-button variant="outline" size="sm" (click)="openEdit(promo)">
-              Editar Promoción
-            </app-button>
-          </article>
-        </app-card>
+
+            <div class="promo-card__actions">
+              <button
+                type="button"
+                class="promo-card__action"
+                aria-label="Editar promoción"
+                (click)="openEdit(promo)"
+              >
+                <app-icon name="edit" [size]="16" />
+              </button>
+              <button
+                type="button"
+                class="promo-card__action"
+                [disabled]="togglingId() === promo.id"
+                [attr.aria-label]="
+                  promo.status === 'Activa' ? 'Desactivar promoción' : 'Activar promoción'
+                "
+                (click)="toggleStatus(promo)"
+              >
+                <app-icon
+                  [name]="promo.status === 'Activa' ? 'power_off' : 'power'"
+                  [size]="16"
+                />
+              </button>
+            </div>
+          </div>
+        </article>
       }
     </div>
   }
 
   <app-modal
+    class="promo-modal-host"
     [open]="modalOpen()"
     [title]="editing() ? 'Editar Promoción' : 'Nueva Promoción'"
     (close)="closeModal()"
   >
     <form class="promo-form" [formGroup]="form" (ngSubmit)="save()">
-      <app-input label="Título" formControlName="title" placeholder="Ej: 15% en venta libre" />
+      <app-input
+        label="Título"
+        formControlName="title"
+        [error]="fieldError('title')"
+      />
+
       <app-textarea
         label="Descripción"
         formControlName="description"
-        placeholder="Detalle del beneficio"
+        [rows]="3"
+        [error]="fieldError('description')"
       />
-      <div class="promo-form__row">
-        <app-input
-          label="Descuento"
-          formControlName="discountLabel"
-          placeholder="15% OFF"
-        />
-        <app-input
-          label="% numérico (opcional)"
-          type="number"
-          formControlName="discountPercent"
-          placeholder="15"
-        />
-      </div>
-      <div class="promo-form__row">
-        <app-input label="Desde" type="date" formControlName="validFrom" />
-        <app-input label="Hasta" type="date" formControlName="validTo" />
-      </div>
-      @if (editing()) {
-        <app-select label="Estado" formControlName="status" [options]="statusOptions" />
-      }
-      <app-textarea label="Términos (opcional)" formControlName="terms" />
-    </form>
 
-    <div modalFooter>
-      <app-button variant="secondary" (click)="closeModal()">Cancelar</app-button>
-      <app-button [disabled]="saving()" (click)="save()">
-        {{ saving() ? 'Guardando...' : editing() ? 'Guardar cambios' : 'Crear promoción' }}
-      </app-button>
-    </div>
+      <div class="promo-form__row">
+        <app-select
+          label="Tipo"
+          formControlName="type"
+          [options]="typeOptions"
+          [error]="fieldError('type')"
+        />
+        <app-input
+          label="Valor"
+          formControlName="value"
+          placeholder="ej. 20%, 2×1, Gratis"
+          [error]="fieldError('value')"
+        />
+      </div>
+
+      <div class="promo-form__row">
+        <app-input
+          label="Fecha inicio"
+          type="date"
+          formControlName="validFrom"
+          [error]="fieldError('validFrom')"
+        />
+        <app-input
+          label="Fecha fin"
+          type="date"
+          formControlName="validTo"
+          [error]="fieldError('validTo') || dateRangeError()"
+        />
+      </div>
+
+      <div class="promo-form__actions">
+        <button type="button" class="promo-form__cancel" (click)="closeModal()">
+          Cancelar
+        </button>
+        <app-button [disabled]="saving()" type="submit">
+          {{ saving() ? 'Guardando...' : editing() ? 'Guardar' : 'Crear' }}
+        </app-button>
+      </div>
+    </form>
   </app-modal>
 </section>

@@ -96,7 +96,7 @@
   width: 1.75rem;
   height: 1.75rem;
   border-radius: $radius-full;
-  background-color: $color-primary;
+  background-color: var(--layout-avatar-bg, #{$color-primary});
   color: $color-white;
   font-size: 0.75rem;
   font-weight: $font-weight-semibold;

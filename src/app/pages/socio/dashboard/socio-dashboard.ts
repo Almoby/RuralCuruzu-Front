@@ -8,109 +8,110 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
-import { AuthService } from '../../../core/services/auth.service';
-import { BenefitService } from '../../../core/services/benefit.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
-import { FeeService } from '../../../core/services/fee.service';
-import { RedemptionService } from '../../../core/services/redemption.service';
-import { Benefit } from '../../../core/interfaces/benefit.interface';
-import { SocioDashboardStats } from '../../../core/interfaces/dashboard.interface';
-import { FeePayment } from '../../../core/interfaces/fee.interface';
-import { Redemption } from '../../../core/interfaces/redemption.interface';
-import { PaymentStatus } from '../../../shared/enums';
+import { MemberDashboardResponse } from '../../../core/interfaces/dashboard.interface';
 import {
-  AppBadge,
+  AppAlert,
+  AppButton,
   AppCard,
+  AppEmptyState,
+  AppIcon,
   AppLoading,
-  AppPageHeader,
-  AppStatCard,
 } from '../../../shared/components';
-import { CurrencyArsPipe, DateEsPipe } from '../../../shared/pipes';
+import { CurrencyArsPipe } from '../../../shared/pipes';
+import { resolveBenefitRubroIcon } from '../../../shared/utils';
 import { APP_ROUTES } from '../../../core/constants/routes.constant';
+import { resolveSocioModuleIcon } from '../../../core/config/socio-ui.config';
+
+type PanelViewState = 'loading' | 'success' | 'error';
 
 @Component({
   selector: 'app-socio-dashboard',
   standalone: true,
   imports: [
     RouterLink,
-    AppPageHeader,
-    AppStatCard,
     AppCard,
-    AppBadge,
     AppLoading,
+    AppEmptyState,
+    AppAlert,
+    AppButton,
+    AppIcon,
     CurrencyArsPipe,
-    DateEsPipe,
   ],
   templateUrl: './socio-dashboard.html',
   styleUrl: './socio-dashboard.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SocioDashboard {
-  private readonly auth = inject(AuthService);
   private readonly dashboardService = inject(DashboardService);
-  private readonly benefitService = inject(BenefitService);
-  private readonly feeService = inject(FeeService);
-  private readonly redemptionService = inject(RedemptionService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly routes = APP_ROUTES;
-  readonly loading = signal(true);
-  readonly stats = signal<SocioDashboardStats | null>(null);
-  readonly benefits = signal<Benefit[]>([]);
-  readonly recentRedemptions = signal<Redemption[]>([]);
-  readonly paidFeesCount = signal(0);
+  readonly viewState = signal<PanelViewState>('loading');
+  readonly dashboard = signal<MemberDashboardResponse | null>(null);
 
-  readonly user = this.auth.currentUser;
-  readonly memberCode = computed(() => this.user()?.memberCode ?? '—');
-  readonly greetingName = computed(() => this.user()?.fullName ?? 'Socio');
-  readonly feeUpToDate = computed(() => {
-    const label = this.stats()?.feeStatusLabel?.toLowerCase() ?? '';
-    return label.includes('día') || label.includes('dia');
+  readonly profile = computed(() => this.dashboard()?.profile ?? null);
+  readonly membershipStatus = computed(() => this.dashboard()?.membershipStatus ?? null);
+  readonly quickAccess = computed(() => this.dashboard()?.quickAccess ?? []);
+  readonly financial = computed(() => this.dashboard()?.financial ?? null);
+  readonly availableBenefits = computed(() => this.dashboard()?.availableBenefits ?? []);
+  readonly recentUsage = computed(() => this.dashboard()?.recentUsage ?? []);
+
+  readonly greeting = computed(() => {
+    const firstName = this.profile()?.firstName?.trim();
+    return firstName ? `¡Hola, ${firstName}!` : '¡Hola!';
   });
-  readonly previewBenefits = computed(() => this.benefits().slice(0, 3));
+
+  readonly profileLine = computed(() => {
+    const profile = this.profile();
+    if (!profile) {
+      return '';
+    }
+    return `Socio ${profile.memberCode} · ${profile.planLabel}`;
+  });
 
   constructor() {
     this.load();
   }
 
-  private load(): void {
-    this.loading.set(true);
-    const code = this.user()?.memberCode;
+  protected retry(): void {
+    this.load();
+  }
 
-    forkJoin({
-      stats: this.dashboardService.getSocioStats(),
-      benefits: this.benefitService.listForSocio(true),
-      fees: this.feeService.list(),
-      redemptions: this.redemptionService.history(),
-    })
+  protected moduleIcon(route: string): string {
+    return resolveSocioModuleIcon(route);
+  }
+
+  protected rubroTone(categoryName: string): string {
+    return resolveBenefitRubroIcon(categoryName).tone;
+  }
+
+  protected rubroIcon(categoryName: string): string {
+    return resolveBenefitRubroIcon(categoryName).icon;
+  }
+
+  protected formatSavings(amount: number): string {
+    return `-$${amount.toLocaleString('en-US')}`;
+  }
+
+  protected routeLink(route: string): string[] {
+    return ['/', ...route.split('/')];
+  }
+
+  private load(): void {
+    this.viewState.set('loading');
+    this.dashboardService
+      .getMemberDashboard()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ stats, benefits, fees, redemptions }) => {
-          this.stats.set(stats);
-          this.benefits.set(benefits);
-
-          const memberFees = code
-            ? fees.filter((fee) => fee.memberCode === code)
-            : ([] as FeePayment[]);
-          this.paidFeesCount.set(
-            memberFees.filter((fee) => fee.status === PaymentStatus.Aprobado).length,
-          );
-
-          const memberReds = code
-            ? redemptions.filter((item) => item.memberCode === code)
-            : ([] as Redemption[]);
-          this.recentRedemptions.set(
-            [...memberReds]
-              .sort(
-                (a, b) =>
-                  new Date(b.redeemedAt).getTime() - new Date(a.redeemedAt).getTime(),
-              )
-              .slice(0, 4),
-          );
-          this.loading.set(false);
+        next: (payload) => {
+          this.dashboard.set(payload);
+          this.viewState.set('success');
         },
-        error: () => this.loading.set(false),
+        error: () => {
+          this.dashboard.set(null);
+          this.viewState.set('error');
+        },
       });
   }
 }

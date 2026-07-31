@@ -156,6 +156,29 @@
   background-color: var(--color-neutral-bg);
 }
 
+.login__forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.25rem;
+
+  a {
+    font-size: 0.75rem;
+    font-weight: $font-weight-medium;
+    color: $color-primary;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+      border-radius: 4px;
+    }
+  }
+}
+
 .login__register {
   display: flex;
   flex-direction: column;

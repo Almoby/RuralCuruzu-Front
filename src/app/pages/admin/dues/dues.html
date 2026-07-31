@@ -1,7 +1,15 @@
 <section class="admin-page dues">
   <app-page-header title="Gestión de Cuotas" subtitle="Registro y control de pagos">
     <div class="dues__header-actions">
-      <app-button variant="outline" [disabled]="submitting()" (click)="generateFees()">
+      <app-button variant="outline" (click)="openReglas()">
+        <app-icon name="edit" [size]="16" />
+        Configuración de cuotas
+      </app-button>
+      <app-button variant="outline" (click)="openBank()">
+        <app-icon name="payments" [size]="16" />
+        Datos bancarios
+      </app-button>
+      <app-button variant="outline" [disabled]="submitting()" (click)="askGenerateFees()">
         <app-icon name="refresh" [size]="16" />
         Generar cuotas
       </app-button>
@@ -62,7 +70,14 @@
       } @else {
         <div class="dues__grid">
           @for (payment of filteredPayments(); track payment.id) {
-            <app-payment-card [payment]="payment" />
+            <app-payment-card
+              [payment]="payment"
+              [busy]="actionBusy() || submitting()"
+              (openDetail)="openDetail($event)"
+              (approve)="askApprovePayment($event)"
+              (reject)="openReject($event)"
+              (registerPayment)="openPaymentModal($event)"
+            />
           }
         </div>
       }
@@ -71,10 +86,205 @@
 
   <app-register-payment-modal
     [open]="paymentModalOpen()"
-    [members]="members()"
-    [periodOptions]="periodOptions()"
+    [cuotas]="eligibleCuotas()"
+    [preselectedCuotaId]="preselectedCuotaId()"
     [submitting]="submitting()"
     (close)="closePaymentModal()"
     (save)="registerPayment($event)"
   />
+
+  <app-confirm-dialog
+    [open]="confirmOpen()"
+    [title]="confirmTitle()"
+    [message]="confirmMessage()"
+    [confirmLabel]="confirmLabel()"
+    cancelLabel="Volver"
+    (confirm)="onConfirmAccept()"
+    (cancel)="onConfirmCancel()"
+  />
+
+  <app-modal
+    [open]="detailOpen()"
+    title="Detalle de cuota"
+    subtitle="Información completa de la cuota seleccionada"
+    size="lg"
+    (close)="closeDetail()"
+  >
+    @if (detailLoading()) {
+      <app-loading message="Cargando detalle..." />
+    } @else if (detail(); as item) {
+      <dl class="dues-detail">
+        <div class="dues-detail__row">
+          <dt>Socio</dt>
+          <dd>{{ item.memberName }} ({{ item.memberCode }})</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Período</dt>
+          <dd>{{ item.period ? formatPeriodLabel(item.period) : 'Sin datos' }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Importe</dt>
+          <dd>{{ item.amountLabel }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Vencimiento</dt>
+          <dd>{{ item.dueDateLabel }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Estado</dt>
+          <dd>{{ item.estadoLabel }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Categoría</dt>
+          <dd>{{ item.categoriaLabel }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Tipo de cuota</dt>
+          <dd>{{ item.tipoCuotaNombre }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Medio de pago</dt>
+          <dd>{{ item.paymentMethodLabel }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Fecha de pago</dt>
+          <dd>{{ item.paidAtLabel }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Observación</dt>
+          <dd>{{ item.pago?.observacion || item.notes || 'No informado' }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Motivo rechazo</dt>
+          <dd>{{ item.motivoRechazo }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Motivo anulación</dt>
+          <dd>{{ item.motivoAnulacion }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Generada</dt>
+          <dd>{{ item.fechaGeneracionLabel }}</dd>
+        </div>
+        <div class="dues-detail__row">
+          <dt>Actualizada</dt>
+          <dd>{{ item.fechaActualizacionLabel }}</dd>
+        </div>
+        @if (item.pago?.hasComprobantePath) {
+          <div class="dues-detail__row">
+            <dt>Comprobante</dt>
+            <dd>Registrado (descarga solo disponible en Portal Socio)</dd>
+          </div>
+        }
+      </dl>
+    }
+
+    <div modalFooter class="dues-modal-footer">
+      <app-button variant="outline" (click)="closeDetail()">Cerrar</app-button>
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="rejectOpen()"
+    title="Rechazar pago"
+    subtitle="Indicá el motivo del rechazo"
+    (close)="closeReject()"
+  >
+    <form [formGroup]="rejectForm" (ngSubmit)="confirmReject()">
+      <app-textarea
+        label="Motivo"
+        formControlName="motivo"
+        [rows]="3"
+        [error]="fieldError('reject', 'motivo')"
+      />
+    </form>
+    <div modalFooter class="dues-modal-footer">
+      <button type="button" class="dues__retry" (click)="closeReject()">Cancelar</button>
+      <app-button variant="primary" [disabled]="actionBusy()" (click)="confirmReject()">
+        Confirmar rechazo
+      </app-button>
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="reglasOpen()"
+    title="Configuración de cuotas"
+    subtitle="Importe y día de vencimiento por categoría"
+    size="lg"
+    (close)="closeReglas()"
+  >
+    @if (reglasLoading()) {
+      <app-loading message="Cargando configuración de cuotas..." />
+    } @else {
+      <form class="dues-config" [formGroup]="reglaForm" (ngSubmit)="saveRegla()">
+        <app-select
+          label="Categoría"
+          formControlName="categoria"
+          [options]="categoriaOptions"
+        />
+        <app-input
+          label="Nombre"
+          formControlName="nombre"
+          [error]="fieldError('regla', 'nombre')"
+        />
+        <div class="dues-config__row">
+          <app-input
+            label="Importe"
+            type="number"
+            formControlName="importe"
+            [error]="fieldError('regla', 'importe')"
+          />
+          <app-input
+            label="Día de vencimiento"
+            type="number"
+            formControlName="diaVencimiento"
+            [error]="fieldError('regla', 'diaVencimiento')"
+          />
+        </div>
+      </form>
+    }
+    <div modalFooter class="dues-modal-footer">
+      <button type="button" class="dues__retry" (click)="closeReglas()">Cancelar</button>
+      <app-button
+        variant="primary"
+        [disabled]="reglasSaving() || reglasLoading()"
+        (click)="saveRegla()"
+      >
+        @if (reglasSaving()) {
+          Guardando...
+        } @else {
+          Guardar configuración
+        }
+      </app-button>
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="bankOpen()"
+    title="Datos bancarios"
+    subtitle="Cuenta institucional para transferencias"
+    size="lg"
+    (close)="closeBank()"
+  >
+    @if (bankLoading()) {
+      <app-loading message="Cargando datos bancarios..." />
+    } @else {
+      <form class="dues-config" [formGroup]="bankForm" (ngSubmit)="saveBank()">
+        <app-input label="Banco" formControlName="banco" [error]="fieldError('bank', 'banco')" />
+        <app-input label="Titular" formControlName="titular" [error]="fieldError('bank', 'titular')" />
+        <app-input label="CUIT" formControlName="cuit" [error]="fieldError('bank', 'cuit')" />
+        <app-input label="CBU" formControlName="cbu" [error]="fieldError('bank', 'cbu')" />
+        <app-input label="Alias" formControlName="alias" [error]="fieldError('bank', 'alias')" />
+        @if (bankData()?.fechaActualizacionLabel; as updated) {
+          <p class="dues-config__meta">Última actualización: {{ updated }}</p>
+        }
+      </form>
+    }
+    <div modalFooter class="dues-modal-footer">
+      <button type="button" class="dues__retry" (click)="closeBank()">Cancelar</button>
+      <app-button variant="primary" [disabled]="bankSaving() || bankLoading()" (click)="saveBank()">
+        Guardar datos
+      </app-button>
+    </div>
+  </app-modal>
 </section>

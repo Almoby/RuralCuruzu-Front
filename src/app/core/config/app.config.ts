@@ -1,5 +1,6 @@
 import { UserRole } from '../../shared/enums';
 import { APP_ROUTES } from '../constants/routes.constant';
+import { SOCIO_MODULE_ICONS } from './socio-ui.config';
 
 export interface NavItem {
   label: string;
@@ -17,11 +18,31 @@ export const APP_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Reportes', route: APP_ROUTES.admin.reports, icon: 'analytics' },
   ],
   [UserRole.Socio]: [
-    { label: 'Mi Panel', route: APP_ROUTES.socio.dashboard, icon: 'home' },
-    { label: 'Mi QR', route: APP_ROUTES.socio.qr, icon: 'qr_code' },
-    { label: 'Beneficios', route: APP_ROUTES.socio.benefits, icon: 'loyalty' },
-    { label: 'Historial', route: APP_ROUTES.socio.history, icon: 'history' },
-    { label: 'Mis Pagos', route: APP_ROUTES.socio.payments, icon: 'account_balance_wallet' },
+    {
+      label: 'Mi Panel',
+      route: APP_ROUTES.socio.dashboard,
+      icon: SOCIO_MODULE_ICONS[APP_ROUTES.socio.dashboard],
+    },
+    {
+      label: 'Mi QR',
+      route: APP_ROUTES.socio.qr,
+      icon: SOCIO_MODULE_ICONS[APP_ROUTES.socio.qr],
+    },
+    {
+      label: 'Beneficios',
+      route: APP_ROUTES.socio.benefits,
+      icon: SOCIO_MODULE_ICONS[APP_ROUTES.socio.benefits],
+    },
+    {
+      label: 'Historial',
+      route: APP_ROUTES.socio.history,
+      icon: SOCIO_MODULE_ICONS[APP_ROUTES.socio.history],
+    },
+    {
+      label: 'Mis Pagos',
+      route: APP_ROUTES.socio.payments,
+      icon: SOCIO_MODULE_ICONS[APP_ROUTES.socio.payments],
+    },
   ],
   [UserRole.Comercio]: [
     { label: 'Inicio', route: APP_ROUTES.comercio.home, icon: 'home' },

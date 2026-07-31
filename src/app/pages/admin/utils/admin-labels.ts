@@ -6,7 +6,6 @@ import {
   MerchantStatus,
   PaymentMethod,
   PaymentStatus,
-  RequestStatus,
 } from '../../../shared/enums';
 
 export function feeStatusLabel(status: FeeStatus): string {
@@ -38,18 +37,11 @@ export function feeStatusBadge(status: FeeStatus): BadgeVariant {
   }
 }
 
-export function requestStatusBadge(status: RequestStatus): BadgeVariant {
-  switch (status) {
-    case RequestStatus.Pendiente:
-      return 'warning';
-    case RequestStatus.Aprobada:
-      return 'success';
-    case RequestStatus.Rechazada:
-      return 'danger';
-    default:
-      return 'neutral';
-  }
-}
+export {
+  requestStatusBadge,
+  requestStatusIcon,
+  requestStatusLabel,
+} from './solicitud-estado';
 
 export function categoryBadge(category: MemberCategory): BadgeVariant {
   return category === MemberCategory.Activo ? 'primary' : 'brown';

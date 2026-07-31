@@ -1,52 +1,50 @@
 .comercio-stats {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 100%;
+
+  &__state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
 
   &__kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--space-4);
+    width: 100%;
   }
-}
 
-.bars {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  &__chart {
+    width: 100%;
+    max-width: 100%;
 
-  &__label {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-3);
-    margin-bottom: var(--space-2);
+    &--line {
+      height: 280px;
+      max-height: 300px;
+    }
+
+    &--bar {
+      height: 240px;
+      max-height: 260px;
+    }
+  }
+
+  &__muted {
+    margin: 0;
+    color: var(--color-muted);
     font-size: var(--font-size-sm);
-
-    span {
-      color: var(--color-text);
-    }
-
-    strong {
-      color: var(--color-primary);
-    }
+    line-height: 1.4;
   }
 
-  &__track {
-    height: 10px;
-    border-radius: var(--radius-full);
-    background: var(--color-neutral-bg);
-    overflow: hidden;
+  &__table-wrap {
+    width: 100%;
+    overflow-x: auto;
   }
-
-  &__fill {
-    height: 100%;
-    border-radius: var(--radius-full);
-    background: linear-gradient(90deg, var(--color-primary), #0a6b69);
-  }
-}
-
-.table-wrap {
-  overflow-x: auto;
 }
 
 .consumptions {
@@ -56,30 +54,126 @@
 
   th,
   td {
-    padding: var(--space-3) var(--space-2);
+    padding: 0.75rem 0.85rem;
     text-align: left;
     border-bottom: 1px solid var(--color-border);
-    vertical-align: top;
+    vertical-align: middle;
   }
 
   th {
+    background: var(--color-neutral-bg);
     color: var(--color-muted);
     font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.01em;
     white-space: nowrap;
   }
 
-  &__member {
+  th:nth-child(1),
+  td:nth-child(1) {
+    width: 18%;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 52%;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 30%;
+  }
+
+  td {
+    color: var(--color-text);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__date {
+    color: var(--color-muted);
+    font-weight: var(--font-weight-normal);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+}
+
+.consumptions-mobile {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: var(--space-3);
+
+  &__item {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0.2rem;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
 
-    strong {
-      color: var(--color-text);
+    &:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
     }
 
-    span {
-      color: var(--color-brown);
-      font-size: var(--font-size-xs);
+    &:first-child {
+      padding-top: 0;
     }
+  }
+
+  &__member {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__benefit {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+  }
+
+  &__date {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 1024px) {
+  .comercio-stats__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .comercio-stats__chart--line {
+    height: 250px;
+  }
+
+  .comercio-stats__chart--bar {
+    height: 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .comercio-stats__kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .comercio-stats__chart--line,
+  .comercio-stats__chart--bar {
+    height: 210px;
+  }
+
+  .comercio-stats__table-wrap {
+    display: none;
+  }
+
+  .consumptions-mobile {
+    display: flex;
   }
 }

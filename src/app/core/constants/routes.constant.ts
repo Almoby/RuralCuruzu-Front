@@ -4,6 +4,12 @@ export const APP_ROUTES = {
     root: 'auth',
     login: 'auth/login',
     register: 'auth/registro',
+    forgotPassword: 'auth/recuperar-password',
+    resetPassword: 'auth/restablecer-password',
+    changePassword: 'auth/cambiar-password',
+  },
+  public: {
+    respuestaSolicitud: 'respuesta-solicitud',
   },
   admin: {
     root: 'admin',

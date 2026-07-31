@@ -1,88 +1,143 @@
 <section class="socio-dashboard">
-  <app-page-header title="Mi Panel" [subtitle]="'Socio ' + memberCode()" />
-
-  @if (loading()) {
+  @if (viewState() === 'loading') {
     <app-loading message="Cargando tu panel..." />
-  } @else {
+  } @else if (viewState() === 'error') {
+    <app-alert
+      variant="error"
+      message="No pudimos cargar tu panel. Reintentá en unos segundos."
+    />
+    <div class="socio-dashboard__retry">
+      <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
+    </div>
+  } @else if (dashboard(); as data) {
     <div class="socio-dashboard__greeting">
-      <h2>Hola, {{ greetingName() }}</h2>
-      <p>Código de socio <strong>{{ memberCode() }}</strong></p>
+      <h2 class="socio-dashboard__hello">{{ greeting() }}</h2>
+      <p class="socio-dashboard__profile-line">{{ profileLine() }}</p>
     </div>
 
-    @if (feeUpToDate()) {
-      <div class="estado-banner estado-banner--success" role="status">
-        <div class="estado-banner__title">Cuota al día</div>
-        <p class="estado-banner__text">
-          Tu membresía está activa. Podés disfrutar de todos los beneficios en comercios adheridos.
-        </p>
-      </div>
-    } @else {
-      <div class="estado-banner estado-banner--warning" role="status">
-        <div class="estado-banner__title">Cuota pendiente</div>
-        <p class="estado-banner__text">
-          Regularizá tu cuota para seguir accediendo a los beneficios del programa.
-        </p>
-        <a class="estado-banner__link" [routerLink]="['/' + routes.socio.payments]">Ir a Mis Pagos</a>
+    @if (membershipStatus(); as status) {
+      <div
+        class="fee-banner"
+        [class.fee-banner--current]="status.status === 'current'"
+        [class.fee-banner--pending]="status.status === 'pending'"
+        [class.fee-banner--overdue]="status.status === 'overdue'"
+        role="status"
+      >
+        <span class="fee-banner__icon" aria-hidden="true">
+          <app-icon [name]="status.icon" [size]="18" />
+        </span>
+        <div class="fee-banner__content">
+          <p class="fee-banner__title">{{ status.title }}</p>
+          <p class="fee-banner__text">{{ status.message }}</p>
+        </div>
       </div>
     }
 
-    <div class="socio-dashboard__stats">
-      <app-stat-card label="Mis pagos" [value]="paidFeesCount()" hint="Cuotas al día" />
-      <app-stat-card
-        label="Beneficios usados"
-        [value]="stats()?.redemptionsThisMonth ?? recentRedemptions().length"
-        hint="Este mes"
-      />
-      <app-stat-card
-        label="Ahorro estimado"
-        [value]="(stats()?.savingsEstimate ?? 0) | currencyArs"
-        hint="Acumulado"
-      />
+    <div class="quick-access" role="navigation" aria-label="Accesos rápidos">
+      @for (item of quickAccess(); track item.id) {
+        <a
+          class="quick-access__card"
+          [attr.data-access]="item.id"
+          [routerLink]="routeLink(item.route)"
+          [attr.aria-label]="item.label"
+        >
+          <span class="quick-access__icon" aria-hidden="true">
+            <app-icon [name]="moduleIcon(item.route)" [size]="18" />
+          </span>
+          <span class="quick-access__label">{{ item.label }}</span>
+        </a>
+      }
     </div>
 
+    @if (financial(); as finance) {
+      <div class="info-cards">
+        <article class="info-card">
+          <p class="info-card__label">Cuota mensual</p>
+          <p class="info-card__value">{{ finance.monthlyFee | currencyArs }}</p>
+          <p class="info-card__hint">{{ finance.monthlyFeeHint }}</p>
+        </article>
+
+        <article class="info-card">
+          <p class="info-card__label">Ahorro acumulado</p>
+          <p class="info-card__value info-card__value--success">
+            {{ finance.savingsTotal | currencyArs }}
+          </p>
+          <p class="info-card__hint">{{ finance.benefitsUsedHint }}</p>
+        </article>
+
+        <article class="info-card">
+          <p class="info-card__label">Último pago</p>
+          <p class="info-card__value">{{ finance.lastPaymentAmount | currencyArs }}</p>
+          <p class="info-card__hint">{{ finance.lastPaymentHint }}</p>
+        </article>
+      </div>
+    }
+
     <app-card title="Beneficios disponibles">
-      <a cardActions [routerLink]="['/' + routes.socio.benefits]" class="link-action">Ver todos</a>
+      <a
+        cardActions
+        class="section-link"
+        [routerLink]="['/' + routes.socio.benefits]"
+      >
+        Ver todos →
+      </a>
 
-      @if (previewBenefits().length === 0) {
-        <p class="muted">No hay beneficios disponibles por el momento.</p>
+      @if (availableBenefits().length === 0) {
+        <app-empty-state
+          title="Sin beneficios"
+          description="No hay beneficios disponibles por el momento."
+        />
       } @else {
-        <div class="benefit-preview-grid">
-          @for (benefit of previewBenefits(); track benefit.id) {
-            <article class="benefit-preview">
-              <div class="benefit-preview__top">
-                <h3>{{ benefit.title }}</h3>
-                <app-badge variant="primary">{{ benefit.discountLabel }}</app-badge>
+        <ul class="benefit-list">
+          @for (benefit of availableBenefits(); track benefit.id) {
+            <li class="benefit-list__item">
+              <span
+                class="benefit-list__icon"
+                [attr.data-tone]="rubroTone(benefit.categoryName)"
+                aria-hidden="true"
+              >
+                <app-icon [name]="rubroIcon(benefit.categoryName)" [size]="16" />
+              </span>
+              <div class="benefit-list__text">
+                <p class="benefit-list__title">{{ benefit.title }}</p>
+                <p class="benefit-list__merchant">{{ benefit.merchantName }}</p>
               </div>
-              <p class="benefit-preview__merchant">{{ benefit.merchantName }}</p>
-              <p class="benefit-preview__desc">{{ benefit.description }}</p>
-            </article>
-          }
-        </div>
-      }
-    </app-card>
-
-    <app-card title="Últimos beneficios utilizados">
-      <a cardActions [routerLink]="['/' + routes.socio.history]" class="link-action">Ver historial</a>
-
-      @if (recentRedemptions().length === 0) {
-        <p class="muted">Todavía no utilizaste beneficios.</p>
-      } @else {
-        <ul class="usage-list">
-          @for (item of recentRedemptions(); track item.id) {
-            <li class="usage-list__item">
-              <div>
-                <strong>{{ item.benefitTitle }}</strong>
-                <span>{{ item.merchantName }}</span>
-              </div>
-              <div class="usage-list__meta">
-                <app-badge variant="success">{{ item.discountApplied }}</app-badge>
-                <time>{{ item.redeemedAt | dateEs }}</time>
-              </div>
+              <span class="benefit-discount-badge">{{ benefit.discountBadge }}</span>
             </li>
           }
         </ul>
       }
+    </app-card>
 
+    <app-card title="Últimos beneficios utilizados">
+      <a
+        cardActions
+        class="section-link"
+        [routerLink]="['/' + routes.socio.history]"
+      >
+        Ver historial →
+      </a>
+
+      @if (recentUsage().length === 0) {
+        <app-empty-state
+          title="Sin movimientos"
+          description="Todavía no utilizaste beneficios."
+        />
+      } @else {
+        <ul class="usage-list">
+          @for (item of recentUsage(); track item.id) {
+            <li class="usage-list__item">
+              <div class="usage-list__text">
+                <p class="usage-list__title">{{ item.title }}</p>
+                <p class="usage-list__meta">
+                  {{ item.merchantName }} · {{ item.dateLabel }}
+                </p>
+              </div>
+              <p class="usage-list__savings">{{ formatSavings(item.savingsAmount) }}</p>
+            </li>
+          }
+        </ul>
+      }
     </app-card>
   }
 </section>

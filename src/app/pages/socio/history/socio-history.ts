@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DatePipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
@@ -16,14 +17,13 @@ import { FeePayment } from '../../../core/interfaces/fee.interface';
 import { Redemption } from '../../../core/interfaces/redemption.interface';
 import { PaymentStatus } from '../../../shared/enums';
 import {
-  AppBadge,
-  AppCard,
   AppEmptyState,
+  AppIcon,
   AppLoading,
   AppPageHeader,
   AppStatCard,
 } from '../../../shared/components';
-import { CurrencyArsPipe, DateEsPipe } from '../../../shared/pipes';
+import { CurrencyArsPipe } from '../../../shared/pipes';
 import { formatFeePeriodTitle } from '../../../shared/utils';
 
 type HistoryTab = 'benefits' | 'payments';
@@ -34,12 +34,11 @@ type HistoryTab = 'benefits' | 'payments';
   imports: [
     AppPageHeader,
     AppStatCard,
-    AppCard,
-    AppBadge,
     AppLoading,
     AppEmptyState,
+    AppIcon,
     CurrencyArsPipe,
-    DateEsPipe,
+    DatePipe,
   ],
   templateUrl: './socio-history.html',
   styleUrl: './socio-history.scss',

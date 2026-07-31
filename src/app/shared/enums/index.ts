@@ -1,4 +1,5 @@
-export { UserRole } from './user-role.enum';
+export { UserRole, isUserRole, USER_ROLE_LABELS } from './user-role.enum';
+export type { AppRole } from './user-role.enum';
 export { MemberCategory } from './member-category.enum';
 export { MemberPlan } from './member-plan.enum';
 export { MemberStatus } from './member-status.enum';
@@ -6,6 +7,6 @@ export { FeeStatus } from './fee-status.enum';
 export { RequestStatus } from './request-status.enum';
 export { MerchantStatus } from './merchant-status.enum';
 export { MerchantCategory } from './merchant-category.enum';
-export { PromotionStatus } from './promotion-status.enum';
+export { PromotionStatus, PromotionType } from './promotion-status.enum';
 export { PaymentMethod } from './payment-method.enum';
 export { PaymentStatus } from './payment-status.enum';

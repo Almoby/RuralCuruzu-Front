@@ -8,34 +8,50 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartConfiguration, ChartData } from 'chart.js';
 import { AuthService } from '../../../core/services/auth.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
-import { PromotionService } from '../../../core/services/promotion.service';
-import { ComercioDashboardStats } from '../../../core/interfaces/dashboard.interface';
-import { Promotion } from '../../../core/interfaces/promotion.interface';
-import { PromotionStatus } from '../../../shared/enums';
 import {
+  ComercioDashboardStats,
+  MerchantPromotionSummary,
+} from '../../../core/interfaces/dashboard.interface';
+import {
+  AppAlert,
   AppBadge,
   AppButton,
   AppCard,
+  AppEmptyState,
+  AppIcon,
   AppLoading,
   AppPageHeader,
   AppStatCard,
 } from '../../../shared/components';
 import { APP_ROUTES } from '../../../core/constants/routes.constant';
+import {
+  CHART_COLORS,
+  CHART_FONT_FAMILY,
+  chartGridStyle,
+  chartTickStyle,
+} from '../../admin/utils/chart-theme';
+
+type ComercioHomeViewState = 'loading' | 'success' | 'empty' | 'error';
 
 @Component({
   selector: 'app-comercio-dashboard',
   standalone: true,
   imports: [
     RouterLink,
+    BaseChartDirective,
     AppPageHeader,
     AppStatCard,
     AppCard,
     AppBadge,
     AppButton,
     AppLoading,
+    AppEmptyState,
+    AppAlert,
+    AppIcon,
   ],
   templateUrl: './comercio-dashboard.html',
   styleUrl: './comercio-dashboard.scss',
@@ -44,56 +60,131 @@ import { APP_ROUTES } from '../../../core/constants/routes.constant';
 export class ComercioDashboard {
   private readonly auth = inject(AuthService);
   private readonly dashboardService = inject(DashboardService);
-  private readonly promotionService = inject(PromotionService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly routes = APP_ROUTES;
-  readonly loading = signal(true);
+  readonly viewState = signal<ComercioHomeViewState>('loading');
   readonly stats = signal<ComercioDashboardStats | null>(null);
-  readonly promotions = signal<Promotion[]>([]);
 
   readonly merchantName = computed(
-    () => this.stats()?.merchantName ?? this.auth.currentUser()?.fullName ?? 'Comercio',
+    () =>
+      this.stats()?.merchantName ??
+      this.auth.currentUser()?.merchantName ??
+      this.auth.currentUser()?.fullName ??
+      'Comercio',
   );
-  readonly previewPromotions = computed(() => this.promotions().slice(0, 3));
-  readonly weekUsages = computed(() => {
+
+  readonly featuredPromotion = computed(
+    (): MerchantPromotionSummary | null => this.stats()?.featuredPromotion ?? null,
+  );
+
+  readonly usesThisMonth = computed(
+    () => this.stats()?.usesThisMonth ?? this.stats()?.validationsMonth ?? 0,
+  );
+
+  readonly activePromotions = computed(() => this.stats()?.activePromotions ?? 0);
+
+  readonly reachedMembers = computed(
+    () => this.stats()?.reachedMembers ?? this.stats()?.uniqueMembersMonth ?? 0,
+  );
+
+  readonly validationsToday = computed(() => this.stats()?.validationsToday ?? 0);
+
+  readonly weeklyChartData = computed((): ChartData<'bar'> | null => {
     const trend = this.stats()?.validationsTrend ?? [];
-    return trend.reduce((acc, point) => acc + point.value, 0);
+    if (trend.length === 0) {
+      return null;
+    }
+
+    return {
+      labels: trend.map((point) => point.label),
+      datasets: [
+        {
+          data: trend.map((point) => point.value),
+          backgroundColor: CHART_COLORS.primary,
+          borderRadius: {
+            topLeft: 6,
+            topRight: 6,
+            bottomLeft: 0,
+            bottomRight: 0,
+          },
+          borderSkipped: false,
+          barPercentage: 0.55,
+          categoryPercentage: 0.72,
+          maxBarThickness: 40,
+        },
+      ],
+    };
   });
 
-  constructor() {
-    const merchantId = this.auth.currentUser()?.merchantId;
-
-    forkJoin({
-      stats: this.dashboardService.getComercioStats(),
-      promotions: this.promotionService.list(merchantId),
-    })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: ({ stats, promotions }) => {
-          this.stats.set(stats);
-          this.promotions.set(
-            promotions.filter((promo) => promo.status === PromotionStatus.Activa),
-          );
-          this.loading.set(false);
+  readonly weeklyChartOptions = computed(
+    (): ChartConfiguration<'bar'>['options'] => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: () => '',
+            label: (item) => `${item.label}: ${item.parsed.y ?? 0}`,
+          },
         },
-        error: () => this.loading.set(false),
-      });
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: {
+            ...chartTickStyle,
+            font: { size: 11, family: CHART_FONT_FAMILY },
+          },
+        },
+        y: {
+          beginAtZero: true,
+          max: 32,
+          ticks: {
+            ...chartTickStyle,
+            stepSize: 8,
+            font: { size: 10, family: CHART_FONT_FAMILY },
+          },
+          grid: {
+            ...chartGridStyle,
+            drawTicks: false,
+          },
+          border: { display: false, dash: [4, 4] },
+        },
+      },
+    }),
+  );
+
+  constructor() {
+    this.load();
   }
 
-  statusVariant(status: PromotionStatus): 'success' | 'warning' | 'neutral' {
-    switch (status) {
-      case PromotionStatus.Activa:
-        return 'success';
-      case PromotionStatus.Vencida:
-        return 'warning';
-      default:
-        return 'neutral';
-    }
+  retry(): void {
+    this.load();
   }
 
   goToValidateQr(): void {
     void this.router.navigateByUrl('/' + APP_ROUTES.comercio.validateQr);
+  }
+
+  private load(): void {
+    this.viewState.set('loading');
+
+    this.dashboardService
+      .getComercioStats()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (stats) => {
+          this.stats.set(stats);
+          this.viewState.set(stats ? 'success' : 'empty');
+        },
+        error: () => {
+          this.stats.set(null);
+          this.viewState.set('error');
+        },
+      });
   }
 }

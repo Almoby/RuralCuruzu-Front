@@ -1,6 +1,10 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
+import {
+  changePasswordAccessGuard,
+  passwordChangeGuard,
+} from './core/guards/password-change.guard';
 import { roleGuard } from './core/guards/role.guard';
 import { UserRole } from './shared/enums';
 import { ShellComponent } from './layout/shell/shell';
@@ -9,30 +13,54 @@ import { ADMIN_ROUTES } from './pages/admin/admin.routes';
 export const routes: Routes = [
   { path: '', redirectTo: 'auth/login', pathMatch: 'full' },
   {
+    path: 'respuesta-solicitud',
+    loadComponent: () =>
+      import('./pages/public/respuesta-solicitud/respuesta-solicitud').then(
+        (m) => m.RespuestaSolicitud,
+      ),
+  },
+  {
     path: 'auth',
-    canActivate: [guestGuard],
     children: [
       {
         path: 'login',
+        canActivate: [guestGuard],
         loadComponent: () => import('./pages/auth/login/login').then((m) => m.Login),
       },
       {
         path: 'registro',
+        canActivate: [guestGuard],
         loadComponent: () =>
           import('./pages/auth/member-request/member-request').then((m) => m.MemberRequest),
+      },
+      {
+        path: 'recuperar-password',
+        loadComponent: () =>
+          import('./pages/auth/forgot-password/forgot-password').then((m) => m.ForgotPassword),
+      },
+      {
+        path: 'restablecer-password',
+        loadComponent: () =>
+          import('./pages/auth/reset-password/reset-password').then((m) => m.ResetPassword),
+      },
+      {
+        path: 'cambiar-password',
+        canActivate: [changePasswordAccessGuard],
+        loadComponent: () =>
+          import('./pages/auth/change-password/change-password').then((m) => m.ChangePassword),
       },
       { path: '', redirectTo: 'login', pathMatch: 'full' },
     ],
   },
   {
     path: 'admin',
-    canActivate: [authGuard, roleGuard([UserRole.Admin])],
+    canActivate: [authGuard, passwordChangeGuard, roleGuard([UserRole.Admin])],
     component: ShellComponent,
     children: ADMIN_ROUTES,
   },
   {
     path: 'socio',
-    canActivate: [authGuard, roleGuard([UserRole.Socio])],
+    canActivate: [authGuard, passwordChangeGuard, roleGuard([UserRole.Socio])],
     component: ShellComponent,
     children: [
       { path: '', redirectTo: 'panel', pathMatch: 'full' },
@@ -64,7 +92,7 @@ export const routes: Routes = [
   },
   {
     path: 'comercio',
-    canActivate: [authGuard, roleGuard([UserRole.Comercio])],
+    canActivate: [authGuard, passwordChangeGuard, roleGuard([UserRole.Comercio])],
     component: ShellComponent,
     children: [
       { path: '', redirectTo: 'inicio', pathMatch: 'full' },

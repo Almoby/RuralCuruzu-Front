@@ -1,11 +1,15 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  computed,
   effect,
   inject,
   input,
   output,
+  signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   AppButton,
@@ -14,11 +18,17 @@ import {
   AppSelect,
   SelectOption,
 } from '../../../../shared/components';
-import { CreateMemberRequest } from '../../../../core/interfaces/member.interface';
-import { MemberPlan } from '../../../../shared/enums';
+import {
+  AdminSocioCreateFormValue,
+  AltaManualSocioRequest,
+  SocioEstado,
+} from '../../../../core/interfaces/admin-socio.interface';
+import { mapFormToAltaManualSocioRequest } from '../../../../core/mappers/admin-socio.mapper';
+import { MemberCategory } from '../../../../shared/enums';
+import { TipoPersonaSolicitud } from '../../../../core/interfaces/solicitud-socio.interface';
 
 export interface MemberCreateSave {
-  payload: CreateMemberRequest;
+  payload: AltaManualSocioRequest;
 }
 
 @Component({
@@ -31,6 +41,7 @@ export interface MemberCreateSave {
 })
 export class MemberCreateModal {
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly open = input(false);
   readonly submitting = input(false);
@@ -38,28 +49,44 @@ export class MemberCreateModal {
   readonly close = output<void>();
   readonly save = output<MemberCreateSave>();
 
+  protected readonly personTypeOptions: SelectOption[] = [
+    { value: 'FISICA', label: 'Persona física' },
+    { value: 'JURIDICA', label: 'Persona jurídica' },
+  ];
+
   protected readonly categoryOptions: SelectOption[] = [
-    { value: MemberPlan.Oro, label: 'Oro' },
-    { value: MemberPlan.Plata, label: 'Plata' },
-    { value: MemberPlan.Premium, label: 'Premium' },
+    { value: MemberCategory.Activo, label: 'Socio Activo' },
+    { value: MemberCategory.Adherente, label: 'Socio Adherente' },
   ];
 
   protected readonly statusOptions: SelectOption[] = [
-    { value: 'true', label: 'Activo' },
-    { value: 'false', label: 'Inactivo' },
+    { value: 'ACTIVO', label: 'Activo' },
+    { value: 'INACTIVO', label: 'Inactivo' },
+    { value: 'DADO_DE_BAJA', label: 'Dado de baja' },
   ];
 
+  protected readonly selectedPersonType = signal<TipoPersonaSolicitud | ''>('');
+
   protected readonly form = this.fb.nonNullable.group({
-    firstName: ['', [Validators.required]],
-    lastName: ['', [Validators.required]],
-    documentNumber: ['', [Validators.required]],
-    birthDate: ['', [Validators.required]],
+    personType: ['' as '' | TipoPersonaSolicitud, Validators.required],
+    fullName: ['', [Validators.required, Validators.minLength(3)]],
+    documentNumber: [''],
+    birthDate: [''],
     email: ['', [Validators.required, Validators.email]],
     phone: ['', [Validators.required]],
     address: ['', [Validators.required]],
-    category: [MemberPlan.Oro as string, [Validators.required]],
-    isActive: ['true', [Validators.required]],
+    portalFloor: [''],
+    cuit: ['', [Validators.required]],
+    establishmentName: ['', [Validators.required]],
+    establishmentAddress: ['', [Validators.required]],
+    responsableName: [''],
+    responsableDocument: [''],
+    category: [MemberCategory.Activo as string, Validators.required],
+    membershipStatus: ['ACTIVO' as SocioEstado, Validators.required],
   });
+
+  protected readonly isFisica = computed(() => this.selectedPersonType() === 'FISICA');
+  protected readonly isJuridica = computed(() => this.selectedPersonType() === 'JURIDICA');
 
   constructor() {
     effect(() => {
@@ -68,17 +95,31 @@ export class MemberCreateModal {
       }
 
       this.form.reset({
-        firstName: '',
-        lastName: '',
+        personType: '',
+        fullName: '',
         documentNumber: '',
         birthDate: '',
         email: '',
         phone: '',
         address: '',
-        category: MemberPlan.Oro,
-        isActive: 'true',
+        portalFloor: '',
+        cuit: '',
+        establishmentName: '',
+        establishmentAddress: '',
+        responsableName: '',
+        responsableDocument: '',
+        category: MemberCategory.Activo,
+        membershipStatus: 'ACTIVO',
       });
+      this.selectedPersonType.set('');
     });
+
+    this.form.controls.personType.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        this.selectedPersonType.set(value);
+        this.syncPersonTypeValidators(value);
+      });
   }
 
   protected onClose(): void {
@@ -92,18 +133,30 @@ export class MemberCreateModal {
     }
 
     const value = this.form.getRawValue();
+    if (!value.personType) {
+      return;
+    }
+
+    const formValue: AdminSocioCreateFormValue = {
+      personType: value.personType,
+      fullName: value.fullName,
+      documentNumber: value.documentNumber,
+      birthDate: value.birthDate,
+      email: value.email,
+      phone: value.phone,
+      address: value.address,
+      portalFloor: value.portalFloor,
+      cuit: value.cuit,
+      establishmentName: value.establishmentName,
+      establishmentAddress: value.establishmentAddress,
+      responsableName: value.responsableName,
+      responsableDocument: value.responsableDocument,
+      category: value.category as MemberCategory,
+      membershipStatus: value.membershipStatus,
+    };
+
     this.save.emit({
-      payload: {
-        firstName: value.firstName.trim(),
-        lastName: value.lastName.trim(),
-        email: value.email.trim(),
-        documentNumber: value.documentNumber.trim(),
-        phone: value.phone.trim(),
-        category: value.category as MemberPlan,
-        address: value.address.trim(),
-        birthDate: value.birthDate,
-        isActive: value.isActive === 'true',
-      },
+      payload: mapFormToAltaManualSocioRequest(formValue),
     });
   }
 
@@ -118,6 +171,32 @@ export class MemberCreateModal {
     if (control.errors['email']) {
       return 'Email inválido';
     }
+    if (control.errors['minlength']) {
+      return 'Texto demasiado corto';
+    }
     return 'Valor inválido';
+  }
+
+  private syncPersonTypeValidators(personType: '' | TipoPersonaSolicitud): void {
+    const { documentNumber, birthDate, responsableName, responsableDocument } =
+      this.form.controls;
+
+    documentNumber.clearValidators();
+    birthDate.clearValidators();
+    responsableName.clearValidators();
+    responsableDocument.clearValidators();
+
+    if (personType === 'FISICA') {
+      documentNumber.setValidators([Validators.required]);
+      birthDate.setValidators([Validators.required]);
+    } else if (personType === 'JURIDICA') {
+      responsableName.setValidators([Validators.required]);
+      responsableDocument.setValidators([Validators.required]);
+    }
+
+    documentNumber.updateValueAndValidity({ emitEvent: false });
+    birthDate.updateValueAndValidity({ emitEvent: false });
+    responsableName.updateValueAndValidity({ emitEvent: false });
+    responsableDocument.updateValueAndValidity({ emitEvent: false });
   }
 }

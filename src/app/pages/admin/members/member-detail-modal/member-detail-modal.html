@@ -9,11 +9,11 @@
           <h3 class="member-detail__name">{{ item.fullName }}</h3>
           <p class="member-detail__code">{{ item.memberCode }}</p>
           <div class="member-detail__badges">
-            <app-badge [variant]="feeStatusBadge(item.feeStatus)">
-              {{ feeStatusLabel(item.feeStatus) }}
+            <app-badge [variant]="socioEstadoBadge(item.membershipStatus)">
+              {{ socioEstadoLabel(item.membershipStatus) }}
             </app-badge>
-            <app-badge [variant]="memberPlanBadge(item.category)">
-              {{ item.category }}
+            <app-badge [variant]="socioCategoryBadge(item.category)">
+              {{ socioCategoryLabel(item.category) }}
             </app-badge>
           </div>
         </div>

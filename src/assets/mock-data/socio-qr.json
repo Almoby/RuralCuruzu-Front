@@ -1,0 +1,21 @@
+{
+  "profile": {
+    "memberId": "u-socio-001",
+    "memberNumber": "S-0001",
+    "memberName": "Juan Pérez"
+  },
+  "qr": {
+    "qrValue": "QR-S0001-VALID",
+    "status": "active",
+    "statusLabel": "QR Activo",
+    "statusIcon": "check_circle",
+    "generatedAt": "2026-06-01T10:00:00.000Z",
+    "expirationDate": "2026-06-09"
+  },
+  "summary": {
+    "nextDueDateLabel": "9/6/2026",
+    "lastPaymentDateLabel": "9/5/2026",
+    "renewalNote": "QR se renueva automáticamente cada mes",
+    "helperText": "Podés usar este QR en todos los comercios adheridos"
+  }
+}

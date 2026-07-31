@@ -8,34 +8,34 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BenefitService } from '../../../core/services/benefit.service';
-import { Benefit } from '../../../core/interfaces/benefit.interface';
 import {
-  AppBadge,
+  Benefit,
+  BenefitMerchantCard,
+  BenefitsCatalogView,
+  SocioBenefitsCatalogResponse,
+} from '../../../core/interfaces/benefit.interface';
+import {
+  AppAlert,
   AppButton,
-  AppCard,
   AppEmptyState,
+  AppIcon,
   AppLoading,
-  AppModal,
-  AppPageHeader,
   AppSearch,
 } from '../../../shared/components';
-import { DateEsPipe } from '../../../shared/pipes';
+import { resolveBenefitRubroIcon } from '../../../shared/utils';
 
-type BenefitFilter = 'all' | 'promo' | 'discount';
+type ViewState = 'loading' | 'success' | 'error';
 
 @Component({
   selector: 'app-socio-benefits',
   standalone: true,
   imports: [
-    AppPageHeader,
     AppSearch,
-    AppCard,
-    AppBadge,
-    AppButton,
-    AppModal,
     AppLoading,
     AppEmptyState,
-    DateEsPipe,
+    AppAlert,
+    AppButton,
+    AppIcon,
   ],
   templateUrl: './socio-benefits.html',
   styleUrl: './socio-benefits.scss',
@@ -45,64 +45,128 @@ export class SocioBenefits {
   private readonly benefitService = inject(BenefitService);
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly loading = signal(true);
+  readonly viewState = signal<ViewState>('loading');
+  readonly catalog = signal<SocioBenefitsCatalogResponse | null>(null);
   readonly searchTerm = signal('');
-  readonly filter = signal<BenefitFilter>('all');
-  readonly benefits = signal<Benefit[]>([]);
-  readonly selected = signal<Benefit | null>(null);
-  readonly detailOpen = signal(false);
+  readonly categoryFilter = signal('all');
+  readonly viewMode = signal<BenefitsCatalogView>('promotions');
 
-  readonly filtered = computed(() => {
-    const term = this.searchTerm().trim().toLowerCase();
-    const filter = this.filter();
+  readonly title = computed(() => this.catalog()?.title ?? 'Beneficios y Comercios');
+  readonly subtitle = computed(() => this.catalog()?.subtitle ?? '');
+  readonly searchPlaceholder = computed(
+    () => this.catalog()?.searchPlaceholder ?? 'Buscar beneficios o comercios...',
+  );
+  readonly categories = computed(() => this.catalog()?.categories ?? []);
+  readonly viewModes = computed(() => this.catalog()?.viewModes ?? []);
 
-    return this.benefits().filter((benefit) => {
-      const matchesTerm =
-        !term ||
-        benefit.title.toLowerCase().includes(term) ||
-        benefit.merchantName.toLowerCase().includes(term) ||
-        benefit.categoryName.toLowerCase().includes(term) ||
-        benefit.description.toLowerCase().includes(term);
-
-      const isPromo = benefit.discountLabel.toLowerCase().includes('x');
-      const matchesFilter =
-        filter === 'all' ||
-        (filter === 'promo' && isPromo) ||
-        (filter === 'discount' && !isPromo);
-
-      return matchesTerm && matchesFilter;
-    });
+  readonly filteredPromotions = computed(() => {
+    const items = this.catalog()?.promotions ?? [];
+    return items.filter((benefit) => this.matchesBenefit(benefit));
   });
 
-  readonly availableCount = computed(() => this.filtered().length);
+  readonly filteredMerchants = computed(() => {
+    const items = this.catalog()?.merchants ?? [];
+    return items.filter((merchant) => this.matchesMerchant(merchant));
+  });
+
+  readonly availableCountLabel = computed(() => {
+    if (this.viewMode() === 'merchants') {
+      const merchants = this.filteredMerchants().length;
+      return merchants === 1
+        ? '1 comercio disponible'
+        : `${merchants} comercios disponibles`;
+    }
+
+    const count = this.filteredPromotions().length;
+    return `${count} beneficio${count === 1 ? '' : 's'} disponibles para vos`;
+  });
 
   constructor() {
-    this.benefitService
-      .listForSocio(true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (benefits) => {
-          this.benefits.set(benefits);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
+    this.load();
   }
 
-  onSearch(term: string): void {
+  protected retry(): void {
+    this.load();
+  }
+
+  protected onSearch(term: string): void {
     this.searchTerm.set(term);
   }
 
-  setFilter(filter: BenefitFilter): void {
-    this.filter.set(filter);
+  protected setCategory(value: string): void {
+    this.categoryFilter.set(value);
   }
 
-  openDetail(benefit: Benefit): void {
-    this.selected.set(benefit);
-    this.detailOpen.set(true);
+  protected setViewMode(mode: BenefitsCatalogView): void {
+    this.viewMode.set(mode);
   }
 
-  closeDetail(): void {
-    this.detailOpen.set(false);
+  protected rubroTone(categoryName: string): string {
+    return resolveBenefitRubroIcon(categoryName).tone;
+  }
+
+  protected rubroIcon(categoryName: string): string {
+    return resolveBenefitRubroIcon(categoryName).icon;
+  }
+
+  private matchesBenefit(benefit: Benefit): boolean {
+    if (!benefit.isActive) {
+      return false;
+    }
+
+    const category = this.categoryFilter();
+    const matchesCategory = category === 'all' || benefit.categoryName === category;
+    if (!matchesCategory) {
+      return false;
+    }
+
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) {
+      return true;
+    }
+
+    return (
+      benefit.title.toLowerCase().includes(term) ||
+      benefit.merchantName.toLowerCase().includes(term) ||
+      benefit.categoryName.toLowerCase().includes(term) ||
+      benefit.description.toLowerCase().includes(term)
+    );
+  }
+
+  private matchesMerchant(merchant: BenefitMerchantCard): boolean {
+    const category = this.categoryFilter();
+    const matchesCategory = category === 'all' || merchant.categoryName === category;
+    if (!matchesCategory) {
+      return false;
+    }
+
+    const term = this.searchTerm().trim().toLowerCase();
+    if (!term) {
+      return true;
+    }
+
+    return (
+      merchant.name.toLowerCase().includes(term) ||
+      merchant.categoryName.toLowerCase().includes(term) ||
+      merchant.address.toLowerCase().includes(term) ||
+      merchant.phone.toLowerCase().includes(term)
+    );
+  }
+
+  private load(): void {
+    this.viewState.set('loading');
+    this.benefitService
+      .getCatalog()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (payload) => {
+          this.catalog.set(payload);
+          this.viewState.set('success');
+        },
+        error: () => {
+          this.catalog.set(null);
+          this.viewState.set('error');
+        },
+      });
   }
 }

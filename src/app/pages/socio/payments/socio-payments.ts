@@ -2,32 +2,47 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { forkJoin, take } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { FeeService } from '../../../core/services/fee.service';
 import { MemberService } from '../../../core/services/member.service';
 import { NotificationService } from '../../../core/services/notification.service';
-import { FeePayment } from '../../../core/interfaces/fee.interface';
+import {
+  BankDetailRow,
+  BankTransferDetails,
+  FeePayment,
+} from '../../../core/interfaces/fee.interface';
 import { PaymentMethod, PaymentStatus } from '../../../shared/enums';
 import {
-  AppBadge,
   AppButton,
-  AppCard,
   AppEmptyState,
-  AppInput,
+  AppIcon,
   AppLoading,
   AppModal,
   AppPageHeader,
   AppTextarea,
 } from '../../../shared/components';
 import { CurrencyArsPipe, DateEsPipe } from '../../../shared/pipes';
-import { formatFeePeriodTitle } from '../../../shared/utils';
+import { formatFeePeriodTitle, formatPeriodLabel } from '../../../shared/utils';
+
+type TransferStep = 1 | 2 | 3;
+
+const ACCEPTED_RECEIPT_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'application/pdf',
+] as const;
+
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
 @Component({
   selector: 'app-socio-payments',
@@ -35,14 +50,12 @@ import { formatFeePeriodTitle } from '../../../shared/utils';
   imports: [
     ReactiveFormsModule,
     AppPageHeader,
-    AppCard,
-    AppBadge,
     AppButton,
     AppModal,
-    AppInput,
     AppTextarea,
     AppLoading,
     AppEmptyState,
+    AppIcon,
     CurrencyArsPipe,
     DateEsPipe,
   ],
@@ -57,13 +70,26 @@ export class SocioPayments {
   private readonly notifications = inject(NotificationService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly currencyPipe = new CurrencyArsPipe();
+
+  private readonly fileInput =
+    viewChild<ElementRef<HTMLInputElement>>('receiptFileInput');
 
   readonly loading = signal(true);
   readonly submitting = signal(false);
   readonly fees = signal<FeePayment[]>([]);
   readonly memberId = signal<string | null>(null);
+  readonly bankTransfer = signal<BankTransferDetails | null>(null);
   readonly linkModalOpen = signal(false);
   readonly reportModalOpen = signal(false);
+  readonly transferStep = signal<TransferStep>(1);
+  readonly selectedFile = signal<File | null>(null);
+  readonly fileError = signal('');
+  readonly copiedKey = signal<string | null>(null);
+
+  readonly reportForm = this.fb.nonNullable.group({
+    notes: [''],
+  });
 
   readonly currentFee = computed(() => {
     const list = this.fees();
@@ -72,9 +98,60 @@ export class SocioPayments {
 
   readonly previousFees = computed(() => this.fees().slice(1));
 
-  readonly reportForm = this.fb.nonNullable.group({
-    receiptNumber: ['', [Validators.required, Validators.minLength(3)]],
-    notes: [''],
+  readonly memberCode = computed(
+    () => this.auth.currentUser()?.memberCode ?? this.currentFee()?.memberCode ?? '',
+  );
+
+  readonly memberName = computed(
+    () => this.auth.currentUser()?.fullName ?? this.currentFee()?.memberName ?? 'Socio',
+  );
+
+  readonly memberSummary = computed(() => {
+    const code = this.memberCode();
+    const name = this.memberName();
+    return code ? `Socio ${code} — ${name}` : `Socio — ${name}`;
+  });
+
+  readonly transferModalSubtitle = computed(() => {
+    switch (this.transferStep()) {
+      case 1:
+        return 'Datos para acreditar el pago';
+      case 2:
+        return 'Adjuntá el comprobante';
+      case 3:
+        return 'Pago informado';
+      default:
+        return 'Datos para acreditar el pago';
+    }
+  });
+
+  readonly bankRows = computed((): BankDetailRow[] => {
+    const details = this.bankTransfer();
+    const fee = this.currentFee();
+    const code = this.memberCode();
+    if (!details || !fee) {
+      return [];
+    }
+
+    return [
+      { key: 'bank', label: 'Banco', value: details.bank, copyable: false },
+      { key: 'cbu', label: 'CBU', value: details.cbu, copyable: true },
+      { key: 'alias', label: 'Alias', value: details.alias, copyable: true },
+      { key: 'holder', label: 'Titular', value: details.holder, copyable: false },
+      { key: 'cuit', label: 'CUIT', value: details.cuit, copyable: false },
+      {
+        key: 'amount',
+        label: 'Monto',
+        value: this.currencyPipe.transform(fee.amount),
+        copyable: false,
+      },
+      {
+        key: 'concept',
+        label: 'Concepto / Referencia',
+        value: code,
+        copyable: true,
+      },
+    ];
   });
 
   constructor() {
@@ -83,6 +160,10 @@ export class SocioPayments {
 
   feeTitle(period: string): string {
     return formatFeePeriodTitle(period);
+  }
+
+  receiptTitle(period: string): string {
+    return `Cuota ${formatPeriodLabel(period)}`;
   }
 
   feeBadgeVariant(status: PaymentStatus): 'success' | 'warning' | 'danger' | 'neutral' {
@@ -120,17 +201,73 @@ export class SocioPayments {
   }
 
   openReportModal(): void {
-    this.reportForm.reset({ receiptNumber: '', notes: '' });
+    this.resetTransferForm();
+    this.transferStep.set(1);
     this.reportModalOpen.set(true);
   }
 
   closeReportModal(): void {
     this.reportModalOpen.set(false);
+    this.resetTransferForm();
+    this.transferStep.set(1);
+  }
+
+  goToTransferStep(step: TransferStep): void {
+    this.transferStep.set(step);
+  }
+
+  copyBankValue(row: BankDetailRow): void {
+    if (!row.copyable) {
+      return;
+    }
+
+    void navigator.clipboard.writeText(row.value).then(
+      () => {
+        this.copiedKey.set(row.key);
+        window.setTimeout(() => {
+          if (this.copiedKey() === row.key) {
+            this.copiedKey.set(null);
+          }
+        }, 1600);
+      },
+      () => this.notifications.error('No se pudo copiar'),
+    );
+  }
+
+  openFilePicker(): void {
+    this.fileInput()?.nativeElement.click();
+  }
+
+  onReceiptSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.applySelectedFile(file);
+  }
+
+  onReceiptDrop(event: DragEvent): void {
+    event.preventDefault();
+    const file = event.dataTransfer?.files?.[0] ?? null;
+    this.applySelectedFile(file);
+  }
+
+  onReceiptDragOver(event: DragEvent): void {
+    event.preventDefault();
   }
 
   submitReport(): void {
-    if (this.reportForm.invalid || this.submitting()) {
-      this.reportForm.markAllAsTouched();
+    if (this.submitting()) {
+      return;
+    }
+
+    const file = this.selectedFile();
+    if (!file) {
+      this.fileError.set('Adjuntá una imagen o un PDF del comprobante.');
+      return;
+    }
+
+    const validationError = this.validateReceiptFile(file);
+    if (validationError) {
+      this.fileError.set(validationError);
       return;
     }
 
@@ -141,24 +278,24 @@ export class SocioPayments {
       return;
     }
 
-    this.submitting.set(true);
-    const { receiptNumber, notes } = this.reportForm.getRawValue();
+    const notes = this.reportForm.controls.notes.getRawValue().trim();
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('notes', notes);
+    formData.append('period', fee.period);
+    formData.append('memberId', memberId);
+    formData.append('feeId', fee.id);
+    formData.append('amount', String(fee.amount));
+    formData.append('paymentMethod', PaymentMethod.Transferencia);
 
+    this.submitting.set(true);
     this.feeService
-      .registerPayment({
-        memberId,
-        period: fee.period,
-        amount: fee.amount,
-        paymentMethod: PaymentMethod.Transferencia,
-        receiptNumber,
-        notes: notes || undefined,
-      })
+      .reportTransferPayment(formData)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           this.submitting.set(false);
-          this.reportModalOpen.set(false);
-          this.notifications.success('Pago informado correctamente!');
+          this.transferStep.set(3);
           this.load();
         },
         error: () => {
@@ -168,6 +305,49 @@ export class SocioPayments {
       });
   }
 
+  private applySelectedFile(file: File | null): void {
+    if (!file) {
+      this.selectedFile.set(null);
+      this.fileError.set('Adjuntá una imagen o un PDF del comprobante.');
+      return;
+    }
+
+    const error = this.validateReceiptFile(file);
+    if (error) {
+      this.selectedFile.set(null);
+      this.fileError.set(error);
+      const input = this.fileInput()?.nativeElement;
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+
+    this.selectedFile.set(file);
+    this.fileError.set('');
+  }
+
+  private validateReceiptFile(file: File): string {
+    if (!(ACCEPTED_RECEIPT_TYPES as readonly string[]).includes(file.type)) {
+      return 'El archivo debe ser PNG, JPG, WEBP o PDF.';
+    }
+    if (file.size > MAX_RECEIPT_BYTES) {
+      return 'El archivo no puede superar los 5 MB.';
+    }
+    return '';
+  }
+
+  private resetTransferForm(): void {
+    this.reportForm.reset({ notes: '' });
+    this.selectedFile.set(null);
+    this.fileError.set('');
+    this.copiedKey.set(null);
+    const input = this.fileInput()?.nativeElement;
+    if (input) {
+      input.value = '';
+    }
+  }
+
   private load(): void {
     this.loading.set(true);
     const code = this.auth.currentUser()?.memberCode;
@@ -175,12 +355,14 @@ export class SocioPayments {
     forkJoin({
       fees: this.feeService.list(),
       members: this.memberService.list().pipe(take(1)),
+      bank: this.feeService.getBankTransferDetails().pipe(take(1)),
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ fees, members }) => {
+        next: ({ fees, members, bank }) => {
           const member = members.find((item) => item.memberCode === code);
           this.memberId.set(member?.id ?? null);
+          this.bankTransfer.set(bank);
 
           const memberFees = (
             code ? fees.filter((fee) => fee.memberCode === code) : fees

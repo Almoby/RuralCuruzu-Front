@@ -1,58 +1,121 @@
 <section class="comercio-dashboard">
   <app-page-header
-    title="Portal de comercio adherido"
-    [subtitle]="merchantName()"
+    [title]="merchantName()"
+    subtitle="Portal de comercio adherido"
   />
 
-  @if (loading()) {
-    <app-loading message="Cargando inicio..." />
-  } @else {
-    <div class="comercio-dashboard__stats">
-      <app-stat-card
-        label="Promociones activas"
-        [value]="stats()?.activePromotions ?? previewPromotions().length"
-      />
-      <app-stat-card
-        label="Socios alcanzados"
-        [value]="stats()?.uniqueMembersMonth ?? 0"
-        hint="Este mes"
-      />
-      <app-stat-card
-        label="Usos de beneficios esta semana"
-        [value]="weekUsages()"
-      />
-    </div>
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando inicio..." />
+    }
 
-    <app-card title="Mis promociones">
-      <a cardActions [routerLink]="['/' + routes.comercio.promotions]" class="link-action">
-        Gestionar
-      </a>
-
-      @if (previewPromotions().length === 0) {
-        <p class="muted">Todavía no tenés promociones activas.</p>
-      } @else {
-        <ul class="promo-preview">
-          @for (promo of previewPromotions(); track promo.id) {
-            <li>
-              <div>
-                <strong>{{ promo.title }}</strong>
-                <span>{{ promo.discountLabel }} · {{ promo.redemptionsCount }} usos</span>
-              </div>
-              <app-badge [variant]="statusVariant(promo.status)">{{ promo.status }}</app-badge>
-            </li>
-          }
-        </ul>
-      }
-    </app-card>
-
-    <article class="cta-card">
-      <div>
-        <h2>Validar QR de socio</h2>
-        <p>Escaneá el código del socio para aplicar el beneficio en el local.</p>
+    @case ('error') {
+      <div class="comercio-dashboard__state">
+        <app-alert
+          variant="error"
+          message="No se pudo cargar el inicio del comercio. Intentá nuevamente."
+        />
+        <app-button variant="outline" (click)="retry()">Reintentar</app-button>
       </div>
-      <app-button size="lg" variant="secondary" (click)="goToValidateQr()">
-        Ir a Validar QR
-      </app-button>
-    </article>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin datos"
+        description="Todavía no hay información disponible para este comercio."
+      />
+    }
+
+    @case ('success') {
+      <div class="comercio-dashboard__metrics" aria-label="Métricas del comercio">
+        <app-stat-card
+          label="Usos este mes"
+          [value]="usesThisMonth()"
+          icon="trending_up"
+          iconAlign="start"
+          iconTone="primary"
+        />
+        <app-stat-card
+          label="Promociones activas"
+          [value]="activePromotions()"
+          icon="local_offer"
+          iconAlign="start"
+          iconTone="gold"
+        />
+        <app-stat-card
+          label="Socios alcanzados"
+          [value]="reachedMembers()"
+          icon="people"
+          iconAlign="start"
+          iconTone="violet"
+        />
+        <app-stat-card
+          label="Validaciones hoy"
+          [value]="validationsToday()"
+          icon="check_circle"
+          iconAlign="start"
+          iconTone="success"
+        />
+      </div>
+
+      <app-card title="Usos de beneficios esta semana">
+        @if (weeklyChartData(); as chartData) {
+          <div
+            class="comercio-dashboard__chart"
+            role="img"
+            aria-label="Gráfico de barras con usos de beneficios de lunes a domingo"
+          >
+            <canvas
+              baseChart
+              type="bar"
+              [data]="chartData"
+              [options]="weeklyChartOptions()"
+              [legend]="false"
+            ></canvas>
+          </div>
+        } @else {
+          <p class="comercio-dashboard__muted">No hay datos semanales para mostrar.</p>
+        }
+      </app-card>
+
+      <app-card title="Mis promociones">
+        <a
+          cardActions
+          class="comercio-dashboard__manage"
+          [routerLink]="['/' + routes.comercio.promotions]"
+          aria-label="Gestionar promociones"
+        >
+          <span>Gestionar</span>
+          <app-icon name="chevron_right" [size]="14" />
+        </a>
+
+        @if (featuredPromotion(); as promo) {
+          <div class="promo-row">
+            <div class="promo-row__body">
+              <p class="promo-row__title">{{ promo.title }}</p>
+              <p class="promo-row__meta">{{ promo.usesThisMonth }} usos este mes</p>
+            </div>
+            <app-badge variant="success">{{ promo.status }}</app-badge>
+          </div>
+        } @else {
+          <app-empty-state
+            title="Sin promociones"
+            description="Todavía no tenés promociones activas."
+          />
+        }
+      </app-card>
+
+      <button
+        type="button"
+        class="comercio-dashboard__cta"
+        aria-label="Validar QR de socio"
+        (click)="goToValidateQr()"
+      >
+        <span class="comercio-dashboard__cta-icon" aria-hidden="true">
+          <app-icon name="check_circle" [size]="18" />
+        </span>
+        <span>Validar QR de socio</span>
+      </button>
+    }
   }
 </section>

@@ -1,19 +1,21 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { AppBadge, AppLoading, AppModal } from '../../../../shared/components';
-import { MemberDetail } from '../../../../core/interfaces/member.interface';
+import { AdminMemberDetail } from '../../../../core/interfaces/admin-socio.interface';
+import { formatMemberDate, initialsFromName } from '../../utils/admin-labels';
 import {
-  feeStatusBadge,
-  feeStatusLabel,
-  formatMemberDate,
-  formatMemberFee,
-  initialsFromName,
-  memberPlanBadge,
-} from '../../utils/admin-labels';
+  socioCategoryBadge,
+  socioCategoryLabel,
+  socioEstadoBadge,
+  socioEstadoLabel,
+} from '../../utils/socio-estado';
 
 interface DetailField {
   label: string;
   value: string;
 }
+
+const NOT_PROVIDED = 'No informado';
+const NO_DATA = 'Sin datos';
 
 @Component({
   selector: 'app-member-detail-modal',
@@ -25,7 +27,7 @@ interface DetailField {
 })
 export class MemberDetailModal {
   readonly open = input(false);
-  readonly member = input<MemberDetail | null>(null);
+  readonly member = input<AdminMemberDetail | null>(null);
   readonly loading = input(false);
 
   readonly close = output<void>();
@@ -41,14 +43,64 @@ export class MemberDetailModal {
       return [];
     }
 
-    return [
-      { label: 'DNI', value: member.documentNumber },
-      { label: 'Nacimiento', value: formatMemberDate(member.birthDate) },
-      { label: 'Teléfono', value: member.phone },
-      { label: 'Email', value: member.email },
-      { label: 'Dirección', value: member.address ?? '—' },
-      { label: 'Alta', value: formatMemberDate(member.joinDate) },
+    const fields: DetailField[] = [
+      {
+        label: 'Tipo de persona',
+        value:
+          member.personType === 'FISICA'
+            ? 'Persona física'
+            : member.personType === 'JURIDICA'
+              ? 'Persona jurídica'
+              : NOT_PROVIDED,
+      },
+      { label: 'DNI', value: this.valueOrPlaceholder(member.documentNumber) },
+      {
+        label: 'Nacimiento',
+        value: member.birthDate ? formatMemberDate(member.birthDate) : NOT_PROVIDED,
+      },
+      { label: 'CUIT / CUIL', value: this.valueOrPlaceholder(member.cuit) },
+      { label: 'Teléfono', value: this.valueOrPlaceholder(member.phone) },
+      { label: 'Email', value: this.valueOrPlaceholder(member.email) },
+      { label: 'Dirección', value: this.valueOrPlaceholder(member.address) },
+      {
+        label: 'Portal / Piso / Depto',
+        value: this.valueOrPlaceholder(member.portalFloor),
+      },
+      {
+        label: 'Establecimiento',
+        value: this.valueOrPlaceholder(member.establishmentName),
+      },
+      {
+        label: 'Dirección establecimiento',
+        value: this.valueOrPlaceholder(member.establishmentAddress),
+      },
     ];
+
+    if (member.personType === 'JURIDICA') {
+      fields.push(
+        {
+          label: 'Responsable',
+          value: this.valueOrPlaceholder(member.responsableName),
+        },
+        {
+          label: 'DNI responsable',
+          value: this.valueOrPlaceholder(member.responsableDocument),
+        },
+      );
+    }
+
+    fields.push(
+      {
+        label: 'Alta',
+        value: member.joinDate ? formatMemberDate(member.joinDate) : NOT_PROVIDED,
+      },
+      {
+        label: 'Solicitud origen',
+        value: this.valueOrPlaceholder(member.originRequestNumber),
+      },
+    );
+
+    return fields;
   });
 
   protected readonly accountRows = computed(() => {
@@ -57,36 +109,44 @@ export class MemberDetailModal {
       return [];
     }
 
-    const account = member.account;
     return [
       {
+        label: 'Estado de membresía',
+        value: socioEstadoLabel(member.membershipStatus),
+        emphasis: member.membershipStatus === 'ACTIVO',
+      },
+      {
         label: 'Cuota mensual',
-        value: formatMemberFee(account.monthlyFee),
+        value: member.monthlyFeeLabel || NO_DATA,
         emphasis: false,
       },
       {
         label: 'Próx. vencimiento',
-        value: formatMemberDate(account.nextDueDate),
+        value: member.nextDueDateLabel || NO_DATA,
         emphasis: false,
       },
       {
-        label: 'Deuda acumulada',
-        value: formatMemberFee(account.pendingAmount),
-        emphasis: account.pendingAmount === 0,
-      },
-      {
-        label: 'Último pago',
-        value: formatMemberDate(account.lastPaymentDate),
+        label: 'Estado de cuota',
+        value: member.feeStatusLabel || NO_DATA,
         emphasis: false,
       },
     ];
   });
 
-  protected readonly memberPlanBadge = memberPlanBadge;
-  protected readonly feeStatusBadge = feeStatusBadge;
-  protected readonly feeStatusLabel = feeStatusLabel;
+  protected readonly socioCategoryBadge = socioCategoryBadge;
+  protected readonly socioCategoryLabel = socioCategoryLabel;
+  protected readonly socioEstadoBadge = socioEstadoBadge;
+  protected readonly socioEstadoLabel = socioEstadoLabel;
 
   protected onClose(): void {
     this.close.emit();
+  }
+
+  private valueOrPlaceholder(value: string | null | undefined): string {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    if (!trimmed || trimmed === NOT_PROVIDED) {
+      return NOT_PROVIDED;
+    }
+    return trimmed;
   }
 }

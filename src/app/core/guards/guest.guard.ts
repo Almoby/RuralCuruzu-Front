@@ -1,9 +1,10 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { UserRole } from '../../shared/enums';
 import { AuthService } from '../services/auth.service';
 import { APP_ROUTES } from '../constants/routes.constant';
+import { homeRouteForRole } from '../utils/auth-navigation.util';
 
+/** Prevents authenticated users from opening login/register. */
 export const guestGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
@@ -12,16 +13,15 @@ export const guestGuard: CanActivateFn = () => {
     return true;
   }
 
-  const role = authService.currentRole();
-  if (role === UserRole.Admin) {
-    return router.createUrlTree(['/', ...APP_ROUTES.admin.dashboard.split('/')]);
-  }
-  if (role === UserRole.Socio) {
-    return router.createUrlTree(['/', ...APP_ROUTES.socio.dashboard.split('/')]);
-  }
-  if (role === UserRole.Comercio) {
-    return router.createUrlTree(['/', ...APP_ROUTES.comercio.home.split('/')]);
+  if (authService.requiresPasswordChange()) {
+    return router.createUrlTree(['/', ...APP_ROUTES.auth.changePassword.split('/')]);
   }
 
+  const role = authService.currentRole();
+  if (role) {
+    return router.createUrlTree(homeRouteForRole(role));
+  }
+
+  authService.clearSession();
   return true;
 };

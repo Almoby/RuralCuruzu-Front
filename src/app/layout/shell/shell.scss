@@ -1,9 +1,70 @@
 @use '../../../styles/tokens' as *;
 
+/* Default = admin green (safe fallback before role resolves). */
 .shell {
+  --sidebar-bg: #{$color-primary};
+  --sidebar-hover: rgb(255 255 255 / 8%);
+  --sidebar-active: #2f7a78;
+  --sidebar-text: #{$color-white};
+  --sidebar-text-muted: rgb(255 255 255 / 68%);
+  --sidebar-text-nav: rgb(255 255 255 / 82%);
+  --sidebar-icon: inherit;
+  --sidebar-border: rgb(255 255 255 / 10%);
+  --sidebar-footer-text: rgb(255 255 255 / 68%);
+  --sidebar-menu-label: rgb(186 208 206 / 78%);
+  --layout-avatar-bg: #{$color-primary};
+  --layout-accent: #{$color-primary};
+
   display: flex;
   min-height: 100vh;
   background-color: $color-bg;
+}
+
+.shell.layout--admin,
+.shell[data-role='admin'] {
+  --sidebar-bg: #{$color-primary};
+  --sidebar-hover: rgb(255 255 255 / 8%);
+  --sidebar-active: #2f7a78;
+  --sidebar-text: #{$color-white};
+  --sidebar-text-muted: rgb(255 255 255 / 68%);
+  --sidebar-text-nav: rgb(255 255 255 / 82%);
+  --sidebar-border: rgb(255 255 255 / 10%);
+  --sidebar-footer-text: rgb(255 255 255 / 68%);
+  --sidebar-menu-label: rgb(186 208 206 / 78%);
+  --layout-avatar-bg: #{$color-primary};
+  --layout-accent: #{$color-primary};
+}
+
+/* Socio — brown theme from Figma */
+.shell.layout--member,
+.shell[data-role='member'] {
+  --sidebar-bg: #402c16;
+  --sidebar-hover: rgb(255 255 255 / 8%);
+  --sidebar-active: #513f2b;
+  --sidebar-text: #{$color-white};
+  --sidebar-text-muted: rgb(255 255 255 / 68%);
+  --sidebar-text-nav: rgb(255 255 255 / 82%);
+  --sidebar-border: rgb(255 255 255 / 10%);
+  --sidebar-footer-text: rgb(255 255 255 / 68%);
+  --sidebar-menu-label: rgb(214 196 176 / 78%);
+  --layout-avatar-bg: #{$color-brown};
+  --layout-accent: #{$color-brown};
+}
+
+/* Comercio — green for now, decoupled for future swap */
+.shell.layout--commerce,
+.shell[data-role='commerce'] {
+  --sidebar-bg: #{$color-primary};
+  --sidebar-hover: rgb(255 255 255 / 8%);
+  --sidebar-active: #2f7a78;
+  --sidebar-text: #{$color-white};
+  --sidebar-text-muted: rgb(255 255 255 / 68%);
+  --sidebar-text-nav: rgb(255 255 255 / 82%);
+  --sidebar-border: rgb(255 255 255 / 10%);
+  --sidebar-footer-text: rgb(255 255 255 / 68%);
+  --sidebar-menu-label: rgb(186 208 206 / 78%);
+  --layout-avatar-bg: #{$color-primary};
+  --layout-accent: #{$color-primary};
 }
 
 .shell__backdrop {

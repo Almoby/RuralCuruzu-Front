@@ -8,12 +8,24 @@
     <app-loading message="Cargando historial..." />
   } @else {
     <div class="socio-history__stats">
-      <app-stat-card label="Ahorro total" [value]="savings() | currencyArs" />
-      <app-stat-card label="Beneficios usados" [value]="usedBenefitsCount()" />
-      <app-stat-card label="Pagos realizados" [value]="paymentsCount()" />
+      <app-stat-card
+        class="socio-history__stat socio-history__stat--savings"
+        label="Ahorro total"
+        [value]="savings() | currencyArs"
+      />
+      <app-stat-card
+        class="socio-history__stat"
+        label="Beneficios usados"
+        [value]="usedBenefitsCount()"
+      />
+      <app-stat-card
+        class="socio-history__stat"
+        label="Pagos realizados"
+        [value]="paymentsCount()"
+      />
     </div>
 
-    <div class="tabs" role="tablist">
+    <div class="tabs" role="tablist" aria-label="Tipo de historial">
       <button
         type="button"
         role="tab"
@@ -37,7 +49,7 @@
     </div>
 
     @if (tab() === 'benefits') {
-      <app-card title="Beneficios utilizados">
+      <div class="history-panel">
         @if (redemptions().length === 0) {
           <app-empty-state
             title="Sin usos"
@@ -47,25 +59,32 @@
           <ul class="history-list">
             @for (item of redemptions(); track item.id) {
               <li class="history-list__item">
-                <div>
-                  <strong>{{ item.benefitTitle }}</strong>
-                  <span>{{ item.merchantName }}</span>
+                <span class="history-list__icon history-list__icon--gift" aria-hidden="true">
+                  <app-icon name="gift" [size]="18" />
+                </span>
+
+                <div class="history-list__body">
+                  <p class="history-list__title">{{ item.benefitTitle }}</p>
+                  <p class="history-list__subtitle">{{ item.merchantName }}</p>
+                  <p class="history-list__datetime">
+                    <app-icon name="clock" [size]="10" />
+                    <time>{{ item.redeemedAt | date: "d/M/yyyy 'a las' HH:mm" }}</time>
+                  </p>
                 </div>
-                <div class="history-list__right">
-                  <app-badge
-                    [variant]="item.status === 'Exitosa' ? 'success' : 'danger'"
-                  >
+
+                <div class="history-list__aside">
+                  <p class="history-list__amount history-list__amount--savings">
                     {{ item.discountApplied }}
-                  </app-badge>
-                  <time>{{ item.redeemedAt | dateEs }}</time>
+                  </p>
+                  <p class="history-list__aside-label">ahorro</p>
                 </div>
               </li>
             }
           </ul>
         }
-      </app-card>
+      </div>
     } @else {
-      <app-card title="Pagos de cuotas">
+      <div class="history-panel">
         @if (fees().length === 0) {
           <app-empty-state
             title="Sin pagos"
@@ -75,27 +94,39 @@
           <ul class="history-list">
             @for (fee of fees(); track fee.id) {
               <li class="history-list__item">
-                <div>
-                  <strong>{{ feeTitle(fee.period) }}</strong>
-                  <span>{{ fee.amount | currencyArs }}</span>
-                </div>
-                <div class="history-list__right">
-                  <app-badge [variant]="feeBadgeVariant(fee.status)">
-                    {{ feeStatusLabel(fee.status) }}
-                  </app-badge>
-                  <time>
-                    @if (fee.paidAt) {
-                      {{ fee.paidAt | dateEs }}
-                    } @else {
-                      Vence {{ fee.dueDate | dateEs }}
+                <span class="history-list__icon history-list__icon--check" aria-hidden="true">
+                  <app-icon name="check_circle" [size]="18" />
+                </span>
+
+                <div class="history-list__body">
+                  <p class="history-list__title">{{ feeTitle(fee.period) }}</p>
+                  <p class="history-list__subtitle">
+                    @if (fee.paymentMethod) {
+                      {{ fee.paymentMethod }} ·
                     }
-                  </time>
+                    @if (fee.paidAt) {
+                      {{ fee.paidAt | date: 'd/M/yyyy' }}
+                    } @else {
+                      Vence {{ fee.dueDate | date: 'd/M/yyyy' }}
+                    }
+                  </p>
+                </div>
+
+                <div class="history-list__aside">
+                  <p class="history-list__amount">{{ fee.amount | currencyArs }}</p>
+                  @if (fee.status === 'Aprobado') {
+                    <p class="history-list__status">Aprobado</p>
+                  } @else {
+                    <p class="history-list__status history-list__status--muted">
+                      {{ feeStatusLabel(fee.status) }}
+                    </p>
+                  }
                 </div>
               </li>
             }
           </ul>
         }
-      </app-card>
+      </div>
     }
   }
 </section>

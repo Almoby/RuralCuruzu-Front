@@ -1,13 +1,27 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable, map, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { SKIP_ERROR_TOAST } from '../http/auth-http.tokens';
+import {
+  AdminMember,
+  AdminMemberDetail,
+  AltaManualSocioRequest,
+  ListarSociosAdminParams,
+  SocioCreadoResponse,
+  SocioDetalleDto,
+  SocioResumenDto,
+} from '../interfaces/admin-socio.interface';
 import {
   CreateMemberRequest,
   Member,
   MemberDetail,
   UpdateMemberRequest,
 } from '../interfaces/member.interface';
+import {
+  mapSocioDetalleDtoToViewModel,
+  mapSocioListItemDtoToViewModel,
+} from '../mappers/admin-socio.mapper';
 import { FeeStatus, MemberPlan } from '../../shared/enums';
 import { mockResponse } from '../utils/mock.util';
 import membersMock from '../../../assets/mock-data/members.json';
@@ -18,12 +32,81 @@ const PLAN_FEES: Record<MemberPlan, number> = {
   [MemberPlan.Premium]: 4500,
 };
 
+/**
+ * Members access.
+ * - Admin Gestión de Socios → always real backend (`/admin/socios*`).
+ * - Legacy list/get/create/update used by Cuotas / Socio → mocks while those modules stay mocked.
+ */
 @Injectable({ providedIn: 'root' })
 export class MemberService {
   private readonly http = inject(HttpClient);
+  private readonly adminBase = `${environment.apiBaseUrl}/admin/socios`;
+  private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
+
   private members: Member[] = structuredClone(membersMock) as Member[];
   private readonly version$ = new BehaviorSubject(0);
 
+  // ─── Admin Gestión de Socios (ALWAYS real HTTP — never useMocks) ─────────
+
+  /**
+   * GET `${apiBaseUrl}/admin/socios`
+   * Optional query: `estado` (ACTIVO | INACTIVO | DADO_DE_BAJA).
+   * Ignores `environment.useMocks`.
+   */
+  getAdminSocios(params?: ListarSociosAdminParams): Observable<AdminMember[]> {
+    let httpParams = new HttpParams();
+    if (params?.estado) {
+      httpParams = httpParams.set('estado', params.estado);
+    }
+
+    return this.http
+      .get<SocioResumenDto[]>(this.adminBase, {
+        params: httpParams,
+        context: this.silentContext,
+      })
+      .pipe(map((items) => (items ?? []).map(mapSocioListItemDtoToViewModel)));
+  }
+
+  /** @deprecated Use getAdminSocios */
+  listAdmin(params?: ListarSociosAdminParams): Observable<AdminMember[]> {
+    return this.getAdminSocios(params);
+  }
+
+  /**
+   * GET `${apiBaseUrl}/admin/socios/{id}`
+   * Ignores `environment.useMocks`.
+   */
+  getAdminSocioById(id: string): Observable<AdminMemberDetail> {
+    return this.http
+      .get<SocioDetalleDto>(`${this.adminBase}/${encodeURIComponent(id)}`, {
+        context: this.silentContext,
+      })
+      .pipe(map(mapSocioDetalleDtoToViewModel));
+  }
+
+  /** @deprecated Use getAdminSocioById */
+  getAdminById(id: string): Observable<AdminMemberDetail> {
+    return this.getAdminSocioById(id);
+  }
+
+  /**
+   * POST `${apiBaseUrl}/admin/socios`
+   * Ignores `environment.useMocks`.
+   */
+  createAdminSocio(payload: AltaManualSocioRequest): Observable<SocioCreadoResponse> {
+    return this.http.post<SocioCreadoResponse>(this.adminBase, payload, {
+      context: this.silentContext,
+    });
+  }
+
+  /** @deprecated Use createAdminSocio */
+  createAdmin(payload: AltaManualSocioRequest): Observable<SocioCreadoResponse> {
+    return this.createAdminSocio(payload);
+  }
+
+  // ─── Legacy mock methods (Cuotas / Portal Socio ONLY) ────────────────────
+
+  /** Legacy mock list for Cuotas / Portal Socio — NOT used by Gestión de Socios. */
   getMembers(): Observable<Member[]> {
     return this.list();
   }

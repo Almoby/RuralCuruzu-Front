@@ -12,31 +12,43 @@ import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { PromotionService } from '../../../core/services/promotion.service';
 import { RedemptionService } from '../../../core/services/redemption.service';
-import { QrValidationResponse } from '../../../core/interfaces/qr-validation.interface';
+import {
+  ApprovedQrValidationResponse,
+  QrValidationResponse,
+  RejectedQrValidationResponse,
+} from '../../../core/interfaces/qr-validation.interface';
 import { PromotionStatus } from '../../../shared/enums';
 import {
-  AppBadge,
+  AppAlert,
   AppButton,
-  AppCard,
+  AppIcon,
   AppLoading,
-  AppPageHeader,
   AppSelect,
   SelectOption,
 } from '../../../shared/components';
 
-type ValidationView = 'scan' | 'success' | 'rejected';
+/**
+ * Exclusive UI states for Validar QR.
+ * `scanning` / `validating` share the scanner card with loading overlay.
+ */
+export type QrValidationViewState =
+  | 'idle'
+  | 'scanning'
+  | 'validating'
+  | 'approved'
+  | 'rejected'
+  | 'error';
 
 @Component({
   selector: 'app-comercio-validate-qr',
   standalone: true,
   imports: [
     ReactiveFormsModule,
-    AppPageHeader,
-    AppCard,
     AppSelect,
     AppButton,
-    AppBadge,
     AppLoading,
+    AppAlert,
+    AppIcon,
   ],
   templateUrl: './comercio-validate-qr.html',
   styleUrl: './comercio-validate-qr.scss',
@@ -51,58 +63,99 @@ export class ComercioValidateQr {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly loadingPromos = signal(true);
-  readonly validating = signal(false);
-  readonly view = signal<ValidationView>('scan');
+  readonly viewState = signal<QrValidationViewState>('idle');
   readonly result = signal<QrValidationResponse | null>(null);
   readonly benefitOptions = signal<SelectOption[]>([]);
+  readonly scannerActive = signal(false);
 
   readonly form = this.fb.nonNullable.group({
     promotionId: ['', Validators.required],
   });
 
-  readonly selectedBenefitLabel = computed(() => {
-    const id = this.form.controls.promotionId.value;
-    return this.benefitOptions().find((option) => option.value === id)?.label ?? '';
+  readonly approvedResult = computed((): ApprovedQrValidationResponse | null => {
+    const current = this.result();
+    return current?.valid ? current : null;
   });
 
-  constructor() {
-    const merchantId = this.auth.currentUser()?.merchantId;
+  readonly rejectedResult = computed((): RejectedQrValidationResponse | null => {
+    const current = this.result();
+    return current && !current.valid ? current : null;
+  });
 
-    this.promotionService
-      .list(merchantId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (promotions) => {
-          const active = promotions.filter((promo) => promo.status === PromotionStatus.Activa);
-          this.benefitOptions.set(
-            active.map((promo) => ({
-              value: promo.id,
-              label: `${promo.title} (${promo.discountLabel})`,
-            })),
-          );
-          if (active.length > 0) {
-            this.form.controls.promotionId.setValue(active[0].id);
-          }
-          this.loadingPromos.set(false);
-        },
-        error: () => this.loadingPromos.set(false),
-      });
+  readonly showBenefitSelect = computed(() => {
+    const state = this.viewState();
+    return state === 'idle' || state === 'scanning' || state === 'validating';
+  });
+
+  readonly showScanner = computed(() => {
+    const state = this.viewState();
+    return state === 'idle' || state === 'scanning' || state === 'validating';
+  });
+
+  readonly isValidating = computed(() => this.viewState() === 'validating');
+
+  constructor() {
+    this.loadBenefits();
+    this.startScanner();
+  }
+
+  startScanner(): void {
+    this.scannerActive.set(true);
+    if (this.viewState() === 'idle') {
+      this.viewState.set('scanning');
+    }
+  }
+
+  stopScanner(): void {
+    this.scannerActive.set(false);
+  }
+
+  handleQrResult(value: string): void {
+    this.validateQr(value);
   }
 
   simulateValid(): void {
-    this.validateToken('QR-S0001-VALID');
+    this.handleQrResult('QR-S0001-VALID');
   }
 
   simulateExpired(): void {
-    this.validateToken('QR-S0004-EXPIRED');
+    /** Member with fee overdue — Figma “Cuota vencida” case. */
+    this.handleQrResult('QR-S0003-VALID');
   }
 
   resetScanner(): void {
-    this.view.set('scan');
     this.result.set(null);
+    this.viewState.set('idle');
+    this.startScanner();
   }
 
-  private validateToken(qrToken: string): void {
+  retry(): void {
+    this.result.set(null);
+    this.viewState.set('idle');
+    this.startScanner();
+  }
+
+  formatValidatedAt(iso: string): string {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return iso;
+    }
+
+    return new Intl.DateTimeFormat('es-AR', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+  }
+
+  private validateQr(qrToken: string): void {
+    if (this.isValidating()) {
+      return;
+    }
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       this.notifications.warning('Seleccioná el beneficio a validar.');
@@ -115,23 +168,60 @@ export class ComercioValidateQr {
       return;
     }
 
-    this.validating.set(true);
+    const benefitId = this.form.controls.promotionId.value;
+    this.viewState.set('validating');
+
     this.redemptionService
       .validateQr({
         qrToken,
         merchantId,
-        promotionId: this.form.controls.promotionId.value,
+        benefitId,
+        promotionId: benefitId,
+        validatedAt: new Date().toISOString(),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
-          this.validating.set(false);
+          this.stopScanner();
           this.result.set(response);
-          this.view.set(response.valid ? 'success' : 'rejected');
+          this.viewState.set(response.valid ? 'approved' : 'rejected');
         },
         error: () => {
-          this.validating.set(false);
-          this.notifications.error('No se pudo validar el QR.');
+          this.stopScanner();
+          this.result.set(null);
+          this.viewState.set('error');
+        },
+      });
+  }
+
+  private loadBenefits(): void {
+    const merchantId = this.auth.currentUser()?.merchantId;
+
+    this.promotionService
+      .list(merchantId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (promotions) => {
+          const options = promotions
+            .filter(
+              (promo) =>
+                promo.status === PromotionStatus.Activa ||
+                promo.status === PromotionStatus.Inactiva,
+            )
+            .map((promo) => ({
+              value: promo.id,
+              label: promo.title,
+            }));
+
+          this.benefitOptions.set(options);
+          if (options.length > 0) {
+            this.form.controls.promotionId.setValue(options[0].value);
+          }
+          this.loadingPromos.set(false);
+        },
+        error: () => {
+          this.loadingPromos.set(false);
+          this.viewState.set('error');
         },
       });
   }

@@ -17,6 +17,10 @@
           <p class="login__subtitle">Ingresá con tu cuenta</p>
         </header>
 
+        @if (sessionExpiredMessage()) {
+          <app-alert variant="info" [message]="sessionExpiredMessage()" />
+        }
+
         @if (errorMessage()) {
           <app-alert variant="error" [message]="errorMessage()" />
         }
@@ -48,6 +52,10 @@
             </button>
           </div>
 
+          <div class="login__forgot">
+            <a [routerLink]="forgotPasswordRoute">¿Olvidaste tu contraseña?</a>
+          </div>
+
           <app-button type="submit" [fullWidth]="true" [disabled]="submitting()">
             {{ submitting() ? 'Ingresando...' : 'Iniciar sesión' }}
           </app-button>
@@ -57,11 +65,6 @@
           <p class="login__register-text">¿Todavía no sos socio?</p>
           <a class="login__cta" [routerLink]="registerRoute">Quiero ser socio</a>
         </div>
-
-        <p class="login__hint">
-          Demo: admin@srcc.local / admin123 · socio@srcc.local / socio123 · comercio@srcc.local /
-          comercio123
-        </p>
       </div>
     </app-card>
   </main>

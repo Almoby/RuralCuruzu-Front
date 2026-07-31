@@ -54,7 +54,7 @@
                 <th>Socio</th>
                 <th>N° Socio</th>
                 <th>Categoría</th>
-                <th>Estado cuota</th>
+                <th>Estado</th>
                 <th>Cuota</th>
                 <th>Vencimiento</th>
                 <th class="members-table__th-actions">Acciones</th>
@@ -78,20 +78,20 @@
                     <span class="members-table__code">{{ member.memberCode }}</span>
                   </td>
                   <td>
-                    <app-badge [variant]="memberPlanBadge(member.category)">
-                      {{ member.category }}
+                    <app-badge [variant]="socioCategoryBadge(member.category)">
+                      {{ socioCategoryLabel(member.category) }}
                     </app-badge>
                   </td>
                   <td>
-                    <app-badge [variant]="feeStatusBadge(member.feeStatus)">
-                      {{ feeStatusLabel(member.feeStatus) }}
+                    <app-badge [variant]="socioEstadoBadge(member.membershipStatus)">
+                      {{ socioEstadoLabel(member.membershipStatus) }}
                     </app-badge>
                   </td>
                   <td>
-                    <span class="members-table__fee">{{ formatMemberFee(member.monthlyFee) }}</span>
+                    <span class="members-table__fee">{{ member.monthlyFeeLabel }}</span>
                   </td>
                   <td>
-                    <span class="members-table__due">{{ formatMemberDate(member.nextDueDate) }}</span>
+                    <span class="members-table__due">{{ member.nextDueDateLabel }}</span>
                   </td>
                   <td class="members-table__actions">
                     <button
@@ -108,7 +108,7 @@
                       class="members-table__action"
                       title="Editar"
                       aria-label="Editar a {{ member.fullName }}"
-                      (click)="openEdit(member)"
+                      (click)="openEdit()"
                     >
                       <app-icon name="edit" [size]="16" />
                     </button>
@@ -118,7 +118,7 @@
                         class="members-table__action members-table__action--danger"
                         title="Desactivar"
                         aria-label="Desactivar a {{ member.fullName }}"
-                        (click)="askDeactivate(member)"
+                        (click)="askDeactivate()"
                       >
                         <app-icon name="trash" [size]="16" />
                       </button>
@@ -158,7 +158,7 @@
                     class="members-table__action"
                     title="Editar"
                     aria-label="Editar a {{ member.fullName }}"
-                    (click)="openEdit(member)"
+                    (click)="openEdit()"
                   >
                     <app-icon name="edit" [size]="16" />
                   </button>
@@ -168,7 +168,7 @@
                       class="members-table__action members-table__action--danger"
                       title="Desactivar"
                       aria-label="Desactivar a {{ member.fullName }}"
-                      (click)="askDeactivate(member)"
+                      (click)="askDeactivate()"
                     >
                       <app-icon name="trash" [size]="16" />
                     </button>
@@ -184,26 +184,26 @@
                 <div>
                   <dt>Categoría</dt>
                   <dd>
-                    <app-badge [variant]="memberPlanBadge(member.category)">
-                      {{ member.category }}
+                    <app-badge [variant]="socioCategoryBadge(member.category)">
+                      {{ socioCategoryLabel(member.category) }}
                     </app-badge>
                   </dd>
                 </div>
                 <div>
-                  <dt>Estado cuota</dt>
+                  <dt>Estado</dt>
                   <dd>
-                    <app-badge [variant]="feeStatusBadge(member.feeStatus)">
-                      {{ feeStatusLabel(member.feeStatus) }}
+                    <app-badge [variant]="socioEstadoBadge(member.membershipStatus)">
+                      {{ socioEstadoLabel(member.membershipStatus) }}
                     </app-badge>
                   </dd>
                 </div>
                 <div>
                   <dt>Cuota</dt>
-                  <dd>{{ formatMemberFee(member.monthlyFee) }}</dd>
+                  <dd>{{ member.monthlyFeeLabel }}</dd>
                 </div>
                 <div>
                   <dt>Vencimiento</dt>
-                  <dd>{{ formatMemberDate(member.nextDueDate) }}</dd>
+                  <dd>{{ member.nextDueDateLabel }}</dd>
                 </div>
               </dl>
             </article>
@@ -220,31 +220,10 @@
     (save)="saveCreate($event)"
   />
 
-  <app-member-edit-modal
-    [open]="editOpen()"
-    [member]="editingMember()"
-    [submitting]="submitting()"
-    (close)="closeEdit()"
-    (save)="saveEdit($event)"
-  />
-
   <app-member-detail-modal
     [open]="detailOpen()"
     [member]="detailMember()"
     [loading]="detailLoading()"
     (close)="closeDetail()"
-  />
-
-  <app-confirm-dialog
-    [open]="confirmOpen()"
-    title="Desactivar socio"
-    [message]="
-      '¿Desactivar a ' + (memberToDeactivate()?.fullName ?? 'este socio') + '? Podrás reactivarlo luego.'
-    "
-    confirmLabel="Desactivar"
-    cancelLabel="Cancelar"
-    [danger]="true"
-    (confirm)="confirmDeactivate()"
-    (cancel)="cancelDeactivate()"
   />
 </section>

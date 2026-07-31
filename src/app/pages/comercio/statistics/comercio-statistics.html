@@ -4,79 +4,138 @@
     subtitle="Rendimiento del programa de beneficios"
   />
 
-  @if (loading()) {
-    <app-loading message="Cargando estadísticas..." />
-  } @else {
-    <div class="comercio-stats__kpis">
-      <app-stat-card label="Total usos histórico" [value]="totalUsages()" />
-      <app-stat-card label="Socios únicos" [value]="uniqueMembers()" hint="Este mes" />
-      <app-stat-card
-        label="Validaciones del mes"
-        [value]="stats()?.validationsMonth ?? 0"
-      />
-    </div>
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando estadísticas..." />
+    }
 
-    <app-card title="Usos por promoción (este mes)">
-      @if (promoBars().length === 0) {
-        <app-empty-state title="Sin datos" description="Aún no hay usos registrados." />
-      } @else {
-        <ul class="bars">
-          @for (bar of promoBars(); track bar.name) {
-            <li>
-              <div class="bars__label">
-                <span>{{ bar.name }}</span>
-                <strong>{{ bar.value }}</strong>
-              </div>
-              <div class="bars__track">
-                <div class="bars__fill" [style.width]="bar.percent + '%'"></div>
-              </div>
-            </li>
-          }
-        </ul>
-      }
-    </app-card>
-
-    <app-card title="Detalle de consumos recientes">
-      @if (recentConsumptions().length === 0) {
-        <app-empty-state
-          title="Sin consumos"
-          description="Los usos de beneficios aparecerán aquí."
+    @case ('error') {
+      <div class="comercio-stats__state">
+        <app-alert
+          variant="error"
+          message="No se pudieron cargar las estadísticas. Intentá nuevamente."
         />
-      } @else {
-        <div class="table-wrap">
-          <table class="consumptions">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Socio</th>
-                <th>Beneficio</th>
-                <th>Descuento</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of recentConsumptions(); track item.id) {
-                <tr>
-                  <td>{{ item.redeemedAt | dateEs }}</td>
-                  <td>
-                    <div class="consumptions__member">
-                      <strong>{{ item.memberName }}</strong>
-                      <span>{{ item.memberCode }}</span>
-                    </div>
-                  </td>
-                  <td>{{ item.benefitTitle }}</td>
-                  <td>{{ item.discountApplied }}</td>
-                  <td>
-                    <app-badge [variant]="item.status === 'Exitosa' ? 'success' : 'danger'">
-                      {{ item.status }}
-                    </app-badge>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+        <app-button variant="outline" (click)="retry()">Reintentar</app-button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin datos"
+        description="Todavía no hay información estadística para este comercio."
+      />
+    }
+
+    @case ('success') {
+      @if (summary(); as kpis) {
+        <div class="comercio-stats__kpis" aria-label="Resumen de estadísticas">
+          <app-stat-card
+            label="Total usos (histórico)"
+            [value]="kpis.totalHistoricalUses"
+            icon="trending_up"
+            iconAlign="start"
+            iconTone="primary"
+          />
+          <app-stat-card
+            label="Socios únicos"
+            [value]="kpis.uniqueMembers"
+            icon="people"
+            iconAlign="start"
+            iconTone="brown"
+          />
+          <app-stat-card
+            label="Promos activas"
+            [value]="kpis.activePromotions"
+            icon="local_offer"
+            iconAlign="start"
+            iconTone="violet"
+          />
+          <app-stat-card
+            label="Usos este mes"
+            [value]="kpis.usesThisMonth"
+            icon="gift"
+            iconAlign="start"
+            iconTone="success"
+          />
         </div>
       }
-    </app-card>
+
+      <app-card title="Usos mensuales (histórico)">
+        @if (monthlyChartData(); as chartData) {
+          <div
+            class="comercio-stats__chart comercio-stats__chart--line"
+            role="img"
+            aria-label="Gráfico de línea con usos mensuales históricos de enero a junio"
+          >
+            <canvas
+              baseChart
+              type="line"
+              [data]="chartData"
+              [options]="monthlyChartOptions()"
+              [legend]="false"
+            ></canvas>
+          </div>
+        } @else {
+          <p class="comercio-stats__muted">Todavía no hay datos históricos.</p>
+        }
+      </app-card>
+
+      <app-card title="Usos por promoción (este mes)">
+        @if (promotionChartData(); as chartData) {
+          <div
+            class="comercio-stats__chart comercio-stats__chart--bar"
+            role="img"
+            aria-label="Gráfico de barras con usos por promoción en el mes actual"
+          >
+            <canvas
+              baseChart
+              type="bar"
+              [data]="chartData"
+              [options]="promotionChartOptions()"
+              [legend]="false"
+            ></canvas>
+          </div>
+        } @else {
+          <p class="comercio-stats__muted">No hay usos de promociones este mes.</p>
+        }
+      </app-card>
+
+      <app-card title="Detalle de consumos recientes">
+        @if (recentUsages().length === 0) {
+          <p class="comercio-stats__muted">No hay consumos recientes.</p>
+        } @else {
+          <div class="comercio-stats__table-wrap">
+            <table class="consumptions">
+              <thead>
+                <tr>
+                  <th scope="col">Socio</th>
+                  <th scope="col">Beneficio</th>
+                  <th scope="col">Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of recentUsages(); track item.id) {
+                  <tr>
+                    <td>{{ item.memberName }}</td>
+                    <td>{{ item.benefitName }}</td>
+                    <td class="consumptions__date">{{ formatUsageDate(item.usedAt) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <ul class="consumptions-mobile" aria-label="Consumos recientes">
+            @for (item of recentUsages(); track item.id) {
+              <li class="consumptions-mobile__item">
+                <p class="consumptions-mobile__member">{{ item.memberName }}</p>
+                <p class="consumptions-mobile__benefit">{{ item.benefitName }}</p>
+                <p class="consumptions-mobile__date">{{ formatUsageDate(item.usedAt) }}</p>
+              </li>
+            }
+          </ul>
+        }
+      </app-card>
+    }
   }
 </section>

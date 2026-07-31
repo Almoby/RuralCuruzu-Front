@@ -61,3 +61,33 @@ export interface FeePeriodOption {
 }
 
 export type PaymentFilter = 'all' | 'pending' | 'approved' | 'rejected';
+
+/** Institutional bank account data for socio transfer flow (mock/API). */
+export interface BankTransferDetails {
+  bank: string;
+  cbu: string;
+  alias: string;
+  holder: string;
+  cuit: string;
+}
+
+/** Presentation row for bank transfer details (copyable where allowed). */
+export interface BankDetailRow {
+  key: string;
+  label: string;
+  value: string;
+  copyable: boolean;
+}
+
+/**
+ * Transfer report payload keys used when building FormData
+ * (file + note + fee/member identifiers) for future Swagger upload.
+ */
+export type TransferReportFormField =
+  | 'file'
+  | 'notes'
+  | 'period'
+  | 'memberId'
+  | 'feeId'
+  | 'amount'
+  | 'paymentMethod';

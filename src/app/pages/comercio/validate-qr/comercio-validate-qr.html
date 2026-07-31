@@ -1,83 +1,150 @@
 <section class="validate-qr">
-  <app-page-header
-    title="Validar QR"
-    subtitle="Escaneá el código del socio para validar el beneficio"
-  />
+  <div class="validate-qr__column">
+    <header class="validate-qr__intro">
+      <h1 class="validate-qr__title">Validar QR</h1>
+      <p class="validate-qr__subtitle">
+        Escaneá el código del socio para validar el beneficio
+      </p>
+    </header>
 
-  @if (loadingPromos()) {
-    <app-loading message="Cargando beneficios..." />
-  } @else {
-    <app-card title="Beneficio a validar">
-      <form [formGroup]="form">
-        <app-select
-          label="Beneficio a validar"
-          formControlName="promotionId"
-          [options]="benefitOptions()"
-          placeholder="Seleccioná un beneficio"
-        />
-      </form>
-    </app-card>
+    @if (loadingPromos()) {
+      <app-loading message="Cargando beneficios..." />
+    } @else {
+      @if (showBenefitSelect()) {
+        <div class="benefit-card">
+          <form [formGroup]="form">
+            <app-select
+              label="Beneficio a validar"
+              formControlName="promotionId"
+              [options]="benefitOptions()"
+              placeholder="Seleccioná un beneficio"
+            />
+          </form>
+        </div>
+      }
 
-    @if (view() === 'scan') {
-      <app-card>
-        <div class="scanner">
-          <div class="scanner__frame" aria-hidden="true">
-            <span class="scanner__corner scanner__corner--tl"></span>
-            <span class="scanner__corner scanner__corner--tr"></span>
-            <span class="scanner__corner scanner__corner--bl"></span>
-            <span class="scanner__corner scanner__corner--br"></span>
-            <p>Apuntá la cámara al QR del socio</p>
+      @if (showScanner()) {
+        <div class="scanner-card">
+          <div
+            class="scanner-viewport"
+            role="img"
+            [attr.aria-label]="
+              scannerActive() ? 'Cámara activa para escanear QR' : 'Escáner detenido'
+            "
+          >
+            <span class="scanner-viewport__corner scanner-viewport__corner--tl"></span>
+            <span class="scanner-viewport__corner scanner-viewport__corner--tr"></span>
+            <span class="scanner-viewport__corner scanner-viewport__corner--bl"></span>
+            <span class="scanner-viewport__corner scanner-viewport__corner--br"></span>
+            <span class="scanner-viewport__line" aria-hidden="true"></span>
+
+            <div class="scanner-viewport__guide">
+              <app-icon name="camera" [size]="22" />
+              <p>Cámara activa</p>
+            </div>
+
+            @if (isValidating()) {
+              <div class="scanner-viewport__loading" aria-live="polite">
+                <app-loading message="Validando QR..." />
+              </div>
+            }
           </div>
 
-          <div class="scanner__actions">
-            <app-button [disabled]="validating()" (click)="simulateValid()">
-              {{ validating() ? 'Validando...' : 'Simular QR válido' }}
+          <p class="scanner-card__hint">Apuntá la cámara al QR del socio</p>
+
+          <div class="scanner-card__mock" aria-label="Simulación de escaneo (mock)">
+            <app-button [disabled]="isValidating()" (click)="simulateValid()">
+              Simular QR válido
             </app-button>
-            <app-button variant="outline" [disabled]="validating()" (click)="simulateExpired()">
+            <button
+              type="button"
+              class="scanner-card__mock-overdue"
+              [disabled]="isValidating()"
+              (click)="simulateExpired()"
+            >
               Simular QR vencido
-            </app-button>
+            </button>
           </div>
         </div>
-      </app-card>
-    }
+      }
 
-    @if (view() === 'success' && result(); as res) {
-      <div class="result result--success">
-        <h2>Beneficio aprobado!</h2>
-        <p>{{ res.message }}</p>
-        <div class="result__member">
-          <strong>{{ res.memberName }}</strong>
-          <span>{{ res.memberCode }}</span>
-          <div class="result__badges">
-            <app-badge variant="primary">Socio activo</app-badge>
-            <app-badge variant="success">Al día</app-badge>
+      @if (viewState() === 'approved' && approvedResult(); as res) {
+        <article class="result-card" aria-live="polite">
+          <div class="result-card__badge result-card__badge--success" aria-hidden="true">
+            <span class="result-card__ring result-card__ring--success">
+              <app-icon name="check" [size]="26" />
+            </span>
           </div>
+
+          <h2 class="result-card__title result-card__title--success">¡Beneficio aprobado!</h2>
+          <p class="result-card__subtitle">Acceso autorizado</p>
+
+          <div class="result-panel">
+            <div class="result-panel__member">
+              <span class="result-panel__avatar" aria-hidden="true">{{ res.initials }}</span>
+              <div class="result-panel__member-text">
+                <p class="result-panel__name">{{ res.fullName }}</p>
+                <p class="result-panel__meta">
+                  {{ res.memberNumber }} · {{ res.category }}
+                </p>
+              </div>
+            </div>
+
+            <div class="result-panel__benefit">
+              <div class="result-panel__benefit-left">
+                <span class="result-panel__benefit-icon" aria-hidden="true">
+                  <app-icon name="percent" [size]="14" />
+                </span>
+                <span class="result-panel__benefit-name">{{ res.benefitName }}</span>
+              </div>
+              <span class="result-panel__value">{{ res.benefitValue }}</span>
+            </div>
+
+            <div class="result-panel__time">
+              <app-icon name="clock" [size]="14" />
+              <time [attr.datetime]="res.validatedAt">
+                {{ formatValidatedAt(res.validatedAt) }}
+              </time>
+            </div>
+          </div>
+
+          <button type="button" class="result-card__reset" (click)="resetScanner()">
+            Escanear otro QR
+          </button>
+        </article>
+      }
+
+      @if (viewState() === 'rejected' && rejectedResult(); as res) {
+        <article class="result-card" aria-live="assertive">
+          <div class="result-card__badge result-card__badge--danger" aria-hidden="true">
+            <span class="result-card__ring result-card__ring--danger">
+              <app-icon name="close" [size]="22" />
+            </span>
+          </div>
+
+          <h2 class="result-card__title result-card__title--danger">{{ res.reasonTitle }}</h2>
+          <p class="result-card__subtitle">{{ res.reasonDescription }}</p>
+
+          <div class="result-warning">
+            <p>El socio no puede acceder al beneficio en este momento.</p>
+            <p>Indicale que regularice su situación en el portal de socios.</p>
+          </div>
+
+          <button type="button" class="result-card__reset" (click)="resetScanner()">
+            Escanear otro QR
+          </button>
+        </article>
+      }
+
+      @if (viewState() === 'error') {
+        <div class="validate-qr__error">
+          <app-alert
+            variant="error"
+            message="No se pudo validar el QR por un error técnico. Intentá nuevamente."
+          />
+          <app-button variant="outline" (click)="retry()">Reintentar</app-button>
         </div>
-        @if (selectedBenefitLabel()) {
-          <p class="result__benefit">{{ selectedBenefitLabel() }}</p>
-        }
-        <app-button (click)="resetScanner()">Escanear otro QR</app-button>
-      </div>
+      }
     }
-
-    @if (view() === 'rejected' && result(); as res) {
-      <div class="result result--rejected">
-        <h2>QR rechazado</h2>
-        <p class="result__reason">Cuota vencida</p>
-        <p>
-          {{ res.message || 'El socio no puede acceder a los beneficios hasta regularizar su cuota.' }}
-        </p>
-        @if (res.memberName) {
-          <div class="result__member">
-            <strong>{{ res.memberName }}</strong>
-            <span>{{ res.memberCode }}</span>
-          </div>
-        }
-        <p class="result__hint">
-          El socio no puede acceder a los beneficios mientras tenga la cuota vencida.
-        </p>
-        <app-button variant="outline" (click)="resetScanner()">Escanear otro QR</app-button>
-      </div>
-    }
-  }
+  </div>
 </section>

@@ -2,14 +2,17 @@
   [open]="open()"
   title="Solicitud de adhesión"
   [subtitle]="modalSubtitle()"
+  size="lg"
   (close)="onClose()"
 >
-  @if (request(); as item) {
-    <div class="request-detail">
+  @if (loading() && !request()) {
+    <app-loading message="Cargando detalle..." />
+  } @else if (request(); as item) {
+    <div class="request-detail" [class.request-detail--loading]="loading()">
       <div class="request-detail__badges">
         <app-badge [variant]="requestStatusBadge(item.status)">
-          <app-icon [name]="statusIcon(item.status)" [size]="12" />
-          {{ item.status }}
+          <app-icon [name]="requestStatusIcon(item.status)" [size]="12" />
+          {{ requestStatusLabel(item.status) }}
         </app-badge>
         <app-badge [variant]="categoryBadge(item.category)">
           {{ membershipTypeLabel(item.category) }}
@@ -37,44 +40,201 @@
         </div>
       }
 
-      @if (isPending()) {
+      @if (item.cancelReason && item.status === RequestStatus.Cancelada) {
+        <div class="request-detail__reason">
+          <p class="request-detail__label">Motivo de cancelación</p>
+          <p class="request-detail__value">{{ item.cancelReason }}</p>
+        </div>
+      }
+
+      @if (item.historial && item.historial.length > 0) {
+        <div class="request-detail__historial">
+          <p class="request-detail__section-title">Historial</p>
+          <ul class="request-detail__historial-list">
+            @for (entry of item.historial; track entry.id) {
+              <li class="request-detail__historial-item">
+                <div class="request-detail__historial-head">
+                  <span class="request-detail__historial-date">
+                    {{ formatHistorialDate(entry.dateTime) }}
+                  </span>
+                  <span class="request-detail__historial-admin">{{ entry.adminName }}</span>
+                </div>
+
+                @if (entry.previousStatus || entry.newStatus) {
+                  <p class="request-detail__historial-status">
+                    @if (entry.previousStatus) {
+                      {{ requestStatusLabel(entry.previousStatus) }}
+                    } @else {
+                      —
+                    }
+                    →
+                    @if (entry.newStatus) {
+                      {{ requestStatusLabel(entry.newStatus) }}
+                    } @else {
+                      —
+                    }
+                  </p>
+                }
+
+                @if (entry.observation) {
+                  <p class="request-detail__historial-text">
+                    <strong>Observación:</strong> {{ entry.observation }}
+                  </p>
+                }
+
+                @if (entry.reason) {
+                  <p class="request-detail__historial-text">
+                    <strong>Motivo:</strong> {{ entry.reason }}
+                  </p>
+                }
+
+                @if (entry.attachments.length > 0) {
+                  <div class="request-detail__files">
+                    @for (file of entry.attachments; track file.path) {
+                      <button
+                        type="button"
+                        class="request-detail__file"
+                        [disabled]="submitting() || loading()"
+                        (click)="onDownload(file.path)"
+                      >
+                        <app-icon name="download" [size]="14" />
+                        {{ file.fileName }}
+                      </button>
+                    }
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
+      @if (canAct()) {
         <div class="request-detail__note">
           <app-textarea
             label="Nota interna (opcional)"
-            placeholder="Ej: Documentación incompleta, verificar DNI..."
+            placeholder="Comentario interno sobre esta revisión..."
             [formControl]="noteControl"
-            [rows]="3"
+            [rows]="2"
           />
         </div>
-      } @else if (item.notes) {
-        <div class="request-detail__reason">
-          <p class="request-detail__label">Nota interna</p>
-          <p class="request-detail__value">{{ item.notes }}</p>
-        </div>
+
+        @if (needsMotivo()) {
+          <div #motivoSection class="request-detail__note" [class.request-detail__note--error]="!!motivoError()">
+            <app-textarea
+              label="Motivo (obligatorio para rechazar o cancelar)"
+              placeholder="Indicá el motivo antes de rechazar o cancelar..."
+              [formControl]="motivoControl"
+              [error]="motivoError()"
+              [rows]="2"
+            />
+          </div>
+        }
+
+        @if (hasAction('observe')) {
+          <div class="request-detail__observe">
+            <app-textarea
+              label="Observación para el solicitante"
+              placeholder="Se enviará por correo con link de respuesta..."
+              [formControl]="observacionControl"
+              [error]="observacionError()"
+              [rows]="3"
+            />
+            <app-button
+              variant="soft"
+              [disabled]="submitting() || loading()"
+              [fullWidth]="true"
+              (click)="onObserve()"
+            >
+              Enviar observación
+            </app-button>
+          </div>
+        }
       }
     </div>
   }
 
-  @if (isPending()) {
-    <div modalFooter class="request-detail__actions">
-      <app-button
-        variant="danger-outline"
-        [disabled]="submitting()"
-        [fullWidth]="true"
-        (click)="onReject()"
-      >
-        <app-icon name="x_circle" [size]="16" />
-        Rechazar
-      </app-button>
-      <app-button
-        variant="primary"
-        [disabled]="submitting()"
-        [fullWidth]="true"
-        (click)="onApprove()"
-      >
-        <app-icon name="check_circle" [size]="16" />
-        Aprobar
-      </app-button>
+  @if (canAct()) {
+    <div
+      modalFooter
+      class="request-detail__actions"
+      [class.request-detail__actions--review]="isReviewFooter()"
+      [class.request-detail__actions--single]="hasAction('pass_to_review') && !isReviewFooter()"
+    >
+      @if (hasAction('pass_to_review')) {
+        <app-button
+          class="request-detail__action request-detail__action--pass"
+          variant="primary"
+          [disabled]="submitting() || loading()"
+          [fullWidth]="true"
+          (click)="requestAction('pass_to_review')"
+        >
+          <app-icon name="eye" [size]="16" />
+          Pasar a revisión
+        </app-button>
+      }
+
+      @if (hasAction('reopen')) {
+        <app-button
+          class="request-detail__action request-detail__action--reopen"
+          variant="primary"
+          [disabled]="submitting() || loading()"
+          [fullWidth]="true"
+          (click)="requestAction('reopen')"
+        >
+          <app-icon name="eye" [size]="16" />
+          Reabrir
+        </app-button>
+      }
+
+      @if (hasAction('cancel')) {
+        <app-button
+          class="request-detail__action request-detail__action--cancel"
+          variant="soft"
+          [disabled]="submitting() || loading()"
+          [fullWidth]="true"
+          (click)="requestAction('cancel')"
+        >
+          Cancelar solicitud
+        </app-button>
+      }
+
+      @if (hasAction('reject')) {
+        <app-button
+          class="request-detail__action request-detail__action--reject"
+          variant="danger-outline"
+          [disabled]="submitting() || loading()"
+          [fullWidth]="true"
+          (click)="requestAction('reject')"
+        >
+          <app-icon name="x_circle" [size]="16" />
+          Rechazar
+        </app-button>
+      }
+
+      @if (hasAction('approve')) {
+        <app-button
+          class="request-detail__action request-detail__action--approve"
+          variant="primary"
+          [disabled]="submitting() || loading()"
+          [fullWidth]="true"
+          (click)="requestAction('approve')"
+        >
+          <app-icon name="check_circle" [size]="16" />
+          Aprobar
+        </app-button>
+      }
     </div>
   }
 </app-modal>
+
+<app-confirm-dialog
+  [open]="confirmOpen()"
+  [title]="confirmTitle()"
+  [message]="confirmMessage()"
+  [confirmLabel]="confirmLabel()"
+  [cancelLabel]="confirmCancelLabel()"
+  [danger]="confirmDanger()"
+  (confirm)="onConfirmAccept()"
+  (cancel)="onConfirmCancel()"
+/>

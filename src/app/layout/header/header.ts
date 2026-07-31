@@ -7,6 +7,7 @@ import {
   output,
 } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
+import { UserRole } from '../../shared/enums';
 import { AppIcon } from '../../shared/components/icon/app-icon';
 
 @Component({
@@ -27,13 +28,21 @@ export class HeaderComponent {
   protected readonly user = this.authService.currentUser;
 
   protected readonly userInitial = computed(() => {
-    const fullName = this.user()?.fullName?.trim();
+    const current = this.user();
+    if (current?.role === UserRole.Comercio) {
+      const merchantName = current.merchantName?.trim();
+      if (merchantName) {
+        return merchantName.charAt(0).toLocaleUpperCase('es-AR');
+      }
+    }
+
+    const fullName = current?.fullName?.trim();
     if (fullName) {
       const firstChar = fullName.charAt(0);
       return firstChar.toLocaleUpperCase('es-AR');
     }
 
-    const email = this.user()?.email?.trim();
+    const email = current?.email?.trim();
     if (email) {
       return email.charAt(0).toLocaleUpperCase('es-AR');
     }

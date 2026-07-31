@@ -5,7 +5,8 @@ export const CHART_COLORS = {
   brown: '#6b4419',
   muted: '#6b7280',
   text: '#1a1f1e',
-  grid: '#e8ecec',
+  /** Soft axis/grid lines — keep subtle vs. series colors. */
+  grid: '#f1f3f3',
   white: '#ffffff',
 } as const;
 

@@ -7,20 +7,25 @@ import {
   Promotion,
   UpdatePromotionRequest,
 } from '../interfaces/promotion.interface';
-import { PromotionStatus } from '../../shared/enums';
+import { PromotionStatus, PromotionType } from '../../shared/enums';
 import { mockResponse } from '../utils/mock.util';
 import promotionsMock from '../../../assets/mock-data/promotions.json';
 
 @Injectable({ providedIn: 'root' })
 export class PromotionService {
   private readonly http = inject(HttpClient);
-  private promotions: Promotion[] = structuredClone(promotionsMock) as Promotion[];
+  private promotions: Promotion[] = (structuredClone(promotionsMock) as Promotion[]).map(
+    (promo) => ({
+      ...promo,
+      type: promo.type ?? PromotionType.Descuento,
+    }),
+  );
 
   list(merchantId?: string): Observable<Promotion[]> {
     if (environment.useMocks) {
       const data = merchantId
         ? this.promotions.filter((promo) => promo.merchantId === merchantId)
-        : this.promotions;
+        : [...this.promotions];
       return mockResponse(data);
     }
 
@@ -38,6 +43,7 @@ export class PromotionService {
         merchantName: 'Comercio',
         title: payload.title,
         description: payload.description,
+        type: payload.type,
         discountLabel: payload.discountLabel,
         discountPercent: payload.discountPercent,
         status: PromotionStatus.Activa,
@@ -69,5 +75,27 @@ export class PromotionService {
       return mockResponse(updated);
     }
     return this.http.put<Promotion>(`${environment.apiBaseUrl}/promotions/${id}`, payload);
+  }
+
+  toggleStatus(id: string): Observable<Promotion> {
+    if (environment.useMocks) {
+      const current = this.promotions.find((item) => item.id === id);
+      if (!current) {
+        return throwError(() => ({
+          status: 404,
+          message: 'Promoción no encontrada',
+          code: 'PROMOTION_NOT_FOUND',
+        }));
+      }
+
+      const nextStatus =
+        current.status === PromotionStatus.Activa
+          ? PromotionStatus.Inactiva
+          : PromotionStatus.Activa;
+
+      return this.update(id, { status: nextStatus });
+    }
+
+    return this.http.patch<Promotion>(`${environment.apiBaseUrl}/promotions/${id}/toggle`, {});
   }
 }

@@ -20,14 +20,27 @@ import {
 import { AppIcon } from '../../../shared/components/icon/app-icon';
 import { DashboardService } from '../../../core/services/dashboard.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { ApiError } from '../../../core/interfaces/api-response.interface';
 import {
   AdminDashboardStats,
   DashboardMetricCard,
   DashboardValueFormat,
   TrendDirection,
 } from '../../../core/interfaces/dashboard.interface';
+import { CHART_COLORS } from '../utils/chart-theme';
 
 type DashboardViewState = 'loading' | 'success' | 'empty' | 'error';
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    'message' in error &&
+    typeof (error as ApiError).status === 'number' &&
+    typeof (error as ApiError).message === 'string'
+  );
+}
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -145,7 +158,7 @@ export class AdminDashboardPage {
               callback: (value) => `$${Math.round(Number(value) / 1000)}k`,
             },
             grid: {
-              color: '#e8ecec',
+              color: CHART_COLORS.grid,
               tickBorderDash: [3, 3],
             },
             border: { display: false },
@@ -286,7 +299,7 @@ export class AdminDashboardPage {
               color: '#6b7280',
             },
             grid: {
-              color: '#e8ecec',
+              color: CHART_COLORS.grid,
               tickBorderDash: [3, 3],
             },
             border: { display: false },
@@ -309,14 +322,22 @@ export class AdminDashboardPage {
       .pipe(
         startWith(undefined),
         tap(() => {
-          this.viewState.set('loading');
-          this.stats.set(null);
+          // Avoid flashing zeros: only show full-page loading when there is no data yet.
+          if (!this.stats()) {
+            this.viewState.set('loading');
+          }
         }),
         switchMap(() =>
           this.dashboardService.getAdminStats().pipe(
-            catchError(() => {
-              this.viewState.set('error');
-              this.notifications.error('No se pudo cargar el dashboard');
+            catchError((error: unknown) => {
+              if (!this.stats()) {
+                this.viewState.set('error');
+              }
+              this.notifications.error(
+                isApiError(error)
+                  ? error.message
+                  : 'No se pudo cargar el dashboard',
+              );
               return EMPTY;
             }),
           ),
@@ -328,7 +349,7 @@ export class AdminDashboardPage {
           stats.summaryCards.length === 0 &&
           stats.financialCards.length === 0 &&
           stats.monthlyCollections.labels.length === 0 &&
-          stats.memberStatus.segments.length === 0 &&
+          stats.memberStatus.segments.every((segment) => segment.value === 0) &&
           stats.benefitsByCommerce.items.length === 0;
 
         this.stats.set(stats);

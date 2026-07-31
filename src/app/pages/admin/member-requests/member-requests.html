@@ -36,12 +36,12 @@
           <p class="requests__summary-label">Pendientes</p>
         </article>
         <article class="requests__summary-card requests__summary-card--approved">
-          <p class="requests__summary-value">{{ summary().approved }}</p>
-          <p class="requests__summary-label">Aprobadas</p>
+          <p class="requests__summary-value">{{ summary().inReview }}</p>
+          <p class="requests__summary-label">En revisión</p>
         </article>
         <article class="requests__summary-card requests__summary-card--rejected">
-          <p class="requests__summary-value">{{ summary().rejected }}</p>
-          <p class="requests__summary-label">Rechazadas</p>
+          <p class="requests__summary-value">{{ summary().approved }}</p>
+          <p class="requests__summary-label">Aprobadas</p>
         </article>
       </div>
 
@@ -79,8 +79,8 @@
                   <p class="requests__email">{{ item.email }}</p>
                   <div class="requests__badges">
                     <app-badge [variant]="requestStatusBadge(item.status)">
-                      <app-icon [name]="statusIcon(item.status)" [size]="12" />
-                      {{ item.status }}
+                      <app-icon [name]="requestStatusIcon(item.status)" [size]="12" />
+                      {{ requestStatusLabel(item.status) }}
                     </app-badge>
                     <app-badge [variant]="categoryBadge(item.category)">
                       {{ membershipTypeLabel(item.category) }}
@@ -88,7 +88,7 @@
                   </div>
 
                   @if (item.status === RequestStatus.Aprobada && item.notes) {
-                    <p class="requests__note">📝 {{ item.notes }}</p>
+                    <p class="requests__note">{{ item.notes }}</p>
                   }
                 </div>
               </div>
@@ -119,8 +119,14 @@
     [request]="selected()"
     [mode]="detailMode()"
     [submitting]="submitting()"
+    [loading]="detailLoading()"
     (close)="closeDetail()"
+    (passToReview)="passToReview($event)"
     (approve)="approve($event)"
     (reject)="reject($event)"
+    (cancelRequest)="cancelRequest($event)"
+    (reopen)="reopen($event)"
+    (observe)="observe($event)"
+    (downloadFile)="downloadFile($event)"
   />
 </section>

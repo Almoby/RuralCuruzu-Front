@@ -10,8 +10,9 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { catchError, filter, of, startWith, switchMap } from 'rxjs';
+import { catchError, filter, merge, of, startWith, switchMap } from 'rxjs';
 import { APP_NAVIGATION, NavItem } from '../../core/config/app.config';
+import { PORTAL_BRANDING } from '../../core/config/socio-ui.config';
 import { APP_ROUTES } from '../../core/constants/routes.constant';
 import { AuthService } from '../../core/services/auth.service';
 import { MembershipRequestService } from '../../core/services/membership-request.service';
@@ -37,6 +38,8 @@ export class SidebarComponent {
 
   private readonly pendingRequestsCount = signal(0);
 
+  protected readonly organizationName = PORTAL_BRANDING.organizationName;
+
   protected readonly navItems = computed(() => {
     const role = this.authService.currentRole();
     if (!role) {
@@ -45,13 +48,36 @@ export class SidebarComponent {
     return APP_NAVIGATION[role] ?? [];
   });
 
+  protected readonly brandSubtitle = computed(() => {
+    const user = this.authService.currentUser();
+    if (!user) {
+      return this.organizationName;
+    }
+    if (user.role === UserRole.Socio) {
+      const memberNumber = user.memberCode?.trim() ?? '';
+      const memberName = user.fullName?.trim() ?? '';
+      if (memberNumber && memberName) {
+        return `${memberNumber} · ${memberName}`;
+      }
+      return memberNumber || memberName || 'Portal del Socio';
+    }
+    if (user.role === UserRole.Comercio) {
+      return user.merchantName?.trim() || 'Portal del Comercio';
+    }
+    return this.organizationName;
+  });
+
   protected readonly showPendingIndicator = computed(() => this.pendingRequestsCount() > 0);
 
   constructor() {
-    this.router.events
-      .pipe(
+    merge(
+      this.router.events.pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
         startWith(null),
+      ),
+      this.membershipRequestService.changes$,
+    )
+      .pipe(
         switchMap(() => {
           if (this.authService.currentRole() !== UserRole.Admin) {
             return of(0);
@@ -83,8 +109,18 @@ export class SidebarComponent {
   }
 
   protected logout(): void {
-    this.authService.logout();
-    void this.router.navigate(['/', ...APP_ROUTES.auth.login.split('/')]);
-    this.closed.emit();
+    this.authService
+      .logout()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          void this.router.navigate(['/', ...APP_ROUTES.auth.login.split('/')]);
+          this.closed.emit();
+        },
+        error: () => {
+          void this.router.navigate(['/', ...APP_ROUTES.auth.login.split('/')]);
+          this.closed.emit();
+        },
+      });
   }
 }

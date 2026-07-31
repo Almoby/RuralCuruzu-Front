@@ -1,5 +1,6 @@
 @if (payment(); as item) {
-  <article class="payment-card">
+  <article class="payment-card" (click)="onOpenDetail()" role="button" tabindex="0"
+    (keydown.enter)="onOpenDetail()" (keydown.space)="$event.preventDefault(); onOpenDetail()">
     <div class="payment-card__top">
       <div class="payment-card__identity">
         <span class="payment-card__icon" aria-hidden="true">
@@ -18,5 +19,34 @@
       <span class="payment-card__date">{{ dateLabel() }}</span>
       <app-badge [variant]="statusBadge()">{{ statusLabel() }}</app-badge>
     </div>
+
+    @if (canReview()) {
+      <div class="payment-card__actions" (click)="$event.stopPropagation()">
+        <app-button
+          variant="outline"
+          [disabled]="busy()"
+          (click)="onReject($event)"
+        >
+          Rechazar
+        </app-button>
+        <app-button
+          variant="primary"
+          [disabled]="busy()"
+          (click)="onApprove($event)"
+        >
+          Aprobar
+        </app-button>
+      </div>
+    } @else if (canRegister()) {
+      <div class="payment-card__actions" (click)="$event.stopPropagation()">
+        <app-button
+          variant="primary"
+          [disabled]="busy()"
+          (click)="onRegisterPayment($event)"
+        >
+          Registrar pago
+        </app-button>
+      </div>
+    }
   </article>
 }

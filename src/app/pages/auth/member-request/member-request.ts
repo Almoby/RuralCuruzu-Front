@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
+  ViewChild,
   computed,
   inject,
   signal,
@@ -14,17 +16,28 @@ import {
   ValidationErrors,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { startWith } from 'rxjs';
 import { APP_ROUTES } from '../../../core/constants/routes.constant';
-import { PersonType } from '../../../core/interfaces/member-request.interface';
+import { ApiError } from '../../../core/interfaces/api-response.interface';
+import { SolicitudSocioFormValue } from '../../../core/interfaces/solicitud-socio.interface';
+import {
+  mapBackendFieldToFormControl,
+  mapFormToSolicitudSocioRequest,
+} from '../../../core/mappers/solicitud-socio.mapper';
 import { MembershipRequestService } from '../../../core/services/membership-request.service';
 import { MemberCategory } from '../../../shared/enums';
 import { AppAlert } from '../../../shared/components/alert/app-alert';
 import { AppButton } from '../../../shared/components/button/app-button';
+import { AppCheckbox } from '../../../shared/components/checkbox/app-checkbox';
 import { AppIcon } from '../../../shared/components/icon/app-icon';
 import { AppInput } from '../../../shared/components/input/app-input';
 import { AppSelect, SelectOption } from '../../../shared/components/select/app-select';
+
+function requiredTrimmed(control: AbstractControl): ValidationErrors | null {
+  const value = typeof control.value === 'string' ? control.value.trim() : '';
+  return value.length > 0 ? null : { required: true };
+}
 
 function documentNumberValidator(control: AbstractControl): ValidationErrors | null {
   const raw = String(control.value ?? '').trim();
@@ -46,6 +59,36 @@ function cuitValidator(control: AbstractControl): ValidationErrors | null {
   return withDashes || digitsOnly ? null : { cuit: true };
 }
 
+function termsAcceptedValidator(control: AbstractControl): ValidationErrors | null {
+  return control.value === true ? null : { required: true };
+}
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as ApiError).message === 'string'
+  );
+}
+
+type FormControlName =
+  | 'membershipType'
+  | 'fullNameOrBusinessName'
+  | 'postalAddress'
+  | 'portalPisoDepartamento'
+  | 'birthDate'
+  | 'documentNumber'
+  | 'phone'
+  | 'personType'
+  | 'email'
+  | 'cuit'
+  | 'establishmentName'
+  | 'establishmentAddress'
+  | 'responsableName'
+  | 'responsableDocument'
+  | 'acceptTerms';
+
 @Component({
   selector: 'app-member-request',
   standalone: true,
@@ -54,6 +97,7 @@ function cuitValidator(control: AbstractControl): ValidationErrors | null {
     RouterLink,
     AppAlert,
     AppButton,
+    AppCheckbox,
     AppIcon,
     AppInput,
     AppSelect,
@@ -65,18 +109,22 @@ function cuitValidator(control: AbstractControl): ValidationErrors | null {
 export class MemberRequest {
   private readonly fb = inject(FormBuilder);
   private readonly membershipRequestService = inject(MembershipRequestService);
-  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+
+  @ViewChild('successHeading')
+  private readonly successHeading?: ElementRef<HTMLHeadingElement>;
 
   protected readonly MemberCategory = MemberCategory;
   protected readonly submitting = signal(false);
+  protected readonly submitted = signal(false);
   protected readonly successMessage = signal('');
+  protected readonly successRequestNumber = signal('');
   protected readonly errorMessage = signal('');
   protected readonly loginRoute = ['/', ...APP_ROUTES.auth.login.split('/')];
 
   protected readonly personTypeOptions: SelectOption[] = [
-    { value: 'fisica', label: 'Persona Física' },
-    { value: 'juridica', label: 'Persona Jurídica' },
+    { value: 'FISICA', label: 'Persona Física' },
+    { value: 'JURIDICA', label: 'Persona Jurídica' },
   ];
 
   private readonly categoryDescriptions: Record<MemberCategory, string> = {
@@ -88,26 +136,38 @@ export class MemberRequest {
 
   protected readonly form = this.fb.nonNullable.group({
     membershipType: [MemberCategory.Activo as MemberCategory, Validators.required],
-    fullNameOrBusinessName: ['', [Validators.required, Validators.minLength(3)]],
-    postalAddress: ['', Validators.required],
-    birthDate: ['', Validators.required],
-    documentNumber: ['', [Validators.required, documentNumberValidator]],
-    phone: ['', [Validators.required, Validators.minLength(8)]],
-    personType: ['' as PersonType | '', Validators.required],
+    fullNameOrBusinessName: ['', [Validators.required, requiredTrimmed, Validators.minLength(3)]],
+    postalAddress: ['', [Validators.required, requiredTrimmed]],
+    portalPisoDepartamento: [''],
+    birthDate: [''],
+    documentNumber: [''],
+    phone: ['', [Validators.required, requiredTrimmed, Validators.minLength(8)]],
+    personType: ['' as '' | 'FISICA' | 'JURIDICA', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     cuit: ['', [Validators.required, cuitValidator]],
-    establishmentName: [''],
-    establishmentAddress: [''],
+    establishmentName: ['', [Validators.required, requiredTrimmed, Validators.minLength(2)]],
+    establishmentAddress: ['', [Validators.required, requiredTrimmed, Validators.minLength(2)]],
+    responsableName: [''],
+    responsableDocument: [''],
+    acceptTerms: [false, [termsAcceptedValidator]],
   });
 
   private readonly selectedCategory = signal<MemberCategory>(MemberCategory.Activo);
+  private readonly selectedPersonType = signal<'' | 'FISICA' | 'JURIDICA'>('');
 
   protected readonly categoryDescription = computed(
     () => this.categoryDescriptions[this.selectedCategory()],
   );
 
-  protected readonly establishmentRequired = computed(
-    () => this.selectedCategory() === MemberCategory.Adherente,
+  protected readonly isPersonaFisica = computed(() => this.selectedPersonType() === 'FISICA');
+  protected readonly isPersonaJuridica = computed(() => this.selectedPersonType() === 'JURIDICA');
+
+  protected readonly nameLabel = computed(() =>
+    this.isPersonaJuridica() ? 'Razón Social *' : 'Apellido y Nombre *',
+  );
+
+  protected readonly namePlaceholder = computed(() =>
+    this.isPersonaJuridica() ? 'Ej: Agropecuaria Del Sol S.A.' : 'Ej: García, Juan Carlos',
   );
 
   constructor() {
@@ -116,9 +176,13 @@ export class MemberRequest {
         startWith(this.form.controls.membershipType.value),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((category) => {
-        this.selectedCategory.set(category);
-        this.syncEstablishmentValidators(category);
+      .subscribe((category) => this.selectedCategory.set(category));
+
+    this.form.controls.personType.valueChanges
+      .pipe(startWith(this.form.controls.personType.value), takeUntilDestroyed(this.destroyRef))
+      .subscribe((personType) => {
+        this.selectedPersonType.set(personType);
+        this.syncPersonTypeValidators(personType);
       });
   }
 
@@ -139,25 +203,15 @@ export class MemberRequest {
     this.selectMembershipType(next);
   }
 
-  protected fieldError(
-    controlName:
-      | 'membershipType'
-      | 'fullNameOrBusinessName'
-      | 'postalAddress'
-      | 'birthDate'
-      | 'documentNumber'
-      | 'phone'
-      | 'personType'
-      | 'email'
-      | 'cuit'
-      | 'establishmentName'
-      | 'establishmentAddress',
-  ): string {
+  protected fieldError(controlName: FormControlName): string {
     const control = this.form.controls[controlName];
     if (!control.touched || !control.invalid) {
       return '';
     }
     if (control.hasError('required')) {
+      if (controlName === 'acceptTerms') {
+        return 'Debés aceptar los términos y condiciones.';
+      }
       return 'Este campo es obligatorio';
     }
     if (control.hasError('email')) {
@@ -172,66 +226,142 @@ export class MemberRequest {
     if (control.hasError('minlength')) {
       return 'Completá este dato correctamente';
     }
+    if (control.hasError('backend')) {
+      return String(control.getError('backend'));
+    }
     return 'Dato inválido';
   }
 
   protected onSubmit(): void {
     this.errorMessage.set('');
-    this.successMessage.set('');
+    this.clearBackendFieldErrors();
     this.form.markAllAsTouched();
 
-    if (this.form.invalid || this.submitting()) {
+    if (this.form.invalid || this.submitting() || this.submitted()) {
+      this.focusFirstInvalid();
       return;
     }
 
-    const value = this.form.getRawValue();
+    const formValue = this.form.getRawValue() as SolicitudSocioFormValue;
+    const payload = mapFormToSolicitudSocioRequest(formValue);
+
     this.submitting.set(true);
 
     this.membershipRequestService
-      .create({
-        fullName: value.fullNameOrBusinessName.trim(),
-        email: value.email.trim(),
-        documentNumber: value.documentNumber.trim(),
-        phone: value.phone.trim(),
-        category: value.membershipType,
-        address: value.postalAddress.trim(),
-        birthDate: value.birthDate,
-        personType: value.personType as PersonType,
-        cuit: value.cuit.trim(),
-        establishmentName: value.establishmentName.trim() || undefined,
-        establishmentAddress: value.establishmentAddress.trim() || undefined,
-      })
+      .createPublic(payload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
+        next: (response) => {
           this.submitting.set(false);
+          this.submitted.set(true);
           this.successMessage.set(
-            'Tu solicitud fue enviada correctamente. Te contactaremos por email.',
+            response.mensaje?.trim() || 'Solicitud de socio enviada con éxito',
           );
-          this.form.reset({
-            membershipType: MemberCategory.Activo,
-            personType: '',
-          });
-          this.syncEstablishmentValidators(MemberCategory.Activo);
-          window.setTimeout(() => {
-            void this.router.navigate(this.loginRoute);
-          }, 1800);
+          this.successRequestNumber.set(response.solicitud?.numeroSolicitud?.trim() || '');
+          queueMicrotask(() => this.successHeading?.nativeElement.focus());
         },
-        error: (error: { message?: string }) => {
+        error: (error: unknown) => {
           this.submitting.set(false);
-          this.errorMessage.set(error.message ?? 'No se pudo enviar la solicitud');
+          this.applyBackendErrors(error);
         },
       });
   }
 
-  private syncEstablishmentValidators(category: MemberCategory): void {
-    const required = category === MemberCategory.Adherente;
-    const nameControl = this.form.controls.establishmentName;
-    const addressControl = this.form.controls.establishmentAddress;
+  private syncPersonTypeValidators(personType: '' | 'FISICA' | 'JURIDICA'): void {
+    const birthDate = this.form.controls.birthDate;
+    const documentNumber = this.form.controls.documentNumber;
+    const responsableName = this.form.controls.responsableName;
+    const responsableDocument = this.form.controls.responsableDocument;
 
-    nameControl.setValidators(required ? [Validators.required, Validators.minLength(2)] : []);
-    addressControl.setValidators(required ? [Validators.required, Validators.minLength(2)] : []);
-    nameControl.updateValueAndValidity({ emitEvent: false });
-    addressControl.updateValueAndValidity({ emitEvent: false });
+    if (personType === 'FISICA') {
+      birthDate.setValidators([Validators.required]);
+      documentNumber.setValidators([Validators.required, documentNumberValidator]);
+      responsableName.clearValidators();
+      responsableDocument.clearValidators();
+      responsableName.setValue('');
+      responsableDocument.setValue('');
+    } else if (personType === 'JURIDICA') {
+      birthDate.clearValidators();
+      documentNumber.clearValidators();
+      birthDate.setValue('');
+      documentNumber.setValue('');
+      responsableName.setValidators([Validators.required, requiredTrimmed, Validators.minLength(3)]);
+      responsableDocument.setValidators([Validators.required, documentNumberValidator]);
+    } else {
+      birthDate.clearValidators();
+      documentNumber.clearValidators();
+      responsableName.clearValidators();
+      responsableDocument.clearValidators();
+    }
+
+    birthDate.updateValueAndValidity({ emitEvent: false });
+    documentNumber.updateValueAndValidity({ emitEvent: false });
+    responsableName.updateValueAndValidity({ emitEvent: false });
+    responsableDocument.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private applyBackendErrors(error: unknown): void {
+    if (!isApiError(error)) {
+      this.errorMessage.set('No se pudo enviar la solicitud. Intentá nuevamente.');
+      return;
+    }
+
+    let mappedAny = false;
+
+    for (const item of error.fieldErrors ?? []) {
+      const controlName = mapBackendFieldToFormControl(item.field) as FormControlName | null;
+      if (controlName && controlName in this.form.controls) {
+        const control = this.form.controls[controlName];
+        control.setErrors({ ...(control.errors ?? {}), backend: item.message });
+        control.markAsTouched();
+        mappedAny = true;
+      }
+    }
+
+    this.errorMessage.set(error.message || 'No se pudo enviar la solicitud.');
+    if (!mappedAny) {
+      this.focusFirstInvalid();
+    }
+  }
+
+  private clearBackendFieldErrors(): void {
+    (Object.keys(this.form.controls) as FormControlName[]).forEach((key) => {
+      const control = this.form.controls[key];
+      if (control.hasError('backend')) {
+        const { backend: _removed, ...rest } = control.errors ?? {};
+        control.setErrors(Object.keys(rest).length > 0 ? rest : null);
+      }
+    });
+  }
+
+  private focusFirstInvalid(): void {
+    const order: FormControlName[] = [
+      'membershipType',
+      'personType',
+      'fullNameOrBusinessName',
+      'postalAddress',
+      'portalPisoDepartamento',
+      'birthDate',
+      'documentNumber',
+      'phone',
+      'email',
+      'cuit',
+      'establishmentName',
+      'establishmentAddress',
+      'responsableName',
+      'responsableDocument',
+      'acceptTerms',
+    ];
+
+    for (const name of order) {
+      const control = this.form.controls[name];
+      if (control.invalid) {
+        const el = document.querySelector<HTMLElement>(
+          `[formcontrolname="${name}"], #${CSS.escape(name)}`,
+        );
+        el?.focus();
+        break;
+      }
+    }
   }
 }

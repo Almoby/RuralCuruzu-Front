@@ -1,8 +1,26 @@
-<article class="app-stat-card">
+<article
+  class="app-stat-card"
+  [class.app-stat-card--icon-start]="iconAlign() === 'start'"
+>
   <div class="app-stat-card__top">
+    @if (icon() && iconAlign() === 'start') {
+      <span
+        class="app-stat-card__icon"
+        [attr.data-tone]="iconTone() || null"
+        aria-hidden="true"
+      >
+        <app-icon [name]="icon()" [size]="14" />
+      </span>
+    }
+
     <p class="app-stat-card__label">{{ label() }}</p>
-    @if (icon()) {
-      <span class="app-stat-card__icon" aria-hidden="true">
+
+    @if (icon() && iconAlign() === 'end') {
+      <span
+        class="app-stat-card__icon"
+        [attr.data-tone]="iconTone() || null"
+        aria-hidden="true"
+      >
         <app-icon [name]="icon()" [size]="16" />
       </span>
     }

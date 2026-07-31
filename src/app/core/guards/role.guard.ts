@@ -3,6 +3,7 @@ import { CanActivateFn, Router } from '@angular/router';
 import { UserRole } from '../../shared/enums';
 import { AuthService } from '../services/auth.service';
 import { APP_ROUTES } from '../constants/routes.constant';
+import { homeRouteForRole } from '../utils/auth-navigation.util';
 
 export function roleGuard(allowedRoles: UserRole[]): CanActivateFn {
   return () => {
@@ -10,6 +11,7 @@ export function roleGuard(allowedRoles: UserRole[]): CanActivateFn {
     const router = inject(Router);
 
     if (!authService.isAuthenticated()) {
+      authService.clearSession();
       return router.createUrlTree(['/', ...APP_ROUTES.auth.login.split('/')]);
     }
 
@@ -18,16 +20,11 @@ export function roleGuard(allowedRoles: UserRole[]): CanActivateFn {
     }
 
     const role = authService.currentRole();
-    if (role === UserRole.Admin) {
-      return router.createUrlTree(['/', ...APP_ROUTES.admin.dashboard.split('/')]);
-    }
-    if (role === UserRole.Socio) {
-      return router.createUrlTree(['/', ...APP_ROUTES.socio.dashboard.split('/')]);
-    }
-    if (role === UserRole.Comercio) {
-      return router.createUrlTree(['/', ...APP_ROUTES.comercio.home.split('/')]);
+    if (role) {
+      return router.createUrlTree(homeRouteForRole(role));
     }
 
+    authService.clearSession();
     return router.createUrlTree(['/', ...APP_ROUTES.auth.login.split('/')]);
   };
 }

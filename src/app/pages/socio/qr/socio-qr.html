@@ -1,26 +1,110 @@
 <section class="socio-qr">
-  <app-page-header
-    title="Mi QR"
-    subtitle="Presentalo en los comercios para acceder a tus beneficios"
-  />
+  <header class="socio-qr__intro">
+    <h2 class="socio-qr__title">Mi QR</h2>
+    <p class="socio-qr__subtitle">
+      Presentalo en los comercios para acceder a tus beneficios
+    </p>
+  </header>
 
-  <app-card>
-    <div class="socio-qr__panel">
-      <app-badge variant="success">QR Activo</app-badge>
-
-      <div class="socio-qr__frame">
-        <img [src]="qrUrl()" [alt]="'Código QR de ' + memberCode()" width="240" height="240" />
-      </div>
-
-      <div class="socio-qr__identity">
-        <strong>{{ memberName() }}</strong>
-        <span>{{ memberCode() }}</span>
-      </div>
-
-      <p class="socio-qr__note">
-        Podés usar este QR en todos los comercios adheridos. El QR se renueva automáticamente cada
-        mes.
-      </p>
+  @if (viewState() === 'loading') {
+    <div class="socio-qr__stage" aria-busy="true">
+      <app-loading message="Cargando tu QR..." />
     </div>
-  </app-card>
+  } @else if (viewState() === 'error') {
+    <div class="socio-qr__stage">
+      <app-alert
+        variant="error"
+        message="No pudimos cargar tu QR. Reintentá en unos segundos."
+      />
+      <div class="socio-qr__retry">
+        <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
+      </div>
+    </div>
+  } @else if (viewState() === 'empty') {
+    <div class="socio-qr__stage">
+      <app-empty-state
+        title="Sin QR disponible"
+        description="Todavía no tenés un código QR generado."
+      />
+      <div class="socio-qr__retry">
+        <app-button variant="primary" (click)="refreshQr()" [disabled]="refreshing()">
+          Generar QR
+        </app-button>
+      </div>
+    </div>
+  } @else if (data(); as panel) {
+    <article class="socio-qr__card">
+      @if (qr(); as code) {
+        <div
+          class="socio-qr__status"
+          [class.socio-qr__status--active]="code.status === 'active'"
+          [class.socio-qr__status--expired]="code.status === 'expired'"
+          [class.socio-qr__status--suspended]="code.status === 'suspended'"
+          role="status"
+          [attr.aria-label]="code.statusLabel"
+        >
+          <app-icon [name]="code.statusIcon" [size]="14" />
+          <span>{{ code.statusLabel }}</span>
+        </div>
+
+        <div class="socio-qr__frame">
+          @if (refreshing()) {
+            <app-loading message="Actualizando..." />
+          } @else {
+            <img
+              class="socio-qr__image"
+              [src]="qrImageUrl()"
+              [alt]="'Código QR de ' + panel.profile.memberName"
+              width="200"
+              height="200"
+            />
+          }
+        </div>
+
+        <div class="socio-qr__identity">
+          <p class="socio-qr__name">{{ panel.profile.memberName }}</p>
+          <p class="socio-qr__code">{{ panel.profile.memberNumber }}</p>
+        </div>
+
+        <p class="socio-qr__helper">{{ panel.summary.helperText }}</p>
+      }
+    </article>
+
+    <div class="socio-qr__info-grid">
+      <article class="socio-qr__info-card">
+        <p class="socio-qr__info-label">Próx. vencimiento</p>
+        <p class="socio-qr__info-value">{{ panel.summary.nextDueDateLabel }}</p>
+      </article>
+      <article class="socio-qr__info-card">
+        <p class="socio-qr__info-label">Último pago</p>
+        <p class="socio-qr__info-value">{{ panel.summary.lastPaymentDateLabel }}</p>
+      </article>
+    </div>
+
+    <div class="socio-qr__actions">
+      <button
+        type="button"
+        class="socio-qr__btn socio-qr__btn--update"
+        [disabled]="refreshing() || sharing()"
+        aria-label="Actualizar código QR"
+        (click)="refreshQr()"
+      >
+        <app-icon name="refresh" [size]="15" />
+        <span>{{ refreshing() ? 'Actualizando...' : 'Actualizar' }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="socio-qr__btn socio-qr__btn--share"
+        [disabled]="refreshing() || sharing()"
+        aria-label="Compartir código QR"
+        (click)="shareQr()"
+      >
+        <app-icon name="share" [size]="15" />
+        <span>{{ sharing() ? 'Compartiendo...' : 'Compartir' }}</span>
+      </button>
+    </div>
+
+    <p class="socio-qr__renewal">{{ panel.summary.renewalNote }}</p>
+  }
 </section>

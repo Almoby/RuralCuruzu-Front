@@ -10,74 +10,89 @@
     />
   } @else {
     @if (currentFee(); as fee) {
-      <app-card [title]="feeTitle(fee.period)">
-        <div class="current-fee">
-          <div class="current-fee__row">
-            <span>Monto</span>
-            <strong>{{ fee.amount | currencyArs }}</strong>
-          </div>
-          <div class="current-fee__row">
-            <span>Vencimiento</span>
-            <strong>{{ fee.dueDate | dateEs }}</strong>
-          </div>
-          <div class="current-fee__row">
-            <span>Estado</span>
-            <app-badge [variant]="feeBadgeVariant(fee.status)">
-              {{ feeStatusLabel(fee.status) }}
-            </app-badge>
-          </div>
-          @if (fee.paidAt) {
-            <div class="current-fee__row">
-              <span>Pagado el</span>
-              <strong>{{ fee.paidAt | dateEs }}</strong>
-            </div>
-          }
-        </div>
-      </app-card>
+      <article class="fee-hero" aria-label="Cuota del mes">
+        <p class="fee-hero__label">{{ feeTitle(fee.period) }}</p>
+        <p class="fee-hero__amount">{{ fee.amount | currencyArs }}</p>
+        <p class="fee-hero__due">
+          <app-icon name="alert_circle" [size]="14" />
+          <span>Vence el {{ fee.dueDate | dateEs }}</span>
+        </p>
+      </article>
     }
 
-    <app-card title="Opciones de pago">
+    <section class="payments-section" aria-labelledby="payment-options-title">
+      <h2 id="payment-options-title" class="payments-section__title">Opciones de pago</h2>
+
       <div class="payment-options">
-        <article class="payment-option">
-          <h3>Link de pago</h3>
-          <p>Pagá con Mercado Pago de forma rápida y segura desde tu celular o computadora.</p>
-          <app-button (click)="openLinkModal()">Ir al link de pago</app-button>
+        <article class="option-card">
+          <span class="option-card__icon" aria-hidden="true">
+            <app-icon name="link" [size]="20" />
+          </span>
+          <h3 class="option-card__title">Link de pago</h3>
+          <p class="option-card__desc">
+            Pagá online con tarjeta de crédito, débito o billetera virtual (Mercado Pago, Modo, etc.)
+          </p>
+          <button type="button" class="option-card__action" (click)="openLinkModal()">
+            <span>Ir al link de pago</span>
+            <app-icon name="external_link" [size]="13" />
+          </button>
         </article>
 
-        <article class="payment-option">
-          <h3>Transferencia bancaria</h3>
-          <ul>
-            <li><span>Titular</span> Sociedad Rural de Curuzú Cuatiá</li>
-            <li><span>CBU</span> 0170123456789012345678</li>
-            <li><span>Alias</span> SRCC.CUOTAS</li>
-            <li><span>CUIT</span> 30-71234567-8</li>
-          </ul>
-          <app-button variant="outline" (click)="openReportModal()">
-            Informar pago (comprobante)
-          </app-button>
+        <article class="option-card">
+          <span class="option-card__icon" aria-hidden="true">
+            <app-icon name="banknote" [size]="20" />
+          </span>
+          <h3 class="option-card__title">Transferencia bancaria</h3>
+          <p class="option-card__desc">
+            Realizá una transferencia y adjuntá el comprobante para que el equipo lo verifique.
+          </p>
+          <button type="button" class="option-card__action" (click)="openReportModal()">
+            <span>Ver datos bancarios</span>
+            <app-icon name="chevron_right" [size]="13" />
+          </button>
         </article>
       </div>
-    </app-card>
+    </section>
 
-    <app-card title="Cuotas anteriores">
+    <section class="payments-section receipts" aria-labelledby="receipts-title">
+      <h2 id="receipts-title" class="payments-section__title">Comprobantes</h2>
+
       @if (previousFees().length === 0) {
-        <p class="muted">No hay cuotas anteriores para mostrar.</p>
+        <p class="receipts__empty">No hay comprobantes para mostrar.</p>
       } @else {
-        <ul class="fee-history">
+        <ul class="receipts__list">
           @for (fee of previousFees(); track fee.id) {
-            <li>
-              <div>
-                <strong>{{ feeTitle(fee.period) }}</strong>
-                <span>{{ fee.amount | currencyArs }}</span>
+            <li class="receipts__item">
+              <span class="receipts__icon" aria-hidden="true">
+                <app-icon name="check_circle" [size]="16" />
+              </span>
+
+              <div class="receipts__body">
+                <p class="receipts__name">{{ receiptTitle(fee.period) }}</p>
+                <p class="receipts__meta">
+                  @if (fee.paymentMethod) {
+                    {{ fee.paymentMethod }} ·
+                  }
+                  @if (fee.paidAt) {
+                    {{ fee.paidAt | dateEs }}
+                  } @else {
+                    {{ fee.dueDate | dateEs }}
+                  }
+                </p>
               </div>
-              <app-badge [variant]="feeBadgeVariant(fee.status)">
-                {{ feeStatusLabel(fee.status) }}
-              </app-badge>
+
+              <div class="receipts__aside">
+                <p class="receipts__amount">{{ fee.amount | currencyArs }}</p>
+                <button type="button" class="receipts__download">
+                  <app-icon name="download" [size]="13" />
+                  <span>Descargar</span>
+                </button>
+              </div>
             </li>
           }
         </ul>
       }
-    </app-card>
+    </section>
   }
 
   <app-modal
@@ -86,46 +101,198 @@
     (close)="closeLinkModal()"
   >
     <div class="link-modal">
-      <p>
-        Vas a ser redirigido a Mercado Pago para completar el pago de tu cuota de forma segura.
+      @if (currentFee(); as fee) {
+        <article class="link-modal__summary">
+          <p class="link-modal__period">{{ receiptTitle(fee.period) }}</p>
+          <p class="link-modal__amount">{{ fee.amount | currencyArs }}</p>
+          <p class="link-modal__member">{{ memberSummary() }}</p>
+        </article>
+      }
+
+      <p class="link-modal__text">
+        Serás redirigido a la plataforma de pago seguro para abonar con tarjeta de crédito, débito
+        o billetera virtual.
       </p>
-      <p class="muted">
-        En este entorno de demostración el link es simulado y no realiza un cobro real.
-      </p>
-    </div>
-    <div modalFooter>
-      <app-button variant="secondary" (click)="closeLinkModal()">Cancelar</app-button>
-      <app-button (click)="closeLinkModal()">Continuar</app-button>
+
+      <div class="link-modal__actions">
+        <app-button [fullWidth]="true" (click)="closeLinkModal()">
+          Ir al link de pago
+          <app-icon name="external_link" [size]="16" />
+        </app-button>
+        <button type="button" class="btn-secondary" (click)="closeLinkModal()">
+          Cancelar
+        </button>
+      </div>
     </div>
   </app-modal>
 
   <app-modal
     [open]="reportModalOpen()"
-    title="Informar pago"
+    title="Transferencia bancaria"
+    [subtitle]="transferModalSubtitle()"
     (close)="closeReportModal()"
   >
-    <form class="report-form" [formGroup]="reportForm" (ngSubmit)="submitReport()">
-      <app-input
-        label="Número de comprobante"
-        placeholder="Ej: TRANSF-123456"
-        formControlName="receiptNumber"
-        [error]="
-          reportForm.controls.receiptNumber.touched && reportForm.controls.receiptNumber.invalid
-            ? 'Ingresá el número de comprobante'
-            : ''
-        "
-      />
-      <app-textarea
-        label="Nota (opcional)"
-        placeholder="Detalle del pago o banco emisor"
-        formControlName="notes"
-      />
-    </form>
-    <div modalFooter>
-      <app-button variant="secondary" (click)="closeReportModal()">Cancelar</app-button>
-      <app-button [disabled]="submitting()" (click)="submitReport()">
-        {{ submitting() ? 'Enviando...' : 'Informar pago' }}
-      </app-button>
+    <div class="transfer-modal">
+      <ol class="transfer-stepper" aria-label="Pasos de la transferencia">
+        <li
+          class="transfer-stepper__step"
+          [class.transfer-stepper__step--active]="transferStep() === 1"
+          [class.transfer-stepper__step--done]="transferStep() > 1"
+        >
+          <span class="transfer-stepper__dot" aria-hidden="true">
+            @if (transferStep() > 1) {
+              <app-icon name="check" [size]="12" />
+            } @else {
+              1
+            }
+          </span>
+          <span class="transfer-stepper__label">Datos</span>
+        </li>
+        <li class="transfer-stepper__line" aria-hidden="true"></li>
+        <li
+          class="transfer-stepper__step"
+          [class.transfer-stepper__step--active]="transferStep() === 2"
+          [class.transfer-stepper__step--done]="transferStep() > 2"
+        >
+          <span class="transfer-stepper__dot" aria-hidden="true">
+            @if (transferStep() > 2) {
+              <app-icon name="check" [size]="12" />
+            } @else {
+              2
+            }
+          </span>
+          <span class="transfer-stepper__label">Comprobante</span>
+        </li>
+        <li class="transfer-stepper__line" aria-hidden="true"></li>
+        <li
+          class="transfer-stepper__step"
+          [class.transfer-stepper__step--active]="transferStep() === 3"
+          [class.transfer-stepper__step--done]="transferStep() === 3"
+        >
+          <span class="transfer-stepper__dot" aria-hidden="true">
+            @if (transferStep() === 3) {
+              <app-icon name="check" [size]="12" />
+            } @else {
+              3
+            }
+          </span>
+          <span class="transfer-stepper__label">Listo</span>
+        </li>
+      </ol>
+
+      @if (transferStep() === 1) {
+        <div class="transfer-step1">
+          <div class="bank-details">
+            @for (item of bankRows(); track item.key) {
+              <div class="bank-details__row">
+                <div class="bank-details__text">
+                  <span class="bank-details__label">{{ item.label }}</span>
+                  <span class="bank-details__value">{{ item.value }}</span>
+                </div>
+                @if (item.copyable) {
+                  <button
+                    type="button"
+                    class="bank-details__copy"
+                    [attr.aria-label]="'Copiar ' + item.label"
+                    (click)="copyBankValue(item)"
+                  >
+                    @if (copiedKey() === item.key) {
+                      <span class="bank-details__copied">Copiado</span>
+                    } @else {
+                      <app-icon name="copy" [size]="15" />
+                    }
+                  </button>
+                }
+              </div>
+            }
+          </div>
+
+          <p class="transfer-help">
+            Importante: incluí tu número de socio {{ memberCode() }} en el concepto de la
+            transferencia.
+          </p>
+
+          <app-button [fullWidth]="true" (click)="goToTransferStep(2)">
+            Ya realicé la transferencia
+            <app-icon name="arrow_right" [size]="16" />
+          </app-button>
+        </div>
+      }
+
+      @if (transferStep() === 2) {
+        <form class="report-form" [formGroup]="reportForm" (ngSubmit)="submitReport()">
+          <input
+            #receiptFileInput
+            class="receipt-upload__native"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,application/pdf"
+            (change)="onReceiptSelected($event)"
+          />
+
+          <button
+            type="button"
+            class="receipt-upload"
+            [class.receipt-upload--filled]="!!selectedFile()"
+            [class.receipt-upload--error]="!!fileError()"
+            (click)="openFilePicker()"
+            (dragover)="onReceiptDragOver($event)"
+            (drop)="onReceiptDrop($event)"
+          >
+            @if (selectedFile(); as file) {
+              <span class="receipt-upload__icon receipt-upload__icon--ok" aria-hidden="true">
+                <app-icon name="check_circle" [size]="28" />
+              </span>
+              <span class="receipt-upload__name">{{ file.name }}</span>
+              <span class="receipt-upload__hint">Tocá para reemplazar el archivo</span>
+            } @else {
+              <span class="receipt-upload__icon" aria-hidden="true">
+                <app-icon name="file" [size]="28" />
+              </span>
+              <span class="receipt-upload__name">Adjuntá imagen o PDF</span>
+              <span class="receipt-upload__hint">PNG, JPG, WEBP o PDF · máx. 5 MB</span>
+            }
+          </button>
+
+          @if (fileError()) {
+            <p class="receipt-upload__error">{{ fileError() }}</p>
+          }
+
+          <app-textarea
+            label="Nota adicional (opcional)"
+            placeholder="Ej: Transferencia del 8/06 a las 10:00hs"
+            formControlName="notes"
+            [rows]="3"
+          />
+
+          <div class="report-form__actions">
+            <button type="button" class="btn-outline" (click)="goToTransferStep(1)">
+              <app-icon name="arrow_left" [size]="15" />
+              Volver
+            </button>
+            <app-button [disabled]="submitting()" type="submit">
+              {{ submitting() ? 'Enviando...' : 'Informar pago' }}
+            </app-button>
+          </div>
+        </form>
+      }
+
+      @if (transferStep() === 3) {
+        <div class="transfer-success">
+          <span class="transfer-success__badge" aria-hidden="true">
+            <span class="transfer-success__ring">
+              <app-icon name="check" [size]="22" />
+            </span>
+          </span>
+          <h3 class="transfer-success__title">¡Pago informado correctamente!</h3>
+          <p class="transfer-success__text">
+            El equipo administrativo revisará y aprobará tu pago. Recibirás una notificación por
+            email.
+          </p>
+          <button type="button" class="btn-secondary" (click)="closeReportModal()">
+            Cerrar
+          </button>
+        </div>
+      }
     </div>
   </app-modal>
 </section>

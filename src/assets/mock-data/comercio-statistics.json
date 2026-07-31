@@ -1,0 +1,50 @@
+{
+  "merchantId": "m-001",
+  "summary": {
+    "totalHistoricalUses": 342,
+    "uniqueMembers": 127,
+    "activePromotions": 1,
+    "usesThisMonth": 87
+  },
+  "monthlyUsage": [
+    { "month": "Ene", "usageCount": 45 },
+    { "month": "Feb", "usageCount": 62 },
+    { "month": "Mar", "usageCount": 58 },
+    { "month": "Abr", "usageCount": 71 },
+    { "month": "May", "usageCount": 84 },
+    { "month": "Jun", "usageCount": 87 }
+  ],
+  "promotionUsage": [
+    {
+      "promotionId": "promo-001",
+      "promotionName": "15% en medicamentos",
+      "usageCount": 87
+    }
+  ],
+  "recentUsages": [
+    {
+      "id": "usage-001",
+      "memberName": "Juan P.",
+      "benefitName": "15% en medicamentos",
+      "usedAt": "2026-06-08T11:30:00-03:00"
+    },
+    {
+      "id": "usage-002",
+      "memberName": "Laura F.",
+      "benefitName": "15% en medicamentos",
+      "usedAt": "2026-06-07T16:00:00-03:00"
+    },
+    {
+      "id": "usage-003",
+      "memberName": "Ana M.",
+      "benefitName": "15% en medicamentos",
+      "usedAt": "2026-06-06T09:45:00-03:00"
+    },
+    {
+      "id": "usage-004",
+      "memberName": "Carlos R.",
+      "benefitName": "15% en medicamentos",
+      "usedAt": "2026-06-05T14:20:00-03:00"
+    }
+  ]
+}

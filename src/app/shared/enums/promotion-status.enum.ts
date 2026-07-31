@@ -3,3 +3,10 @@ export enum PromotionStatus {
   Inactiva = 'Inactiva',
   Vencida = 'Vencida',
 }
+
+export enum PromotionType {
+  Descuento = 'Descuento',
+  Promocion = 'Promoción',
+  DosPorUno = '2×1',
+  Gratis = 'Gratis',
+}

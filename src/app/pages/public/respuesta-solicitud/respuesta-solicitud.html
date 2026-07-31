@@ -1,0 +1,198 @@
+<div class="respuesta">
+  <header class="respuesta__hero">
+    <img
+      class="respuesta__logo"
+      src="assets/images/logo/logo.png"
+      alt="Sociedad Rural de Curuzú Cuatiá"
+    />
+    <h1 class="respuesta__brand-title">Sociedad Rural de Curuzú Cuatiá</h1>
+    <p class="respuesta__brand-subtitle">Plataforma de Beneficios y Gestión de Socios</p>
+  </header>
+
+  <main class="respuesta__main">
+    <app-card class="respuesta__card-shell">
+      <div class="respuesta__card">
+        @switch (viewState()) {
+          @case ('loading') {
+            <div class="respuesta__state" aria-live="polite" aria-busy="true">
+              <app-loading message="Cargando solicitud..." />
+            </div>
+          }
+
+          @case ('invalid-link') {
+            <div class="respuesta__state respuesta__state--center" aria-live="assertive">
+              <span class="respuesta__status-icon respuesta__status-icon--warning" aria-hidden="true">
+                <app-icon name="alert_circle" [size]="28" />
+              </span>
+              <h2 #statusHeading class="respuesta__title" tabindex="-1">
+                No pudimos abrir la solicitud
+              </h2>
+              <p class="respuesta__subtitle">{{ invalidLinkMessage() }}</p>
+              <a class="respuesta__secondary-link" [routerLink]="loginRoute">Volver al inicio</a>
+            </div>
+          }
+
+          @case ('error') {
+            <div class="respuesta__state respuesta__state--center" aria-live="assertive">
+              <span class="respuesta__status-icon respuesta__status-icon--warning" aria-hidden="true">
+                <app-icon name="alert_circle" [size]="28" />
+              </span>
+              <h2 #statusHeading class="respuesta__title" tabindex="-1">
+                No pudimos cargar la solicitud
+              </h2>
+              <p class="respuesta__subtitle">{{ loadError() }}</p>
+              <div class="respuesta__actions">
+                <app-button type="button" [fullWidth]="true" (click)="retryLoad()">
+                  Reintentar
+                </app-button>
+                <a class="respuesta__secondary-link" [routerLink]="loginRoute">Volver al inicio</a>
+              </div>
+            </div>
+          }
+
+          @case ('success') {
+            <div class="respuesta__state respuesta__state--center" aria-live="polite">
+              <span class="respuesta__status-icon respuesta__status-icon--success" aria-hidden="true">
+                <app-icon name="check_circle" [size]="28" />
+              </span>
+              <h2 #statusHeading class="respuesta__title" tabindex="-1">Respuesta enviada</h2>
+              <p class="respuesta__subtitle">{{ successMessage() }}</p>
+              <p class="respuesta__muted">
+                El equipo de Rural Curuzú continuará con la revisión de tu solicitud.
+              </p>
+              <a class="respuesta__secondary-link" [routerLink]="loginRoute">Volver al inicio</a>
+            </div>
+          }
+
+          @default {
+            @if (observation(); as data) {
+              <header class="respuesta__header">
+                <h2 class="respuesta__title">Responder solicitud</h2>
+                <p class="respuesta__subtitle">
+                  Adjuntá la información solicitada para continuar con la revisión de tu solicitud.
+                </p>
+              </header>
+
+              <section class="respuesta__meta" aria-label="Datos de la solicitud">
+                <div class="respuesta__meta-item">
+                  <span class="respuesta__meta-label">Número de solicitud</span>
+                  <span class="respuesta__meta-value">{{ data.numeroSolicitud }}</span>
+                </div>
+                <div class="respuesta__meta-item">
+                  <span class="respuesta__meta-label">Solicitante</span>
+                  <span class="respuesta__meta-value">{{ data.nombreSolicitante }}</span>
+                </div>
+                <div class="respuesta__meta-item">
+                  <span class="respuesta__meta-label">Fecha de observación</span>
+                  <span class="respuesta__meta-value">
+                    {{ data.fechaHora | dateEs: dateTimeFormat }}
+                  </span>
+                </div>
+              </section>
+
+              <section class="respuesta__observation" aria-label="Observación del administrador">
+                <div class="respuesta__observation-header">
+                  <app-icon name="alert_circle" [size]="16" />
+                  <span>Observación</span>
+                </div>
+                <p class="respuesta__observation-text">{{ data.observacion }}</p>
+              </section>
+
+              <form class="respuesta__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+                @if (submitError()) {
+                  <app-alert variant="error" [message]="submitError()" />
+                }
+
+                <app-textarea
+                  label="Tu respuesta"
+                  placeholder="Escribí aquí la información o aclaración solicitada."
+                  formControlName="texto"
+                  [rows]="5"
+                  [error]="fieldError()"
+                  [disabled]="viewState() === 'submitting'"
+                />
+
+                <div class="respuesta__files">
+                  <span class="respuesta__files-label" id="archivos-label">Documentación</span>
+
+                  <input
+                    #fileInput
+                    class="respuesta__file-native"
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                    [disabled]="viewState() === 'submitting'"
+                    [attr.aria-labelledby]="'archivos-label'"
+                    (change)="onFileInputChange($event)"
+                  />
+
+                  <button
+                    type="button"
+                    class="respuesta__dropzone"
+                    [disabled]="viewState() === 'submitting'"
+                    [attr.aria-describedby]="fileError() ? 'archivos-error' : 'archivos-hint'"
+                    (click)="openFilePicker(fileInput)"
+                    (dragover)="onDragOver($event)"
+                    (drop)="onDrop($event)"
+                  >
+                    <span class="respuesta__dropzone-icon" aria-hidden="true">
+                      <app-icon name="file" [size]="26" />
+                    </span>
+                    <span class="respuesta__dropzone-title">Adjuntá la documentación solicitada</span>
+                    <span class="respuesta__dropzone-hint" id="archivos-hint">
+                      Formatos permitidos: PDF, JPG y PNG.
+                    </span>
+                  </button>
+
+                  @if (fileError()) {
+                    <p class="respuesta__file-error" id="archivos-error" aria-live="polite">
+                      {{ fileError() }}
+                    </p>
+                  }
+
+                  @if (attachments().length > 0) {
+                    <ul class="respuesta__file-list" aria-label="Archivos seleccionados">
+                      @for (item of attachments(); track item.id) {
+                        <li class="respuesta__file-item">
+                          <span class="respuesta__file-icon" aria-hidden="true">
+                            <app-icon [name]="iconForFile(item.file)" [size]="16" />
+                          </span>
+                          <div class="respuesta__file-info">
+                            <span class="respuesta__file-name">{{ item.file.name }}</span>
+                            <span class="respuesta__file-size">
+                              {{ formatFileSize(item.file.size) }}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            class="respuesta__file-remove"
+                            [disabled]="viewState() === 'submitting'"
+                            [attr.aria-label]="'Quitar archivo ' + item.file.name"
+                            (click)="removeAttachment(item.id)"
+                          >
+                            <app-icon name="close" [size]="14" />
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+
+                <div class="respuesta__actions">
+                  <app-button
+                    type="submit"
+                    [fullWidth]="true"
+                    [disabled]="!canSubmit() || viewState() === 'submitting'"
+                  >
+                    {{ viewState() === 'submitting' ? 'Enviando...' : 'Enviar respuesta' }}
+                  </app-button>
+                  <a class="respuesta__secondary-link" [routerLink]="loginRoute">Volver al inicio</a>
+                </div>
+              </form>
+            }
+          }
+        }
+      </div>
+    </app-card>
+  </main>
+</div>

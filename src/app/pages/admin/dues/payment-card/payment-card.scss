@@ -8,6 +8,12 @@
   border: 1px solid #e8eaea;
   border-radius: var(--radius-lg);
   box-shadow: 0 2px 8px rgb(26 31 30 / 4%);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 }
 
 .payment-card__top {
@@ -72,4 +78,11 @@
   justify-content: space-between;
   gap: var(--space-3);
   margin-top: auto;
+}
+
+.payment-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }

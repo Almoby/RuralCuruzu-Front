@@ -6,3 +6,9 @@ export {
   type MerchantCategoryIconConfig,
   type MerchantCategoryTone,
 } from './merchant-category-icon';
+export {
+  resolveBenefitRubroIcon,
+  type BenefitRubroIconConfig,
+  type BenefitRubroName,
+  type BenefitRubroTone,
+} from './benefit-rubro-icon';

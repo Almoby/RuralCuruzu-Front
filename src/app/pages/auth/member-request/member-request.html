@@ -13,170 +13,226 @@
 
   <main class="member-request__main">
     <div class="member-request__content">
-      @if (successMessage()) {
-        <app-alert variant="success" [message]="successMessage()" />
-      }
-
-      @if (errorMessage()) {
-        <app-alert variant="error" [message]="errorMessage()" />
-      }
-
-      <form class="member-request__form" [formGroup]="form" (ngSubmit)="onSubmit()">
-        <section class="member-request__type" aria-labelledby="membership-type-label">
-          <p class="member-request__type-label" id="membership-type-label">Tipo de asociación</p>
-
-          <div
-            class="member-request__segment"
-            role="radiogroup"
-            aria-labelledby="membership-type-label"
-            (keydown)="onMembershipKeydown($event)"
-          >
-            <button
-              type="button"
-              class="member-request__segment-btn"
-              role="radio"
-              [attr.aria-checked]="form.controls.membershipType.value === MemberCategory.Activo"
-              [class.member-request__segment-btn--active]="
-                form.controls.membershipType.value === MemberCategory.Activo
-              "
-              (click)="selectMembershipType(MemberCategory.Activo)"
-            >
-              Socio Activo
-            </button>
-
-            <button
-              type="button"
-              class="member-request__segment-btn"
-              role="radio"
-              [attr.aria-checked]="form.controls.membershipType.value === MemberCategory.Adherente"
-              [class.member-request__segment-btn--active]="
-                form.controls.membershipType.value === MemberCategory.Adherente
-              "
-              (click)="selectMembershipType(MemberCategory.Adherente)"
-            >
-              Socio Adherente
-            </button>
-          </div>
-
-          <p class="member-request__type-hint">{{ categoryDescription() }}</p>
+      @if (submitted()) {
+        <section class="member-request__success" aria-live="polite">
+          <span class="member-request__success-icon" aria-hidden="true">
+            <app-icon name="check_circle" [size]="28" />
+          </span>
+          <h2 #successHeading class="member-request__success-title" tabindex="-1">
+            Solicitud enviada
+          </h2>
+          <p class="member-request__success-message">{{ successMessage() }}</p>
+          @if (successRequestNumber()) {
+            <p class="member-request__success-number">
+              Número de solicitud: <strong>{{ successRequestNumber() }}</strong>
+            </p>
+          }
+          <p class="member-request__success-hint">
+            Revisá tu correo electrónico: vas a recibir la confirmación y las novedades de la
+            revisión.
+          </p>
+          <a class="member-request__success-link" [routerLink]="loginRoute">
+            Volver al inicio de sesión
+          </a>
         </section>
+      } @else {
+        @if (errorMessage()) {
+          <app-alert variant="error" [message]="errorMessage()" />
+        }
 
-        <section class="member-request__card" aria-labelledby="personal-data-title">
-          <h2 class="member-request__card-title" id="personal-data-title">DATOS PERSONALES</h2>
+        <form class="member-request__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+          <section class="member-request__type" aria-labelledby="membership-type-label">
+            <p class="member-request__type-label" id="membership-type-label">Tipo de asociación</p>
 
-          <div class="member-request__fields">
-            <app-input
-              class="member-request__field member-request__field--full"
-              label="Apellido y Nombre / Razón Social *"
-              placeholder="Ej: García, Juan Carlos"
-              formControlName="fullNameOrBusinessName"
-              [error]="fieldError('fullNameOrBusinessName')"
-            />
+            <div
+              class="member-request__segment"
+              role="radiogroup"
+              aria-labelledby="membership-type-label"
+              (keydown)="onMembershipKeydown($event)"
+            >
+              <button
+                type="button"
+                class="member-request__segment-btn"
+                role="radio"
+                [attr.aria-checked]="form.controls.membershipType.value === MemberCategory.Activo"
+                [class.member-request__segment-btn--active]="
+                  form.controls.membershipType.value === MemberCategory.Activo
+                "
+                (click)="selectMembershipType(MemberCategory.Activo)"
+              >
+                Socio Activo
+              </button>
 
-            <app-input
-              class="member-request__field member-request__field--full"
-              label="Dirección Postal *"
-              placeholder="Calle, número, ciudad"
-              formControlName="postalAddress"
-              [error]="fieldError('postalAddress')"
-            />
-
-            <div class="member-request__row">
-              <app-input
-                class="member-request__field"
-                label="Fecha de Nacimiento *"
-                type="date"
-                formControlName="birthDate"
-                [error]="fieldError('birthDate')"
-              />
-
-              <app-input
-                class="member-request__field"
-                label="D.N.I. / C.I. / L.E. *"
-                placeholder="Ej: 28.345.678"
-                formControlName="documentNumber"
-                [error]="fieldError('documentNumber')"
-              />
+              <button
+                type="button"
+                class="member-request__segment-btn"
+                role="radio"
+                [attr.aria-checked]="
+                  form.controls.membershipType.value === MemberCategory.Adherente
+                "
+                [class.member-request__segment-btn--active]="
+                  form.controls.membershipType.value === MemberCategory.Adherente
+                "
+                (click)="selectMembershipType(MemberCategory.Adherente)"
+              >
+                Socio Adherente
+              </button>
             </div>
 
-            <div class="member-request__row">
-              <app-input
-                class="member-request__field"
-                label="Teléfono *"
-                type="tel"
-                placeholder="+54 9 11..."
-                formControlName="phone"
-                [error]="fieldError('phone')"
-              />
+            <p class="member-request__type-hint">{{ categoryDescription() }}</p>
+          </section>
 
+          <section class="member-request__card" aria-labelledby="personal-data-title">
+            <h2 class="member-request__card-title" id="personal-data-title">DATOS PERSONALES</h2>
+
+            <div class="member-request__fields">
               <app-select
-                class="member-request__field"
+                class="member-request__field member-request__field--full"
                 label="Persona Física o Jurídica *"
-                placeholder="Persona..."
+                placeholder="Seleccioná el tipo"
                 [options]="personTypeOptions"
                 formControlName="personType"
                 [error]="fieldError('personType')"
               />
+
+              <app-input
+                class="member-request__field member-request__field--full"
+                [label]="nameLabel()"
+                [placeholder]="namePlaceholder()"
+                formControlName="fullNameOrBusinessName"
+                [error]="fieldError('fullNameOrBusinessName')"
+              />
+
+              <app-input
+                class="member-request__field member-request__field--full"
+                label="Dirección Postal *"
+                placeholder="Calle, número, ciudad"
+                formControlName="postalAddress"
+                [error]="fieldError('postalAddress')"
+              />
+
+              <app-input
+                class="member-request__field member-request__field--full"
+                label="Portal / piso / departamento"
+                placeholder="Opcional"
+                formControlName="portalPisoDepartamento"
+                [error]="fieldError('portalPisoDepartamento')"
+              />
+
+              @if (isPersonaFisica()) {
+                <div class="member-request__row">
+                  <app-input
+                    class="member-request__field"
+                    label="Fecha de Nacimiento *"
+                    type="date"
+                    formControlName="birthDate"
+                    [error]="fieldError('birthDate')"
+                  />
+
+                  <app-input
+                    class="member-request__field"
+                    label="D.N.I. / C.I. / L.E. *"
+                    placeholder="Ej: 28.345.678"
+                    formControlName="documentNumber"
+                    [error]="fieldError('documentNumber')"
+                  />
+                </div>
+              }
+
+              <div class="member-request__row">
+                <app-input
+                  class="member-request__field"
+                  label="Teléfono *"
+                  type="tel"
+                  placeholder="+54 9 11..."
+                  formControlName="phone"
+                  [error]="fieldError('phone')"
+                />
+
+                <app-input
+                  class="member-request__field"
+                  label="CUIT N° *"
+                  placeholder="Ej: 20-28345678-9"
+                  formControlName="cuit"
+                  [error]="fieldError('cuit')"
+                />
+              </div>
+
+              <app-input
+                class="member-request__field member-request__field--full"
+                label="E-mail *"
+                type="email"
+                placeholder="correo@ejemplo.com"
+                formControlName="email"
+                [error]="fieldError('email')"
+              />
+
+              @if (isPersonaJuridica()) {
+                <app-input
+                  class="member-request__field member-request__field--full"
+                  label="Nombre del responsable *"
+                  placeholder="Ej: María Fernández"
+                  formControlName="responsableName"
+                  [error]="fieldError('responsableName')"
+                />
+
+                <app-input
+                  class="member-request__field member-request__field--full"
+                  label="DNI del responsable *"
+                  placeholder="Ej: 30.123.456"
+                  formControlName="responsableDocument"
+                  [error]="fieldError('responsableDocument')"
+                />
+              }
+            </div>
+          </section>
+
+          <section class="member-request__card" aria-labelledby="establishment-title">
+            <div class="member-request__card-header">
+              <h2 class="member-request__card-title" id="establishment-title">
+                ESTABLECIMIENTO U OCUPACIÓN
+              </h2>
+              <span class="member-request__badge">Obligatorio</span>
             </div>
 
-            <app-input
-              class="member-request__field member-request__field--full"
-              label="E-mail *"
-              type="email"
-              placeholder="correo@ejemplo.com"
-              formControlName="email"
-              [error]="fieldError('email')"
-            />
+            <div class="member-request__fields">
+              <app-input
+                class="member-request__field member-request__field--full"
+                label="Nombre del Establecimiento u Ocupación *"
+                placeholder="Ej: Farmacia Central"
+                formControlName="establishmentName"
+                [error]="fieldError('establishmentName')"
+              />
 
-            <app-input
-              class="member-request__field member-request__field--full"
-              label="CUIT N° *"
-              placeholder="Ej: 20-28345678-9"
-              formControlName="cuit"
-              [error]="fieldError('cuit')"
-            />
-          </div>
-        </section>
+              <app-input
+                class="member-request__field member-request__field--full"
+                label="Dirección del Establecimiento *"
+                placeholder="Dirección del local o negocio"
+                formControlName="establishmentAddress"
+                [error]="fieldError('establishmentAddress')"
+              />
+            </div>
+          </section>
 
-        <section class="member-request__card" aria-labelledby="establishment-title">
-          <div class="member-request__card-header">
-            <h2 class="member-request__card-title" id="establishment-title">
-              ESTABLECIMIENTO U OCUPACIÓN
-            </h2>
-            @if (establishmentRequired()) {
-              <span class="member-request__badge">Obligatorio</span>
+          <div class="member-request__terms-block">
+            <app-checkbox
+              formControlName="acceptTerms"
+              label="Acepto los términos y condiciones de la Sociedad Rural de Curuzú Cuatiá"
+            />
+            @if (fieldError('acceptTerms')) {
+              <p class="member-request__terms-error">{{ fieldError('acceptTerms') }}</p>
             }
+            <p class="member-request__terms">
+              Tu solicitud será revisada por el equipo administrativo y recibirás una respuesta a tu
+              correo electrónico.
+            </p>
           </div>
 
-          <div class="member-request__fields">
-            <app-input
-              class="member-request__field member-request__field--full"
-              label="Nombre del Establecimiento u Ocupación"
-              placeholder="Ej: Farmacia Central"
-              formControlName="establishmentName"
-              [error]="fieldError('establishmentName')"
-            />
-
-            <app-input
-              class="member-request__field member-request__field--full"
-              label="Dirección del Establecimiento"
-              placeholder="Dirección del local o negocio"
-              formControlName="establishmentAddress"
-              [error]="fieldError('establishmentAddress')"
-            />
-          </div>
-        </section>
-
-        <p class="member-request__terms">
-          Al enviar esta solicitud, aceptás los términos y condiciones de la Sociedad Rural de Curuzú
-          Cuatiá. Tu solicitud será revisada por el equipo administrativo y recibirás una respuesta a
-          tu correo electrónico.
-        </p>
-
-        <app-button type="submit" [fullWidth]="true" [disabled]="submitting()">
-          {{ submitting() ? 'Enviando...' : 'Enviar solicitud de adhesión' }}
-        </app-button>
-      </form>
+          <app-button type="submit" [fullWidth]="true" [disabled]="submitting()">
+            {{ submitting() ? 'Enviando...' : 'Enviar solicitud de adhesión' }}
+          </app-button>
+        </form>
+      }
     </div>
   </main>
 </div>

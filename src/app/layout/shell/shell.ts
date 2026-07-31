@@ -11,6 +11,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, fromEvent, map, startWith } from 'rxjs';
 import { APP_NAVIGATION } from '../../core/config/app.config';
+import { resolveLayoutTheme } from '../../core/config/layout-theme';
 import { AuthService } from '../../core/services/auth.service';
 import { HeaderComponent } from '../header/header';
 import { SidebarComponent } from '../sidebar/sidebar';
@@ -31,6 +32,10 @@ export class ShellComponent {
   protected readonly sidebarOpen = signal(false);
 
   private readonly currentUrl = signal(this.router.url);
+
+  protected readonly layoutTheme = computed(() =>
+    resolveLayoutTheme(this.authService.currentRole()),
+  );
 
   protected readonly pageTitle = computed(() => {
     const role = this.authService.currentRole();

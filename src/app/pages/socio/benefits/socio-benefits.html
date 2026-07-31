@@ -1,106 +1,141 @@
 <section class="socio-benefits">
-  <app-page-header
-    title="Beneficios y Comercios"
-    [subtitle]="availableCount() + ' beneficios disponibles para vos'"
-  />
+  <header class="socio-benefits__intro">
+    <h2 class="socio-benefits__title">{{ title() }}</h2>
+    <p class="socio-benefits__subtitle">{{ availableCountLabel() }}</p>
+  </header>
 
-  <div class="socio-benefits__toolbar">
-    <app-search
-      placeholder="Buscar beneficios o comercios..."
-      [searchTerm]="searchTerm()"
-      (valueChange)="onSearch($event)"
-    />
-
-    <div class="filter-chips" role="group" aria-label="Filtros">
-      <button
-        type="button"
-        class="filter-chips__chip"
-        [class.filter-chips__chip--active]="filter() === 'all'"
-        (click)="setFilter('all')"
-      >
-        Todos
-      </button>
-      <button
-        type="button"
-        class="filter-chips__chip"
-        [class.filter-chips__chip--active]="filter() === 'promo'"
-        (click)="setFilter('promo')"
-      >
-        Promociones
-      </button>
-      <button
-        type="button"
-        class="filter-chips__chip"
-        [class.filter-chips__chip--active]="filter() === 'discount'"
-        (click)="setFilter('discount')"
-      >
-        Descuento
-      </button>
-    </div>
-  </div>
-
-  @if (loading()) {
+  @if (viewState() === 'loading') {
     <app-loading message="Cargando beneficios..." />
-  } @else if (filtered().length === 0) {
-    <app-empty-state
-      title="Sin beneficios"
-      description="No encontramos beneficios con esa búsqueda."
+  } @else if (viewState() === 'error') {
+    <app-alert
+      variant="error"
+      message="No pudimos cargar los beneficios. Reintentá en unos segundos."
     />
+    <div class="socio-benefits__retry">
+      <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
+    </div>
   } @else {
-    <div class="benefit-grid">
-      @for (benefit of filtered(); track benefit.id) {
-        <app-card>
-          <article class="benefit-card">
-            <div class="benefit-card__top">
-              <app-badge variant="neutral">{{ benefit.categoryName }}</app-badge>
-              <app-badge variant="primary">{{ benefit.discountLabel }}</app-badge>
-            </div>
-            <h3>{{ benefit.title }}</h3>
-            <p class="benefit-card__merchant">{{ benefit.merchantName }}</p>
-            <p class="benefit-card__desc">{{ benefit.description }}</p>
-            <app-button variant="outline" size="sm" (click)="openDetail(benefit)">
-              Ver detalle
-            </app-button>
-          </article>
-        </app-card>
+    <div class="socio-benefits__search">
+      <app-search
+        [placeholder]="searchPlaceholder()"
+        [searchTerm]="searchTerm()"
+        (valueChange)="onSearch($event)"
+      />
+    </div>
+
+    <div class="filter-chips" role="group" aria-label="Categorías">
+      @for (category of categories(); track category.id) {
+        <button
+          type="button"
+          class="filter-chips__chip"
+          [class.filter-chips__chip--active]="categoryFilter() === category.value"
+          (click)="setCategory(category.value)"
+        >
+          {{ category.label }}
+        </button>
       }
     </div>
-  }
 
-  <app-modal
-    [open]="detailOpen()"
-    title="Detalle del beneficio"
-    (close)="closeDetail()"
-  >
-    @if (selected(); as benefit) {
-      <div class="benefit-detail">
-        <div class="benefit-detail__badges">
-          <app-badge variant="primary">{{ benefit.discountLabel }}</app-badge>
-          <app-badge variant="neutral">{{ benefit.categoryName }}</app-badge>
-        </div>
-        <h3>{{ benefit.title }}</h3>
-        <p class="benefit-detail__merchant">Comercio: {{ benefit.merchantName }}</p>
-        @if (benefit.address) {
-          <p class="benefit-detail__meta">{{ benefit.address }}</p>
-        }
-        <p>{{ benefit.description }}</p>
-        <p class="benefit-detail__meta">
-          Vigencia: {{ benefit.validFrom | dateEs }}
-          @if (benefit.validTo) {
-            — {{ benefit.validTo | dateEs }}
-          }
-        </p>
-        @if (benefit.terms) {
-          <div class="benefit-detail__terms">
-            <strong>Términos</strong>
-            <p>{{ benefit.terms }}</p>
-          </div>
-        }
-      </div>
-    }
-
-    <div modalFooter>
-      <app-button variant="secondary" (click)="closeDetail()">Cerrar</app-button>
+    <div class="view-toggle" role="group" aria-label="Tipo de listado">
+      @for (mode of viewModes(); track mode.id) {
+        <button
+          type="button"
+          class="view-toggle__btn"
+          [class.view-toggle__btn--active]="viewMode() === mode.id"
+          (click)="setViewMode(mode.id)"
+        >
+          {{ mode.label }}
+        </button>
+      }
     </div>
-  </app-modal>
+
+    @if (viewMode() === 'promotions') {
+      @if (filteredPromotions().length === 0) {
+        <app-empty-state
+          title="Sin beneficios"
+          description="No encontramos beneficios con esa búsqueda."
+        />
+      } @else {
+        <div class="promo-grid">
+          @for (benefit of filteredPromotions(); track benefit.id) {
+            <article class="promo-card">
+              <div class="promo-card__header">
+                <span
+                  class="promo-card__icon"
+                  [attr.data-tone]="rubroTone(benefit.categoryName)"
+                  aria-hidden="true"
+                >
+                  <app-icon [name]="rubroIcon(benefit.categoryName)" [size]="24" />
+                </span>
+                <div class="promo-card__heading">
+                  <h3 class="promo-card__title">{{ benefit.title }}</h3>
+                  <p class="promo-card__merchant">{{ benefit.merchantName }}</p>
+                </div>
+              </div>
+
+              <p class="promo-card__desc">{{ benefit.description }}</p>
+
+              <div class="promo-card__footer">
+                <span class="promo-card__type">
+                  <app-icon [name]="benefit.offerTypeIcon" [size]="12" />
+                  {{ benefit.offerTypeLabel }}
+                </span>
+                <div class="promo-card__aside">
+                  <span class="promo-card__date">{{ benefit.validToLabel }}</span>
+                  <span class="benefit-discount-badge">{{ benefit.badgeLabel }}</span>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    } @else {
+      @if (filteredMerchants().length === 0) {
+        <app-empty-state
+          title="Sin comercios"
+          description="No encontramos comercios con esa búsqueda."
+        />
+      } @else {
+        <div class="merchant-grid">
+          @for (merchant of filteredMerchants(); track merchant.id) {
+            <article class="merchant-card">
+              <div class="merchant-card__header">
+                <span
+                  class="merchant-card__icon"
+                  [attr.data-tone]="rubroTone(merchant.categoryName)"
+                  aria-hidden="true"
+                >
+                  <app-icon [name]="rubroIcon(merchant.categoryName)" [size]="24" />
+                </span>
+                <div class="merchant-card__heading">
+                  <h3 class="merchant-card__name">{{ merchant.name }}</h3>
+                  <p class="merchant-card__category">{{ merchant.categoryName }}</p>
+                </div>
+              </div>
+
+              <div class="merchant-card__contact">
+                <p class="merchant-card__row">
+                  <app-icon name="map_pin" [size]="12" />
+                  <span>{{ merchant.address }}</span>
+                </p>
+                <p class="merchant-card__row">
+                  <app-icon name="phone" [size]="12" />
+                  <span>{{ merchant.phone }}</span>
+                </p>
+              </div>
+
+              <div class="merchant-card__footer">
+                <p class="merchant-card__count">{{ merchant.benefitsCountLabel }}</p>
+                <div class="merchant-card__badges">
+                  @for (badge of merchant.badges; track badge) {
+                    <span class="benefit-discount-badge benefit-discount-badge--compact">{{ badge }}</span>
+                  }
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    }
+  }
 </section>
