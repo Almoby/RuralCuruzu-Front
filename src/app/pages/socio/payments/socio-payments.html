@@ -1,8 +1,13 @@
 <section class="socio-payments">
   <app-page-header title="Mis Pagos" subtitle="Cuotas y estado de cuenta" />
 
-  @if (loading()) {
+  @if (viewState() === 'loading') {
     <app-loading message="Cargando pagos..." />
+  } @else if (viewState() === 'error') {
+    <app-alert variant="error" [message]="errorMessage()" />
+    <div class="socio-payments__retry">
+      <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
+    </div>
   } @else if (!currentFee()) {
     <app-empty-state
       title="Sin cuotas"
@@ -11,20 +16,28 @@
   } @else {
     @if (currentFee(); as fee) {
       <article class="fee-hero" aria-label="Cuota del mes">
-        <p class="fee-hero__label">{{ feeTitle(fee.period) }}</p>
+        <p class="fee-hero__label">{{ fee.periodTitle }}</p>
         <p class="fee-hero__amount">{{ fee.amount | currencyArs }}</p>
         <p class="fee-hero__due">
           <app-icon name="alert_circle" [size]="14" />
-          <span>Vence el {{ fee.dueDate | dateEs }}</span>
+          <span>Vence el {{ fee.dueDateLabel }}</span>
         </p>
+        <p class="fee-hero__status">Estado: {{ fee.estadoLabel }}</p>
       </article>
+    }
+
+    @if (paymentBlockedMessage()) {
+      <app-alert
+        [variant]="hasPendingOnlinePayment() ? 'warning' : 'info'"
+        [message]="paymentBlockedMessage()"
+      />
     }
 
     <section class="payments-section" aria-labelledby="payment-options-title">
       <h2 id="payment-options-title" class="payments-section__title">Opciones de pago</h2>
 
       <div class="payment-options">
-        <article class="option-card">
+        <article class="option-card" [class.option-card--disabled]="!canPayCurrent()">
           <span class="option-card__icon" aria-hidden="true">
             <app-icon name="link" [size]="20" />
           </span>
@@ -32,13 +45,18 @@
           <p class="option-card__desc">
             Pagá online con tarjeta de crédito, débito o billetera virtual (Mercado Pago, Modo, etc.)
           </p>
-          <button type="button" class="option-card__action" (click)="openLinkModal()">
+          <button
+            type="button"
+            class="option-card__action"
+            [disabled]="!canPayCurrent()"
+            (click)="openLinkModal()"
+          >
             <span>Ir al link de pago</span>
             <app-icon name="external_link" [size]="13" />
           </button>
         </article>
 
-        <article class="option-card">
+        <article class="option-card" [class.option-card--disabled]="!canPayCurrent()">
           <span class="option-card__icon" aria-hidden="true">
             <app-icon name="banknote" [size]="20" />
           </span>
@@ -46,7 +64,12 @@
           <p class="option-card__desc">
             Realizá una transferencia y adjuntá el comprobante para que el equipo lo verifique.
           </p>
-          <button type="button" class="option-card__action" (click)="openReportModal()">
+          <button
+            type="button"
+            class="option-card__action"
+            [disabled]="!canPayCurrent()"
+            (click)="openReportModal()"
+          >
             <span>Ver datos bancarios</span>
             <app-icon name="chevron_right" [size]="13" />
           </button>
@@ -57,36 +80,43 @@
     <section class="payments-section receipts" aria-labelledby="receipts-title">
       <h2 id="receipts-title" class="payments-section__title">Comprobantes</h2>
 
-      @if (previousFees().length === 0) {
+      @if (receipts().length === 0) {
         <p class="receipts__empty">No hay comprobantes para mostrar.</p>
       } @else {
         <ul class="receipts__list">
-          @for (fee of previousFees(); track fee.id) {
+          @for (item of receipts(); track item.id) {
             <li class="receipts__item">
               <span class="receipts__icon" aria-hidden="true">
                 <app-icon name="check_circle" [size]="16" />
               </span>
 
               <div class="receipts__body">
-                <p class="receipts__name">{{ receiptTitle(fee.period) }}</p>
+                <p class="receipts__name">{{ item.receiptTitle }}</p>
                 <p class="receipts__meta">
-                  @if (fee.paymentMethod) {
-                    {{ fee.paymentMethod }} ·
+                  @if (item.paymentMethodLabel) {
+                    {{ item.paymentMethodLabel }} ·
                   }
-                  @if (fee.paidAt) {
-                    {{ fee.paidAt | dateEs }}
-                  } @else {
-                    {{ fee.dueDate | dateEs }}
-                  }
+                  {{ item.dateLabel }}
                 </p>
               </div>
 
               <div class="receipts__aside">
-                <p class="receipts__amount">{{ fee.amount | currencyArs }}</p>
-                <button type="button" class="receipts__download">
-                  <app-icon name="download" [size]="13" />
-                  <span>Descargar</span>
-                </button>
+                <p class="receipts__amount">{{ item.amount | currencyArs }}</p>
+                @if (item.canDownload) {
+                  <button
+                    type="button"
+                    class="receipts__download"
+                    [disabled]="downloadingId() === item.id"
+                    (click)="downloadReceipt(item)"
+                  >
+                    <app-icon name="download" [size]="13" />
+                    <span>
+                      {{ downloadingId() === item.id ? 'Descargando...' : 'Descargar' }}
+                    </span>
+                  </button>
+                } @else {
+                  <p class="receipts__status">{{ item.estadoLabel }}</p>
+                }
               </div>
             </li>
           }
@@ -103,23 +133,30 @@
     <div class="link-modal">
       @if (currentFee(); as fee) {
         <article class="link-modal__summary">
-          <p class="link-modal__period">{{ receiptTitle(fee.period) }}</p>
+          <p class="link-modal__period">{{ fee.receiptTitle }}</p>
           <p class="link-modal__amount">{{ fee.amount | currencyArs }}</p>
           <p class="link-modal__member">{{ memberSummary() }}</p>
         </article>
       }
 
       <p class="link-modal__text">
-        Serás redirigido a la plataforma de pago seguro para abonar con tarjeta de crédito, débito
-        o billetera virtual.
+        Se abrirá Mercado Pago para que completes el pago. Generar el link no confirma el pago:
+        el sistema solo lo marca como aprobado cuando Mercado Pago lo notifica.
       </p>
 
       <div class="link-modal__actions">
-        <app-button [fullWidth]="true" (click)="closeLinkModal()">
-          Ir al link de pago
-          <app-icon name="external_link" [size]="16" />
+        <app-button [fullWidth]="true" [disabled]="linking()" (click)="confirmPaymentLink()">
+          {{ linking() ? 'Generando link...' : 'Ir al link de pago' }}
+          @if (!linking()) {
+            <app-icon name="external_link" [size]="16" />
+          }
         </app-button>
-        <button type="button" class="btn-secondary" (click)="closeLinkModal()">
+        <button
+          type="button"
+          class="btn-secondary"
+          [disabled]="linking()"
+          (click)="closeLinkModal()"
+        >
           Cancelar
         </button>
       </div>
@@ -225,7 +262,7 @@
             #receiptFileInput
             class="receipt-upload__native"
             type="file"
-            accept="image/png,image/jpeg,image/webp,application/pdf"
+            accept="image/png,image/jpeg,application/pdf"
             (change)="onReceiptSelected($event)"
           />
 
@@ -249,7 +286,7 @@
                 <app-icon name="file" [size]="28" />
               </span>
               <span class="receipt-upload__name">Adjuntá imagen o PDF</span>
-              <span class="receipt-upload__hint">PNG, JPG, WEBP o PDF · máx. 5 MB</span>
+              <span class="receipt-upload__hint">PNG, JPG o PDF · máx. 5 MB</span>
             }
           </button>
 
@@ -265,7 +302,12 @@
           />
 
           <div class="report-form__actions">
-            <button type="button" class="btn-outline" (click)="goToTransferStep(1)">
+            <button
+              type="button"
+              class="btn-outline"
+              [disabled]="submitting()"
+              (click)="goToTransferStep(1)"
+            >
               <app-icon name="arrow_left" [size]="15" />
               Volver
             </button>
@@ -284,10 +326,7 @@
             </span>
           </span>
           <h3 class="transfer-success__title">¡Pago informado correctamente!</h3>
-          <p class="transfer-success__text">
-            El equipo administrativo revisará y aprobará tu pago. Recibirás una notificación por
-            email.
-          </p>
+          <p class="transfer-success__text">{{ successMessage() }}</p>
           <button type="button" class="btn-secondary" (click)="closeReportModal()">
             Cerrar
           </button>

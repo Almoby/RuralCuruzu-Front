@@ -12,12 +12,19 @@
     } @else {
       @if (showBenefitSelect()) {
         <div class="benefit-card">
-          <form [formGroup]="form">
+          <form class="benefit-card__form" [formGroup]="form">
             <app-select
               label="Beneficio a validar"
               formControlName="promotionId"
               [options]="benefitOptions()"
               placeholder="Seleccioná un beneficio"
+              [error]="fieldError('promotionId')"
+            />
+            <app-input
+              label="Ahorro de la compra"
+              formControlName="montoAhorro"
+              placeholder="ej. 450.50"
+              [error]="fieldError('montoAhorro')"
             />
           </form>
         </div>
@@ -27,48 +34,61 @@
         <div class="scanner-card">
           <div
             class="scanner-viewport"
+            [class.scanner-viewport--live]="cameraStreamActive()"
             role="img"
             [attr.aria-label]="
-              scannerActive() ? 'Cámara activa para escanear QR' : 'Escáner detenido'
+              cameraStreamActive()
+                ? 'Cámara activa para escanear QR'
+                : 'Escáner detenido'
             "
           >
-            <span class="scanner-viewport__corner scanner-viewport__corner--tl"></span>
-            <span class="scanner-viewport__corner scanner-viewport__corner--tr"></span>
-            <span class="scanner-viewport__corner scanner-viewport__corner--bl"></span>
-            <span class="scanner-viewport__corner scanner-viewport__corner--br"></span>
-            <span class="scanner-viewport__line" aria-hidden="true"></span>
+            @if (cameraStreamActive()) {
+              <video
+                #scannerVideo
+                class="scanner-viewport__video"
+                playsinline
+                muted
+                autoplay
+              ></video>
 
-            <div class="scanner-viewport__guide">
-              <app-icon name="camera" [size]="22" />
-              <p>Cámara activa</p>
-            </div>
+              <span class="scanner-viewport__corner scanner-viewport__corner--tl"></span>
+              <span class="scanner-viewport__corner scanner-viewport__corner--tr"></span>
+              <span class="scanner-viewport__corner scanner-viewport__corner--bl"></span>
+              <span class="scanner-viewport__corner scanner-viewport__corner--br"></span>
+              <span class="scanner-viewport__line" aria-hidden="true"></span>
+            } @else {
+              <div class="scanner-viewport__guide">
+                <app-icon name="camera" [size]="22" />
+                <p>{{ cameraSupported() ? 'Iniciando cámara…' : 'Sin cámara' }}</p>
+              </div>
+            }
 
             @if (isValidating()) {
               <div class="scanner-viewport__loading" aria-live="polite">
-                <app-loading message="Validando QR..." />
+                <app-loading message="Aplicando beneficio..." />
               </div>
             }
           </div>
 
-          <p class="scanner-card__hint">Apuntá la cámara al QR del socio</p>
+          <p class="scanner-card__hint">{{ scannerHintMessage() }}</p>
 
-          <div class="scanner-card__mock" aria-label="Simulación de escaneo (mock)">
-            <app-button [disabled]="isValidating()" (click)="simulateValid()">
-              Simular QR válido
-            </app-button>
-            <button
-              type="button"
-              class="scanner-card__mock-overdue"
-              [disabled]="isValidating()"
-              (click)="simulateExpired()"
+          <form class="scanner-card__manual" [formGroup]="form" (ngSubmit)="submitManualCode()">
+            <app-input
+              label="Código del QR"
+              formControlName="codigoManual"
+              placeholder="Pegá el código del QR"
+            />
+            <app-button
+              type="submit"
+              [disabled]="isValidating() || confirmOpen()"
             >
-              Simular QR vencido
-            </button>
-          </div>
+              Usar código
+            </app-button>
+          </form>
         </div>
       }
 
-      @if (viewState() === 'approved' && approvedResult(); as res) {
+      @if (viewState() === 'approved' && successResult(); as res) {
         <article class="result-card" aria-live="polite">
           <div class="result-card__badge result-card__badge--success" aria-hidden="true">
             <span class="result-card__ring result-card__ring--success">
@@ -76,7 +96,9 @@
             </span>
           </div>
 
-          <h2 class="result-card__title result-card__title--success">¡Beneficio aprobado!</h2>
+          <h2 class="result-card__title result-card__title--success">
+            {{ res.message || '¡Beneficio aprobado!' }}
+          </h2>
           <p class="result-card__subtitle">Acceso autorizado</p>
 
           <div class="result-panel">
@@ -102,14 +124,19 @@
 
             <div class="result-panel__time">
               <app-icon name="clock" [size]="14" />
+              <span>Ahorro {{ res.savingsLabel }}</span>
+            </div>
+
+            <div class="result-panel__time">
+              <app-icon name="clock" [size]="14" />
               <time [attr.datetime]="res.validatedAt">
-                {{ formatValidatedAt(res.validatedAt) }}
+                {{ res.validatedAtLabel }}
               </time>
             </div>
           </div>
 
           <button type="button" class="result-card__reset" (click)="resetScanner()">
-            Escanear otro QR
+            Validar otro QR
           </button>
         </article>
       }
@@ -131,20 +158,28 @@
           </div>
 
           <button type="button" class="result-card__reset" (click)="resetScanner()">
-            Escanear otro QR
+            Validar otro QR
           </button>
         </article>
       }
 
       @if (viewState() === 'error') {
         <div class="validate-qr__error">
-          <app-alert
-            variant="error"
-            message="No se pudo validar el QR por un error técnico. Intentá nuevamente."
-          />
+          <app-alert variant="error" [message]="loadErrorMessage()" />
           <app-button variant="outline" (click)="retry()">Reintentar</app-button>
         </div>
       }
     }
   </div>
+
+  <app-confirm-dialog
+    [open]="confirmOpen()"
+    title="Aplicar beneficio"
+    [message]="confirmMessage()"
+    confirmLabel="Aplicar beneficio"
+    cancelLabel="Volver"
+    [danger]="false"
+    (confirm)="confirmRedeem()"
+    (cancel)="cancelConfirm()"
+  />
 </section>

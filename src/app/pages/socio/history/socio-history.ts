@@ -7,16 +7,25 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { DatePipe } from '@angular/common';
-import { forkJoin } from 'rxjs';
-import { AuthService } from '../../../core/services/auth.service';
-import { DashboardService } from '../../../core/services/dashboard.service';
-import { FeeService } from '../../../core/services/fee.service';
-import { RedemptionService } from '../../../core/services/redemption.service';
-import { FeePayment } from '../../../core/interfaces/fee.interface';
-import { Redemption } from '../../../core/interfaces/redemption.interface';
-import { PaymentStatus } from '../../../shared/enums';
 import {
+  EMPTY,
+  Subject,
+  catchError,
+  forkJoin,
+  map,
+  startWith,
+  switchMap,
+  tap,
+} from 'rxjs';
+import { BenefitService } from '../../../core/services/benefit.service';
+import { FeeService } from '../../../core/services/fee.service';
+import { NotificationService } from '../../../core/services/notification.service';
+import { ApiError } from '../../../core/interfaces/api-response.interface';
+import { SocioHistoryViewModel } from '../../../core/interfaces/socio-history.interface';
+import { mapSocioHistoryBundleToViewModel } from '../../../core/mappers/socio-history.mapper';
+import {
+  AppAlert,
+  AppButton,
   AppEmptyState,
   AppIcon,
   AppLoading,
@@ -24,9 +33,28 @@ import {
   AppStatCard,
 } from '../../../shared/components';
 import { CurrencyArsPipe } from '../../../shared/pipes';
-import { formatFeePeriodTitle } from '../../../shared/utils';
 
 type HistoryTab = 'benefits' | 'payments';
+type ViewState = 'loading' | 'success' | 'error';
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    'message' in error &&
+    typeof (error as ApiError).status === 'number' &&
+    typeof (error as ApiError).message === 'string'
+  );
+}
+
+const EMPTY_HISTORY: SocioHistoryViewModel = {
+  savingsTotal: 0,
+  usedBenefitsCount: 0,
+  approvedPaymentsCount: 0,
+  benefits: [],
+  payments: [],
+};
 
 @Component({
   selector: 'app-socio-history',
@@ -36,61 +64,66 @@ type HistoryTab = 'benefits' | 'payments';
     AppStatCard,
     AppLoading,
     AppEmptyState,
+    AppAlert,
+    AppButton,
     AppIcon,
     CurrencyArsPipe,
-    DatePipe,
   ],
   templateUrl: './socio-history.html',
   styleUrl: './socio-history.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SocioHistory {
-  private readonly auth = inject(AuthService);
-  private readonly dashboardService = inject(DashboardService);
+  private readonly benefitService = inject(BenefitService);
   private readonly feeService = inject(FeeService);
-  private readonly redemptionService = inject(RedemptionService);
+  private readonly notifications = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly reload$ = new Subject<void>();
 
-  readonly loading = signal(true);
+  readonly viewState = signal<ViewState>('loading');
   readonly tab = signal<HistoryTab>('benefits');
-  readonly savings = signal(0);
-  readonly redemptions = signal<Redemption[]>([]);
-  readonly fees = signal<FeePayment[]>([]);
-
-  readonly usedBenefitsCount = computed(() => this.redemptions().length);
-  readonly paymentsCount = computed(
-    () => this.fees().filter((fee) => fee.status === PaymentStatus.Aprobado).length,
+  readonly history = signal<SocioHistoryViewModel>(EMPTY_HISTORY);
+  readonly errorMessage = signal(
+    'No pudimos cargar el historial. Reintentá en unos segundos.',
   );
 
-  constructor() {
-    const code = this.auth.currentUser()?.memberCode;
+  readonly savings = computed(() => this.history().savingsTotal);
+  readonly usedBenefitsCount = computed(() => this.history().usedBenefitsCount);
+  readonly paymentsCount = computed(() => this.history().approvedPaymentsCount);
+  readonly redemptions = computed(() => this.history().benefits);
+  readonly fees = computed(() => this.history().payments);
 
-    forkJoin({
-      stats: this.dashboardService.getSocioStats(),
-      fees: this.feeService.list(),
-      redemptions: this.redemptionService.history(),
-    })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: ({ stats, fees, redemptions }) => {
-          this.savings.set(stats.savingsEstimate);
-          this.fees.set(
-            (code ? fees.filter((fee) => fee.memberCode === code) : fees).sort(
-              (a, b) => b.period.localeCompare(a.period),
-            ),
-          );
-          this.redemptions.set(
-            (code
-              ? redemptions.filter((item) => item.memberCode === code)
-              : redemptions
-            ).sort(
-              (a, b) =>
-                new Date(b.redeemedAt).getTime() - new Date(a.redeemedAt).getTime(),
-            ),
-          );
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
+  constructor() {
+    this.reload$
+      .pipe(
+        startWith(undefined),
+        tap(() => {
+          this.viewState.set('loading');
+        }),
+        switchMap(() =>
+          forkJoin({
+            historial: this.benefitService.getSocioBenefitHistory(),
+            pagos: this.feeService.getSocioPaymentHistory(),
+          }).pipe(
+            map(mapSocioHistoryBundleToViewModel),
+            catchError((error: unknown) => {
+              this.history.set(EMPTY_HISTORY);
+              this.viewState.set('error');
+              this.errorMessage.set(
+                isApiError(error)
+                  ? error.message
+                  : 'No pudimos cargar el historial. Reintentá en unos segundos.',
+              );
+              this.notifications.error(this.errorMessage());
+              return EMPTY;
+            }),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((payload) => {
+        this.history.set(payload);
+        this.viewState.set('success');
       });
   }
 
@@ -98,33 +131,7 @@ export class SocioHistory {
     this.tab.set(tab);
   }
 
-  feeTitle(period: string): string {
-    return formatFeePeriodTitle(period);
-  }
-
-  feeBadgeVariant(status: PaymentStatus): 'success' | 'warning' | 'danger' | 'neutral' {
-    switch (status) {
-      case PaymentStatus.Aprobado:
-        return 'success';
-      case PaymentStatus.Pendiente:
-        return 'warning';
-      case PaymentStatus.Rechazado:
-        return 'danger';
-      default:
-        return 'neutral';
-    }
-  }
-
-  feeStatusLabel(status: PaymentStatus): string {
-    switch (status) {
-      case PaymentStatus.Aprobado:
-        return 'Al día';
-      case PaymentStatus.Pendiente:
-        return 'Pendiente';
-      case PaymentStatus.Rechazado:
-        return 'Rechazado';
-      default:
-        return status;
-    }
+  protected retry(): void {
+    this.reload$.next();
   }
 }

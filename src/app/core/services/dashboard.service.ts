@@ -1,8 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpContext, HttpParams, HttpResponse } from '@angular/common/http';
-import { Observable, from, map, switchMap, throwError } from 'rxjs';
+import { Observable, forkJoin, from, map, of, switchMap } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { SKIP_ERROR_TOAST } from '../http/auth-http.tokens';
+import {
+  CuotaResumenResponseDto,
+  PagoResponseDto,
+} from '../interfaces/admin-cuota.interface';
 import {
   AdminDashboardDto,
   AdminDashboardExportFile,
@@ -23,8 +28,26 @@ import {
   UsedBenefitPreview,
 } from '../interfaces/dashboard.interface';
 import { ApiErrorResponse } from '../interfaces/respuesta-solicitud.interface';
+import {
+  SocioBeneficioResumenDto,
+  SocioHistorialBeneficioDto,
+} from '../interfaces/socio-panel.interface';
+import {
+  BeneficioComercioResponseDto,
+  ComercioInicioViewModel,
+  InicioComercioResponseDto,
+} from '../interfaces/comercio-inicio.interface';
+import {
+  ComercioEstadisticasViewModel,
+  EstadisticasComercioResponseDto,
+} from '../interfaces/comercio-estadisticas.interface';
 import { mapAdminDashboardDtoToViewModel } from '../mappers/admin-dashboard.mapper';
+import { mapComercioInicioBundleToViewModel } from '../mappers/comercio-inicio.mapper';
+import { mapEstadisticasComercioDtoToViewModel } from '../mappers/comercio-estadisticas.mapper';
+import { mapSocioPanelBundleToViewModel } from '../mappers/socio-panel.mapper';
 import { parseContentDispositionFileName } from '../mappers/admin-solicitud-socio.mapper';
+import { AuthService } from './auth.service';
+import { UserIdentityService } from './user-identity.service';
 import { mockResponse } from '../utils/mock.util';
 import socioDashboardMock from '../../../assets/mock-data/socio-dashboard.json';
 import comercioDashboardMock from '../../../assets/mock-data/comercio-dashboard.json';
@@ -33,12 +56,19 @@ import comercioStatisticsMock from '../../../assets/mock-data/comercio-statistic
 /**
  * Dashboard data access.
  * - Admin dashboard → always real backend (`GET /admin/dashboard`).
- * - Socio / Comercio → mocks until those modules are connected.
+ * - Socio Mi panel → always real backend (`/socio/cuotas`, `/socio/beneficios`, …).
+ * - Comercio Inicio → always real backend (`GET /comercio/dashboard` + `/comercio/beneficios`).
+ * - Comercio Estadísticas → always real backend (`GET /comercio/dashboard/estadisticas`).
+ * - Socio Historial legacy helpers → mocks until fully migrated.
  */
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
+  private readonly userIdentity = inject(UserIdentityService);
   private readonly adminBase = `${environment.apiBaseUrl}/admin/dashboard`;
+  private readonly socioBase = `${environment.apiBaseUrl}/socio`;
+  private readonly comercioBase = `${environment.apiBaseUrl}/comercio`;
   private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
   /**
@@ -82,7 +112,65 @@ export class DashboardService {
       .pipe(switchMap((response) => from(this.toExportFile(response))));
   }
 
-  /** Full Mi Panel payload for the authenticated member. */
+  /**
+   * Socio “Mi panel” — always hits real authenticated endpoints (ignores useMocks).
+   * Composes:
+   * - GET /socio/cuotas
+   * - GET /socio/cuotas/pagos
+   * - GET /socio/beneficios
+   * - GET /socio/beneficios/historial-beneficios
+   * + session displayName for greeting fallback
+   */
+  getSocioPanelDashboard(): Observable<MemberDashboardResponse> {
+    const session = this.auth.getCurrentSession();
+    const displayName = session?.displayName?.trim() || '';
+
+    return forkJoin({
+      cuotas: this.fetchSocioCuotas().pipe(
+        catchError(() => of(null as CuotaResumenResponseDto[] | null)),
+      ),
+      pagos: this.fetchSocioPagos().pipe(
+        catchError(() => of(null as PagoResponseDto[] | null)),
+      ),
+      beneficios: this.fetchSocioBeneficios().pipe(
+        catchError(() => of(null as SocioBeneficioResumenDto[] | null)),
+      ),
+      historial: this.fetchSocioHistorialBeneficios().pipe(
+        catchError(() => of(null as SocioHistorialBeneficioDto[] | null)),
+      ),
+    }).pipe(
+      map(({ cuotas, pagos, beneficios, historial }) => {
+        const allFailed =
+          cuotas === null &&
+          pagos === null &&
+          beneficios === null &&
+          historial === null;
+
+        if (allFailed) {
+          throw {
+            status: 500,
+            message: 'No se pudo cargar tu panel',
+            code: 'SOCIO_PANEL_LOAD_FAILED',
+          } satisfies ApiError;
+        }
+
+        const view = mapSocioPanelBundleToViewModel({
+          cuotas: cuotas ?? [],
+          pagos: pagos ?? [],
+          beneficios: beneficios ?? [],
+          historial: historial ?? [],
+          session: { displayName },
+        });
+        this.userIdentity.setSocioNumero(view.profile.memberCode);
+        return view;
+      }),
+    );
+  }
+
+  /**
+   * @deprecated Prefer getSocioPanelDashboard() for Mi panel.
+   * Kept for Historial and other Socio screens still on mocks.
+   */
   getMemberDashboard(): Observable<MemberDashboardResponse> {
     return this.getSocioStats();
   }
@@ -111,6 +199,10 @@ export class DashboardService {
     return this.getMemberDashboard().pipe(map((dashboard) => dashboard.quickAccess));
   }
 
+  /**
+   * Legacy Socio stats — still mock / invented path for Historial and others.
+   * Mi panel must use getSocioPanelDashboard() instead.
+   */
   getSocioStats(): Observable<SocioDashboardStats> {
     if (environment.useMocks) {
       return mockResponse(socioDashboardMock as MemberDashboardResponse);
@@ -119,6 +211,67 @@ export class DashboardService {
     return this.http.get<MemberDashboardResponse>(`${environment.apiBaseUrl}/dashboard/socio`);
   }
 
+  private fetchSocioCuotas(): Observable<CuotaResumenResponseDto[]> {
+    return this.http
+      .get<CuotaResumenResponseDto[]>(`${this.socioBase}/cuotas`, {
+        context: this.silentContext,
+      })
+      .pipe(map((items) => items ?? []));
+  }
+
+  private fetchSocioPagos(): Observable<PagoResponseDto[]> {
+    return this.http
+      .get<PagoResponseDto[]>(`${this.socioBase}/cuotas/pagos`, {
+        context: this.silentContext,
+      })
+      .pipe(map((items) => items ?? []));
+  }
+
+  private fetchSocioBeneficios(): Observable<SocioBeneficioResumenDto[]> {
+    return this.http
+      .get<SocioBeneficioResumenDto[]>(`${this.socioBase}/beneficios`, {
+        context: this.silentContext,
+      })
+      .pipe(map((items) => items ?? []));
+  }
+
+  private fetchSocioHistorialBeneficios(): Observable<SocioHistorialBeneficioDto[]> {
+    return this.http
+      .get<SocioHistorialBeneficioDto[]>(`${this.socioBase}/beneficios/historial-beneficios`, {
+        context: this.silentContext,
+      })
+      .pipe(map((items) => items ?? []));
+  }
+
+  /**
+   * Comercio “Inicio” — always hits real authenticated endpoints (ignores useMocks):
+   * - GET /comercio/dashboard
+   * - GET /comercio/beneficios (featured promo + nombre comercial; soft-fails to [])
+   */
+  getComercioDashboard(): Observable<ComercioInicioViewModel> {
+    return forkJoin({
+      inicio: this.http.get<InicioComercioResponseDto>(`${this.comercioBase}/dashboard`, {
+        context: this.silentContext,
+      }),
+      beneficios: this.http
+        .get<BeneficioComercioResponseDto[]>(`${this.comercioBase}/beneficios`, {
+          context: this.silentContext,
+        })
+        .pipe(
+          map((items) => items ?? []),
+          catchError(() => of([] as BeneficioComercioResponseDto[])),
+        ),
+    }).pipe(
+      map(({ inicio, beneficios }) =>
+        mapComercioInicioBundleToViewModel(inicio, beneficios),
+      ),
+    );
+  }
+
+  /**
+   * Legacy Comercio home helper — still mocks / invented path.
+   * Inicio must use {@link getComercioDashboard} instead.
+   */
   getComercioStats(): Observable<ComercioDashboardStats> {
     if (environment.useMocks) {
       return mockResponse(comercioDashboardMock as ComercioDashboardStats);
@@ -127,7 +280,29 @@ export class DashboardService {
     return this.http.get<ComercioDashboardStats>(`${environment.apiBaseUrl}/dashboard/comercio`);
   }
 
-  /** Full Estadísticas payload for the authenticated merchant. */
+  /**
+   * Comercio “Estadísticas” — always hits real API (ignores useMocks):
+   * GET /comercio/dashboard/estadisticas
+   * Optional query `año` (current year when omitted, per Swagger).
+   */
+  getComercioEstadisticas(año?: number): Observable<ComercioEstadisticasViewModel> {
+    let params = new HttpParams();
+    if (año !== undefined) {
+      params = params.set('año', String(año));
+    }
+
+    return this.http
+      .get<EstadisticasComercioResponseDto>(`${this.comercioBase}/dashboard/estadisticas`, {
+        params,
+        context: this.silentContext,
+      })
+      .pipe(map(mapEstadisticasComercioDtoToViewModel));
+  }
+
+  /**
+   * Legacy Estadísticas helper — still mocks / invented path.
+   * Estadísticas must use {@link getComercioEstadisticas} instead.
+   */
   getComercioStatistics(): Observable<MerchantStatisticsData> {
     if (environment.useMocks) {
       return mockResponse(comercioStatisticsMock as MerchantStatisticsData);

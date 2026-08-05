@@ -38,7 +38,7 @@
               class="merchant-card"
               role="listitem"
               [class.merchant-card--selected]="selectedId() === merchant.id"
-              [class.merchant-card--inactive]="merchant.status === MerchantStatus.Inactivo"
+              [class.merchant-card--inactive]="merchant.isInactiveVisual"
             >
               <button
                 type="button"
@@ -57,8 +57,8 @@
                 <span class="merchant-card__content">
                   <span class="merchant-card__title-row">
                     <h3 class="merchant-card__name">{{ merchant.tradeName }}</h3>
-                    <app-badge [variant]="merchantStatusBadge(merchant.status)">
-                      {{ merchant.status }}
+                    <app-badge [variant]="merchant.statusBadge">
+                      {{ merchant.statusLabel }}
                     </app-badge>
                   </span>
                   <span class="merchant-card__meta">
@@ -83,9 +83,9 @@
                 <button
                   type="button"
                   class="merchant-card__action"
-                  [title]="merchant.status === MerchantStatus.Activo ? 'Desactivar' : 'Activar'"
+                  [title]="merchant.status === 'ACTIVO' ? 'Desactivar' : 'Activar'"
                   [attr.aria-label]="
-                    (merchant.status === MerchantStatus.Activo ? 'Desactivar' : 'Activar') +
+                    (merchant.status === 'ACTIVO' ? 'Desactivar' : 'Activar') +
                     ' ' +
                     merchant.tradeName
                   "
@@ -93,7 +93,7 @@
                   (click)="toggleStatus(merchant, $event)"
                 >
                   <app-icon
-                    [name]="merchant.status === MerchantStatus.Activo ? 'power_off' : 'power'"
+                    [name]="merchant.status === 'ACTIVO' ? 'power_off' : 'power'"
                     [size]="16"
                   />
                 </button>
@@ -112,14 +112,16 @@
         </div>
 
         <aside class="merchants__detail" aria-label="Detalle del comercio">
-          @if (selected(); as item) {
+          @if (detailLoading() && selectedId()) {
+            <app-loading message="Cargando detalle..." />
+          } @else if (selected(); as item) {
             <div class="merchant-detail">
               <header class="merchant-detail__header">
                 <div>
                   <h2 class="merchant-detail__name">{{ item.tradeName }}</h2>
                   <div class="merchant-detail__badges">
-                    <app-badge [variant]="merchantStatusBadge(item.status)">
-                      {{ item.status }}
+                    <app-badge [variant]="item.statusBadge">
+                      {{ item.statusLabel }}
                     </app-badge>
                     <app-badge variant="neutral">{{ item.category }}</app-badge>
                   </div>
@@ -149,7 +151,7 @@
                 </div>
                 <div class="merchant-detail__field">
                   <p class="merchant-detail__label">Alta</p>
-                  <p class="merchant-detail__value">{{ item.joinedAt | dateEs }}</p>
+                  <p class="merchant-detail__value">{{ item.joinedAtLabel }}</p>
                 </div>
                 <div class="merchant-detail__field merchant-detail__field--full">
                   <p class="merchant-detail__label">Dirección</p>
@@ -189,9 +191,30 @@
     [merchant]="editing()"
     [categories]="categories()"
     [submitting]="submitting()"
+    [serverFieldErrors]="formServerErrors()"
     (close)="closeForm()"
     (save)="saveMerchant($event)"
   />
+
+  <app-modal
+    [open]="deleteMotivoOpen()"
+    title="Eliminar comercio"
+    subtitle="Indicá el motivo de la baja física"
+    (close)="cancelDelete()"
+  >
+    <form [formGroup]="deleteForm" (ngSubmit)="continueDelete()">
+      <app-textarea
+        label="Motivo"
+        formControlName="motivo"
+        [rows]="3"
+        [error]="deleteMotivoError()"
+      />
+    </form>
+    <div modalFooter class="merchants__delete-footer">
+      <button type="button" class="merchants__retry" (click)="cancelDelete()">Cancelar</button>
+      <app-button variant="primary" (click)="continueDelete()">Continuar</app-button>
+    </div>
+  </app-modal>
 
   <app-confirm-dialog
     [open]="confirmOpen()"

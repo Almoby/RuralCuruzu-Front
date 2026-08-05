@@ -91,6 +91,7 @@ export class MemberRequestsPage {
   protected readonly selected = signal<MembershipRequest | null>(null);
   protected readonly detailOpen = signal(false);
   protected readonly detailMode = signal<RequestDetailMode>('view');
+  protected readonly observationClearTick = signal(0);
 
   protected readonly summary = computed((): MembershipRequestSummary => {
     const items = this.requests();
@@ -204,7 +205,10 @@ export class MemberRequestsPage {
     this.loadDetail(request.id);
   }
 
-  protected closeDetail(): void {
+  protected closeDetail(options?: { force?: boolean }): void {
+    if (!options?.force && this.submitting()) {
+      return;
+    }
     this.detailOpen.set(false);
     this.selected.set(null);
     this.detailLoading.set(false);
@@ -314,6 +318,7 @@ export class MemberRequestsPage {
           this.notifications.success(
             response.mensaje || 'Observación agregada correctamente',
           );
+          this.observationClearTick.update((tick) => tick + 1);
           this.reload$.next();
           this.loadDetail(request.id);
         },
@@ -373,7 +378,7 @@ export class MemberRequestsPage {
           );
           this.reload$.next();
           if (closeOnSuccess) {
-            this.closeDetail();
+            this.closeDetail({ force: true });
           } else if (current) {
             this.loadDetail(current.id);
           }

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { HttpClient, HttpContext, HttpParams, HttpResponse } from '@angular/common/http';
+import { Observable, from, map, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ActualizarDatosBancariosRequest,
@@ -18,6 +18,7 @@ import {
   DatosBancariosResponseDto,
   GeneracionCuotasResponseDto,
   ListarCuotasAdminParams,
+  PagoResponseDto,
   ReglaCuotaActualizadaResponseDto,
   ReglaCuotaResponseDto,
   RegistrarPagoCuotaRequest,
@@ -37,6 +38,14 @@ import {
   PaymentSummary,
   RegisterPaymentRequest,
 } from '../interfaces/fee.interface';
+import {
+  InformarPagoCuotaRequestDto,
+  InformarPagoResponseDto,
+  LinkDePagoResponseDto,
+  SocioPaymentReceiptDownload,
+} from '../interfaces/socio-payments.interface';
+import { ApiError } from '../interfaces/api-response.interface';
+import { ApiErrorResponse } from '../interfaces/respuesta-solicitud.interface';
 import { PaymentMethod, PaymentStatus } from '../../shared/enums';
 import { mockResponse } from '../utils/mock.util';
 import { formatPeriodLabel } from '../../shared/utils';
@@ -53,18 +62,23 @@ import {
   mapReglaCuotaDtoToViewModel,
   mapResumenCuotasDtoToViewModel,
 } from '../mappers/admin-cuota.mapper';
+import { parseContentDispositionFileName } from '../mappers/admin-solicitud-socio.mapper';
+import { UserIdentityService } from './user-identity.service';
 
 /**
  * Fees / cuotas access.
  * - Admin Gestión de Cuotas → always real backend (`/admin/cuotas*`, reglas, datos bancarios).
- * - Portal Socio legacy → still mocks / invented `/fees*` paths when `useMocks`.
+ * - Socio Mis Pagos / Historial → always real backend (`/socio/cuotas*`).
+ * - Legacy Portal Socio helpers → still mocks / invented `/fees*` paths when `useMocks`.
  */
 @Injectable({ providedIn: 'root' })
 export class FeeService {
   private readonly http = inject(HttpClient);
+  private readonly userIdentity = inject(UserIdentityService);
   private readonly adminCuotasBase = `${environment.apiBaseUrl}/admin/cuotas`;
   private readonly adminReglasBase = `${environment.apiBaseUrl}/admin/reglas-cuota`;
   private readonly adminDatosBancariosBase = `${environment.apiBaseUrl}/admin/datos-bancarios`;
+  private readonly socioCuotasBase = `${environment.apiBaseUrl}/socio/cuotas`;
   private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
 
   /** Legacy in-memory store for Portal Socio mocks. */
@@ -286,7 +300,164 @@ export class FeeService {
   // downloadAdminComprobante — not available in Swagger for Admin.
 
   // ---------------------------------------------------------------------------
-  // Legacy — Portal Socio / mocks (do not use from Admin Gestión de Cuotas)
+  // Socio Mis Pagos / Historial — backend real (ignores environment.useMocks)
+  // ---------------------------------------------------------------------------
+
+  /** GET /socio/cuotas */
+  getSocioCuotas(): Observable<CuotaResumenResponseDto[]> {
+    return this.http
+      .get<CuotaResumenResponseDto[]>(this.socioCuotasBase, {
+        context: this.silentContext,
+      })
+      .pipe(
+        map((items) => {
+          const list = items ?? [];
+          const numero = list.find((item) => item.socioNumeroSocio?.trim())?.socioNumeroSocio;
+          this.userIdentity.setSocioNumero(numero);
+          return list;
+        }),
+      );
+  }
+
+  /**
+   * GET /socio/cuotas/pagos
+   * Historial de pagos del socio autenticado (todos los intentos; más recientes primero).
+   */
+  getSocioPaymentHistory(): Observable<PagoResponseDto[]> {
+    return this.http
+      .get<PagoResponseDto[]>(`${this.socioCuotasBase}/pagos`, {
+        context: this.silentContext,
+      })
+      .pipe(
+        map((items) => {
+          const list = items ?? [];
+          const numero = list.find((item) => item.socioNumeroSocio?.trim())?.socioNumeroSocio;
+          this.userIdentity.setSocioNumero(numero);
+          return list;
+        }),
+      );
+  }
+
+  /** Alias used by Mis Pagos for clarity. */
+  getSocioPayments(): Observable<PagoResponseDto[]> {
+    return this.getSocioPaymentHistory();
+  }
+
+  /** GET /socio/cuotas/datos-bancarios */
+  getSocioBankDetails(): Observable<DatosBancariosResponseDto> {
+    return this.http.get<DatosBancariosResponseDto>(
+      `${this.socioCuotasBase}/datos-bancarios`,
+      { context: this.silentContext },
+    );
+  }
+
+  /**
+   * POST /socio/cuotas/{cuotaId}/informar-pago
+   * multipart/form-data: `datos` (JSON) + `comprobante` (file).
+   */
+  reportSocioTransferPayment(
+    cuotaId: string,
+    datos: InformarPagoCuotaRequestDto,
+    comprobante: File,
+  ): Observable<InformarPagoResponseDto> {
+    const formData = new FormData();
+    formData.append(
+      'datos',
+      new Blob([JSON.stringify(datos)], { type: 'application/json' }),
+    );
+    formData.append('comprobante', comprobante, comprobante.name);
+
+    return this.http.post<InformarPagoResponseDto>(
+      `${this.socioCuotasBase}/${encodeURIComponent(cuotaId)}/informar-pago`,
+      formData,
+      { context: this.silentContext },
+    );
+  }
+
+  /** POST /socio/cuotas/{cuotaId}/link-de-pago */
+  createSocioPaymentLink(cuotaId: string): Observable<LinkDePagoResponseDto> {
+    return this.http.post<LinkDePagoResponseDto>(
+      `${this.socioCuotasBase}/${encodeURIComponent(cuotaId)}/link-de-pago`,
+      null,
+      { context: this.silentContext },
+    );
+  }
+
+  /** GET /socio/cuotas/pagos/{pagoId}/comprobante */
+  downloadSocioPaymentReceipt(pagoId: string): Observable<SocioPaymentReceiptDownload> {
+    return this.http
+      .get(`${this.socioCuotasBase}/pagos/${encodeURIComponent(pagoId)}/comprobante`, {
+        responseType: 'blob',
+        observe: 'response',
+        context: this.silentContext,
+      })
+      .pipe(switchMap((response) => from(this.toSocioReceiptDownload(response, pagoId))));
+  }
+
+  private async toSocioReceiptDownload(
+    response: HttpResponse<Blob>,
+    pagoId: string,
+  ): Promise<SocioPaymentReceiptDownload> {
+    const blob = response.body;
+    if (!blob) {
+      throw {
+        status: 500,
+        message: 'No se recibió el comprobante',
+        code: 'EMPTY_FILE',
+      } satisfies ApiError;
+    }
+
+    if (this.looksLikeJsonErrorBlob(blob, response.status)) {
+      throw await this.parseBlobApiError(blob, response.status);
+    }
+
+    const fromHeader = parseContentDispositionFileName(
+      response.headers.get('Content-Disposition'),
+    );
+
+    return {
+      blob,
+      fileName: fromHeader ?? `comprobante-${pagoId}`,
+    };
+  }
+
+  private looksLikeJsonErrorBlob(blob: Blob, status: number): boolean {
+    if (status >= 400) {
+      return true;
+    }
+    const type = (blob.type || '').toLowerCase();
+    return type.includes('application/json') || type.includes('text/json');
+  }
+
+  private async parseBlobApiError(blob: Blob, status: number): Promise<ApiError> {
+    try {
+      const text = await blob.text();
+      const parsed = JSON.parse(text) as ApiErrorResponse;
+      const fieldMessages =
+        parsed.errores
+          ?.map((item) => item.mensaje?.trim() || '')
+          .filter((message) => message.length > 0) ?? [];
+
+      return {
+        status: status || 500,
+        message:
+          parsed.message?.trim() ||
+          fieldMessages[0] ||
+          'No se pudo descargar el comprobante',
+        code: parsed.codigo,
+        details: fieldMessages.length > 0 ? fieldMessages : undefined,
+      };
+    } catch {
+      return {
+        status: status || 500,
+        message: 'No se pudo descargar el comprobante',
+        code: 'DOWNLOAD_ERROR',
+      };
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy — Portal Socio / mocks (do not use from Admin / Socio Mis Pagos)
   // ---------------------------------------------------------------------------
 
   getPayments(memberId?: string): Observable<PaymentRecord[]> {

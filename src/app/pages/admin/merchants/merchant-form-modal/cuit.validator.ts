@@ -3,8 +3,9 @@ import {
   ValidationErrors,
   ValidatorFn,
 } from '@angular/forms';
+import { isValidCuitFormat } from '../../../../shared/utils/cuit.util';
 
-/** Validates Argentine CUIT format: XX-XXXXXXXX-X */
+/** Validates Argentine CUIT/CUIL format: XX-XXXXXXXX-X (11 digits). */
 export const cuitValidator: ValidatorFn = (
   control: AbstractControl,
 ): ValidationErrors | null => {
@@ -12,5 +13,5 @@ export const cuitValidator: ValidatorFn = (
   if (!value) {
     return null;
   }
-  return /^\d{2}-\d{8}-\d$/.test(value) ? null : { cuit: true };
+  return isValidCuitFormat(value) ? null : { cuit: true };
 };

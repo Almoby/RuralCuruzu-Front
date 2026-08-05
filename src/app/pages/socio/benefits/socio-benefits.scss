@@ -75,7 +75,8 @@
 }
 
 .filter-chips__chip:hover {
-  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-neutral-bg));
+  color: var(--color-primary);
 }
 
 .filter-chips__chip:focus-visible {
@@ -83,7 +84,10 @@
   box-shadow: var(--focus-ring);
 }
 
-.filter-chips__chip--active {
+.filter-chips__chip--active,
+.filter-chips__chip--active:hover,
+.filter-chips__chip--active:focus,
+.filter-chips__chip--active:focus-visible {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-white);
@@ -103,6 +107,7 @@
 .view-toggle__btn {
   min-height: 1.875rem;
   padding: 0.375rem 1rem;
+  border: 1px solid transparent;
   border-radius: calc(var(--radius-md) - 2px);
   background: transparent;
   color: var(--color-muted);
@@ -112,11 +117,13 @@
   cursor: pointer;
   transition:
     background-color var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .view-toggle__btn:hover {
-  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
 }
 
 .view-toggle__btn:focus-visible {
@@ -124,8 +131,12 @@
   box-shadow: var(--focus-ring);
 }
 
-.view-toggle__btn--active {
+.view-toggle__btn--active,
+.view-toggle__btn--active:hover,
+.view-toggle__btn--active:focus,
+.view-toggle__btn--active:focus-visible {
   background: var(--color-primary);
+  border-color: var(--color-primary);
   color: var(--color-white);
 }
 

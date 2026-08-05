@@ -30,6 +30,8 @@ export class AppInput implements ControlValueAccessor {
   readonly error = input('');
   readonly hint = input('');
   readonly disabled = input(false);
+  /** Native maxlength; omit or null for no limit. */
+  readonly maxLength = input<number | null>(null);
   readonly id = input(`app-input-${crypto.randomUUID()}`);
 
   protected readonly value = signal('');

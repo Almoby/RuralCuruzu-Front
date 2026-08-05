@@ -225,7 +225,10 @@ export class MembersPage {
     this.createOpen.set(true);
   }
 
-  protected closeCreate(): void {
+  protected closeCreate(options?: { force?: boolean }): void {
+    if (!options?.force && this.submitting()) {
+      return;
+    }
     this.createOpen.set(false);
   }
 
@@ -292,10 +295,10 @@ export class MembersPage {
       )
       .subscribe({
         next: (response) => {
-          this.closeCreate();
           this.notifications.success(
             response.mensaje || 'Socio creado correctamente',
           );
+          this.closeCreate({ force: true });
           this.reload$.next();
         },
         error: (error: unknown) => {

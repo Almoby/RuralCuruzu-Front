@@ -1,8 +1,14 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { SKIP_ERROR_TOAST } from '../http/auth-http.tokens';
 import { Redemption } from '../interfaces/redemption.interface';
+import {
+  ComercioQrRedemptionSuccessViewModel,
+  ValidarBeneficioRequestDto,
+  ValidarBeneficioResponseDto,
+} from '../interfaces/comercio-qr-redemption.interface';
 import {
   ApprovedQrValidationResponse,
   QrRejectionReasonCode,
@@ -10,6 +16,7 @@ import {
   QrValidationResponse,
   RejectedQrValidationResponse,
 } from '../interfaces/qr-validation.interface';
+import { mapValidarBeneficioResponseToSuccessViewModel } from '../mappers/comercio-qr-redemption.mapper';
 import { mockResponse } from '../utils/mock.util';
 import redemptionsMock from '../../../assets/mock-data/redemptions.json';
 import membersMock from '../../../assets/mock-data/members.json';
@@ -18,10 +25,34 @@ import { Member } from '../interfaces/member.interface';
 import { Promotion } from '../interfaces/promotion.interface';
 import { FeeStatus } from '../../shared/enums';
 
+/**
+ * Redemptions / QR canje.
+ * - Comercio Validar QR → always real backend (`POST /comercio/beneficios/canjear-beneficio`).
+ * - Legacy helpers → still mocks / invented `/redemptions*` when `useMocks`.
+ */
 @Injectable({ providedIn: 'root' })
 export class RedemptionService {
   private readonly http = inject(HttpClient);
+  private readonly comercioCanjeUrl = `${environment.apiBaseUrl}/comercio/beneficios/canjear-beneficio`;
+  private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
   private redemptions: Redemption[] = structuredClone(redemptionsMock) as Redemption[];
+
+  /**
+   * POST /comercio/beneficios/canjear-beneficio — always hits the real API (ignores useMocks).
+   */
+  redeemComercioBenefit(
+    body: ValidarBeneficioRequestDto,
+  ): Observable<ComercioQrRedemptionSuccessViewModel> {
+    return this.http
+      .post<ValidarBeneficioResponseDto>(this.comercioCanjeUrl, body, {
+        context: this.silentContext,
+      })
+      .pipe(map(mapValidarBeneficioResponseToSuccessViewModel));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy — unmigrated callers (mocks when useMocks)
+  // ---------------------------------------------------------------------------
 
   history(filters?: {
     memberId?: string;
@@ -46,6 +77,10 @@ export class RedemptionService {
     });
   }
 
+  /**
+   * Legacy mock/invented validate path.
+   * Validar QR must use {@link redeemComercioBenefit} instead.
+   */
   validateQr(payload: QrValidationRequest): Observable<QrValidationResponse> {
     if (environment.useMocks) {
       return mockResponse(this.mockValidateQr(payload));

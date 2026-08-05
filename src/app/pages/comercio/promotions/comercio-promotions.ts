@@ -15,13 +15,32 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { AuthService } from '../../../core/services/auth.service';
+import {
+  EMPTY,
+  Subject,
+  catchError,
+  finalize,
+  startWith,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { NotificationService } from '../../../core/services/notification.service';
 import { PromotionService } from '../../../core/services/promotion.service';
-import { Promotion } from '../../../core/interfaces/promotion.interface';
-import { PromotionStatus, PromotionType } from '../../../shared/enums';
+import { ApiError } from '../../../core/interfaces/api-response.interface';
 import {
+  BeneficioEstadoDto,
+  BeneficioTipoDto,
+  ComercioBeneficioViewModel,
+} from '../../../core/interfaces/comercio-beneficio.interface';
+import {
+  mapPromotionFormToCreateRequest,
+  mapPromotionFormToUpdateRequest,
+  mapPromotionStatusToNextEstado,
+} from '../../../core/mappers/comercio-beneficio.mapper';
+import {
+  AppAlert,
   AppButton,
+  AppConfirmDialog,
   AppEmptyState,
   AppIcon,
   AppInput,
@@ -33,6 +52,13 @@ import {
   SelectOption,
 } from '../../../shared/components';
 
+type PromotionsViewState = 'loading' | 'success' | 'empty' | 'error';
+
+interface StatusConfirmState {
+  promo: ComercioBeneficioViewModel;
+  nextEstado: BeneficioEstadoDto;
+}
+
 const dateRangeValidator: ValidatorFn = (
   group: AbstractControl,
 ): ValidationErrors | null => {
@@ -43,6 +69,17 @@ const dateRangeValidator: ValidatorFn = (
   }
   return to >= from ? null : { dateRange: true };
 };
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    'message' in error &&
+    typeof (error as ApiError).status === 'number' &&
+    typeof (error as ApiError).message === 'string'
+  );
+}
 
 @Component({
   selector: 'app-comercio-promotions',
@@ -57,28 +94,52 @@ const dateRangeValidator: ValidatorFn = (
     AppSelect,
     AppLoading,
     AppEmptyState,
+    AppAlert,
     AppIcon,
+    AppConfirmDialog,
   ],
   templateUrl: './comercio-promotions.html',
   styleUrl: './comercio-promotions.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ComercioPromotions {
-  private readonly auth = inject(AuthService);
   private readonly promotionService = inject(PromotionService);
   private readonly notifications = inject(NotificationService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly reload$ = new Subject<void>();
 
-  readonly loading = signal(true);
+  readonly viewState = signal<PromotionsViewState>('loading');
   readonly saving = signal(false);
   readonly togglingId = signal<string | null>(null);
-  readonly promotions = signal<Promotion[]>([]);
+  readonly promotions = signal<ComercioBeneficioViewModel[]>([]);
   readonly modalOpen = signal(false);
-  readonly editing = signal<Promotion | null>(null);
+  readonly editing = signal<ComercioBeneficioViewModel | null>(null);
+  readonly statusConfirm = signal<StatusConfirmState | null>(null);
+  readonly errorMessage = signal(
+    'No se pudieron cargar las promociones. Intentá nuevamente.',
+  );
+
+  readonly statusConfirmOpen = computed(() => this.statusConfirm() !== null);
+
+  readonly statusConfirmTitle = computed(() =>
+    this.statusConfirm()?.nextEstado === 'INACTIVO'
+      ? 'Desactivar promoción'
+      : 'Activar promoción',
+  );
+
+  readonly statusConfirmMessage = computed(() =>
+    this.statusConfirm()?.nextEstado === 'INACTIVO'
+      ? '¿Querés desactivar esta promoción? Dejará de estar visible para los socios.'
+      : '¿Querés activar esta promoción? Volverá a estar disponible para los socios.',
+  );
+
+  readonly statusConfirmLabel = computed(() =>
+    this.statusConfirm()?.nextEstado === 'INACTIVO' ? 'Desactivar' : 'Activar',
+  );
 
   readonly activeCount = computed(
-    () => this.promotions().filter((promo) => promo.status === PromotionStatus.Activa).length,
+    () => this.promotions().filter((promo) => promo.isActive).length,
   );
 
   readonly activeSubtitle = computed(() => {
@@ -86,19 +147,21 @@ export class ComercioPromotions {
     return `${count} ${count === 1 ? 'activa' : 'activas'}`;
   });
 
+  /** Swagger `BeneficioResponse.tipo` / create-update enums. */
   readonly typeOptions: SelectOption[] = [
-    { value: PromotionType.Descuento, label: 'Descuento' },
-    { value: PromotionType.Promocion, label: 'Promoción' },
-    { value: PromotionType.DosPorUno, label: '2×1' },
-    { value: PromotionType.Gratis, label: 'Gratis' },
+    { value: 'DESCUENTO_PORCENTAJE', label: 'Descuento' },
+    { value: 'DOS_POR_UNO', label: '2×1' },
+    { value: 'TRES_POR_DOS', label: '3×2' },
+    { value: 'GRATIS', label: 'Gratis' },
+    { value: 'OTRO', label: 'Otro' },
   ];
 
   readonly form = this.fb.nonNullable.group(
     {
-      title: ['', [Validators.required, Validators.minLength(3)]],
-      description: ['', [Validators.required, Validators.minLength(8)]],
-      type: [PromotionType.Descuento, [Validators.required]],
-      value: ['', [Validators.required]],
+      title: ['', [Validators.required, Validators.minLength(1)]],
+      description: [''],
+      type: ['DESCUENTO_PORCENTAJE' as BeneficioTipoDto, [Validators.required]],
+      value: ['', [Validators.required, Validators.minLength(1)]],
       validFrom: ['', [Validators.required]],
       validTo: ['', [Validators.required]],
     },
@@ -106,69 +169,85 @@ export class ComercioPromotions {
   );
 
   constructor() {
-    this.load();
+    this.reload$
+      .pipe(
+        startWith(undefined),
+        tap(() => {
+          if (this.promotions().length === 0) {
+            this.viewState.set('loading');
+          }
+        }),
+        switchMap(() =>
+          this.promotionService.getComercioBeneficios().pipe(
+            catchError((error: unknown) => {
+              this.promotions.set([]);
+              this.errorMessage.set(
+                isApiError(error)
+                  ? error.message
+                  : 'No se pudieron cargar las promociones. Intentá nuevamente.',
+              );
+              this.viewState.set('error');
+              return EMPTY;
+            }),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((items) => {
+        this.promotions.set(items);
+        this.viewState.set(items.length === 0 ? 'empty' : 'success');
+      });
+  }
+
+  retry(): void {
+    this.reload$.next();
   }
 
   openCreate(): void {
     this.editing.set(null);
-    this.form.reset({
-      title: '',
-      description: '',
-      type: PromotionType.Descuento,
-      value: '',
-      validFrom: '',
-      validTo: '',
-    });
+    this.resetForm();
     this.modalOpen.set(true);
   }
 
-  openEdit(promo: Promotion): void {
+  openEdit(promo: ComercioBeneficioViewModel): void {
     this.editing.set(promo);
     this.form.reset({
       title: promo.title,
       description: promo.description,
-      type: (promo.type as PromotionType) || PromotionType.Descuento,
-      value: promo.discountLabel,
+      type: (promo.type as BeneficioTipoDto) || 'DESCUENTO_PORCENTAJE',
+      value: promo.valueLabel === '—' ? '' : promo.valueLabel,
       validFrom: promo.validFrom,
       validTo: promo.validTo,
     });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
     this.modalOpen.set(true);
   }
 
-  closeModal(): void {
+  closeModal(options?: { force?: boolean }): void {
+    if (!options?.force && this.saving()) {
+      return;
+    }
     this.modalOpen.set(false);
     this.editing.set(null);
-    this.form.reset({
-      title: '',
-      description: '',
-      type: PromotionType.Descuento,
-      value: '',
-      validFrom: '',
-      validTo: '',
-    });
+    this.resetForm();
   }
 
-  promoIcon(promo: Promotion): string {
-    return this.isPercentPromo(promo) ? 'percent' : 'local_offer';
+  promoIcon(promo: ComercioBeneficioViewModel): string {
+    return promo.isPercent ? 'percent' : 'local_offer';
   }
 
-  promoIconTone(promo: Promotion): 'primary' | 'gold' {
-    return this.isPercentPromo(promo) ? 'primary' : 'gold';
+  promoIconTone(promo: ComercioBeneficioViewModel): 'primary' | 'gold' {
+    return promo.isPercent ? 'primary' : 'gold';
   }
 
-  valueBadgeTone(promo: Promotion): 'primary' | 'brown' {
-    return this.isPercentPromo(promo) ? 'primary' : 'brown';
+  valueBadgeTone(promo: ComercioBeneficioViewModel): 'primary' | 'brown' {
+    return promo.isPercent ? 'primary' : 'brown';
   }
 
-  formatUntil(date: string): string {
-    const [year, month, day] = date.split('-');
-    if (!year || !month || !day) {
-      return date;
-    }
-    return `Hasta ${Number(day)}/${Number(month)}/${year}`;
-  }
-
-  fieldError(controlName: 'title' | 'description' | 'type' | 'value' | 'validFrom' | 'validTo'): string {
+  fieldError(
+    controlName: 'title' | 'description' | 'type' | 'value' | 'validFrom' | 'validTo',
+  ): string {
     const control = this.form.controls[controlName];
     if (!control.touched || !control.invalid) {
       return '';
@@ -192,30 +271,52 @@ export class ComercioPromotions {
     return '';
   }
 
-  toggleStatus(promo: Promotion): void {
-    if (this.togglingId()) {
+  /** Opens confirmation; PATCH runs only after confirm. */
+  requestToggleStatus(promo: ComercioBeneficioViewModel): void {
+    if (this.togglingId() === promo.id) {
       return;
     }
 
+    const nextEstado = mapPromotionStatusToNextEstado(promo.status);
+    this.statusConfirm.set({ promo, nextEstado });
+  }
+
+  cancelStatusConfirm(): void {
+    if (this.togglingId()) {
+      return;
+    }
+    this.statusConfirm.set(null);
+  }
+
+  confirmStatusChange(): void {
+    const pending = this.statusConfirm();
+    if (!pending || this.togglingId()) {
+      return;
+    }
+
+    const { promo, nextEstado } = pending;
     this.togglingId.set(promo.id);
+
     this.promotionService
-      .toggleStatus(promo.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .changeComercioBeneficioEstado(promo.id, nextEstado)
+      .pipe(
+        finalize(() => this.togglingId.set(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: (updated) => {
-          this.promotions.update((list) =>
-            list.map((item) => (item.id === updated.id ? updated : item)),
-          );
-          this.togglingId.set(null);
+          this.statusConfirm.set(null);
           this.notifications.success(
-            updated.status === PromotionStatus.Activa
-              ? 'Promoción activada'
-              : 'Promoción desactivada',
+            updated.isActive ? 'Promoción activada' : 'Promoción desactivada',
           );
+          this.reload$.next();
         },
-        error: () => {
-          this.togglingId.set(null);
-          this.notifications.error('No se pudo actualizar el estado.');
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo actualizar el estado.',
+          );
         },
       });
   }
@@ -226,90 +327,61 @@ export class ComercioPromotions {
       return;
     }
 
-    const merchantId = this.auth.currentUser()?.merchantId;
-    if (!merchantId) {
-      this.notifications.error('No se identificó el comercio.');
-      return;
-    }
-
     const raw = this.form.getRawValue();
-    const discountPercent = this.extractPercent(raw.value);
-    this.saving.set(true);
+    const formValue = {
+      title: raw.title,
+      description: raw.description,
+      type: raw.type,
+      value: raw.value,
+      validFrom: raw.validFrom,
+      validTo: raw.validTo,
+    };
 
     const editing = this.editing();
+    this.saving.set(true);
+
     const request$ = editing
-      ? this.promotionService.update(editing.id, {
-          title: raw.title.trim(),
-          description: raw.description.trim(),
-          type: raw.type,
-          discountLabel: raw.value.trim(),
-          discountPercent,
-          validFrom: raw.validFrom,
-          validTo: raw.validTo,
-        })
-      : this.promotionService.create({
-          merchantId,
-          title: raw.title.trim(),
-          description: raw.description.trim(),
-          type: raw.type,
-          discountLabel: raw.value.trim(),
-          discountPercent,
-          validFrom: raw.validFrom,
-          validTo: raw.validTo,
-        });
-
-    request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (saved) => {
-        this.saving.set(false);
-        this.promotions.update((list) => {
-          const exists = list.some((item) => item.id === saved.id);
-          if (exists) {
-            return list.map((item) => (item.id === saved.id ? saved : item));
-          }
-          return [saved, ...list];
-        });
-        this.closeModal();
-        this.notifications.success(
-          editing ? 'Promoción actualizada' : 'Promoción creada correctamente',
+      ? this.promotionService.updateComercioBeneficio(
+          editing.id,
+          mapPromotionFormToUpdateRequest(formValue),
+        )
+      : this.promotionService.createComercioBeneficio(
+          mapPromotionFormToCreateRequest(formValue),
         );
-      },
-      error: () => {
-        this.saving.set(false);
-        this.notifications.error('No se pudo guardar la promoción.');
-      },
-    });
-  }
 
-  private isPercentPromo(promo: Promotion): boolean {
-    const type = String(promo.type ?? '');
-    if (type === PromotionType.Descuento || promo.discountLabel.includes('%')) {
-      return true;
-    }
-    return false;
-  }
-
-  private extractPercent(value: string): number | undefined {
-    const match = value.match(/(\d+(?:[.,]\d+)?)\s*%/);
-    if (!match) {
-      return undefined;
-    }
-    const parsed = Number(match[1].replace(',', '.'));
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-
-  private load(): void {
-    this.loading.set(true);
-    const merchantId = this.auth.currentUser()?.merchantId;
-
-    this.promotionService
-      .list(merchantId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    request$
+      .pipe(
+        finalize(() => this.saving.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
-        next: (promotions) => {
-          this.promotions.set(promotions);
-          this.loading.set(false);
+        next: () => {
+          this.notifications.success(
+            editing ? 'Promoción actualizada' : 'Promoción creada correctamente',
+          );
+          this.closeModal({ force: true });
+          this.reload$.next();
         },
-        error: () => this.loading.set(false),
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo guardar la promoción.',
+          );
+        },
       });
+  }
+
+  private resetForm(): void {
+    this.form.reset({
+      title: '',
+      description: '',
+      type: 'DESCUENTO_PORCENTAJE',
+      value: '',
+      validFrom: '',
+      validTo: '',
+    });
+    this.form.markAsPristine();
+    this.form.markAsUntouched();
   }
 }

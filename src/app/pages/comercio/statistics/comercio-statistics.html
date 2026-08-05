@@ -11,19 +11,9 @@
 
     @case ('error') {
       <div class="comercio-stats__state">
-        <app-alert
-          variant="error"
-          message="No se pudieron cargar las estadísticas. Intentá nuevamente."
-        />
+        <app-alert variant="error" [message]="errorMessage()" />
         <app-button variant="outline" (click)="retry()">Reintentar</app-button>
       </div>
-    }
-
-    @case ('empty') {
-      <app-empty-state
-        title="Sin datos"
-        description="Todavía no hay información estadística para este comercio."
-      />
     }
 
     @case ('success') {
@@ -65,7 +55,7 @@
           <div
             class="comercio-stats__chart comercio-stats__chart--line"
             role="img"
-            aria-label="Gráfico de línea con usos mensuales históricos de enero a junio"
+            aria-label="Gráfico de línea con usos mensuales históricos"
           >
             <canvas
               baseChart
@@ -118,7 +108,7 @@
                   <tr>
                     <td>{{ item.memberName }}</td>
                     <td>{{ item.benefitName }}</td>
-                    <td class="consumptions__date">{{ formatUsageDate(item.usedAt) }}</td>
+                    <td class="consumptions__date">{{ item.usedAtLabel }}</td>
                   </tr>
                 }
               </tbody>
@@ -130,7 +120,7 @@
               <li class="consumptions-mobile__item">
                 <p class="consumptions-mobile__member">{{ item.memberName }}</p>
                 <p class="consumptions-mobile__benefit">{{ item.benefitName }}</p>
-                <p class="consumptions-mobile__date">{{ formatUsageDate(item.usedAt) }}</p>
+                <p class="consumptions-mobile__date">{{ item.usedAtLabel }}</p>
               </li>
             }
           </ul>

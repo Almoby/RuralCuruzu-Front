@@ -31,7 +31,9 @@ export function mapSessionToAuthUser(session: AuthSession): AuthUser {
     email: session.email,
     fullName: session.displayName,
     role: session.role,
-    memberCode: session.role === UserRole.Socio ? refId : undefined,
+    // Swagger: refId is the Socio/Comercio *profile* id (technical), not numeroSocio.
+    // Do not expose it as memberCode for UI chrome — real numero comes from domain endpoints.
+    memberCode: undefined,
     merchantId: session.role === UserRole.Comercio ? refId : undefined,
     merchantName: session.role === UserRole.Comercio ? session.displayName : undefined,
     token: session.accessToken,

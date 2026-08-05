@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { APP_ROUTES } from '../../../core/constants/routes.constant';
 import { ApiError } from '../../../core/interfaces/api-response.interface';
 import { AuthService } from '../../../core/services/auth.service';
@@ -25,6 +25,16 @@ function isApiError(error: unknown): error is ApiError {
     'message' in error &&
     typeof (error as ApiError).message === 'string'
   );
+}
+
+function isInvalidOrExpiredTokenError(error: ApiError): boolean {
+  if (error.status === 404 || error.status === 410) {
+    return true;
+  }
+  if (error.status !== 400) {
+    return false;
+  }
+  return /token|enlace|inv[aá]lido|expir|venci|usado/i.test(error.message);
 }
 
 @Component({
@@ -47,6 +57,7 @@ export class ResetPassword {
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly showPassword = signal(false);
@@ -58,7 +69,8 @@ export class ResetPassword {
   protected readonly loginRoute = ['/', ...APP_ROUTES.auth.login.split('/')];
   protected readonly forgotRoute = ['/', ...APP_ROUTES.auth.forgotPassword.split('/')];
 
-  private readonly token = (this.route.snapshot.queryParamMap.get('token') ?? '').trim();
+  /** Query token kept only in memory for the request body — never persisted. */
+  private token = (this.route.snapshot.queryParamMap.get('token') ?? '').trim();
 
   protected readonly form = this.fb.nonNullable.group(
     {
@@ -71,7 +83,7 @@ export class ResetPassword {
   constructor() {
     if (!this.token) {
       this.invalidLink.set(true);
-      this.errorMessage.set('El enlace no es válido o está incompleto.');
+      this.errorMessage.set('El enlace para restablecer la contraseña no es válido.');
     }
   }
 
@@ -105,6 +117,10 @@ export class ResetPassword {
     return 'Dato inválido';
   }
 
+  protected goToLogin(): void {
+    void this.router.navigate(this.loginRoute);
+  }
+
   protected onSubmit(): void {
     this.errorMessage.set('');
     this.form.markAllAsTouched();
@@ -122,22 +138,37 @@ export class ResetPassword {
       .subscribe({
         next: (response) => {
           this.submitting.set(false);
+          this.form.reset({
+            nuevaPassword: '',
+            confirmPassword: '',
+          });
+          this.token = '';
+          // Drop token from the URL without storing it anywhere.
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: {},
+            replaceUrl: true,
+          });
           this.successMessage.set(
-            response.mensaje?.trim() || 'Tu contraseña se actualizó correctamente.',
+            response.mensaje?.trim() || 'Tu contraseña fue actualizada correctamente.',
           );
         },
         error: (error: unknown) => {
           this.submitting.set(false);
-          const message = isApiError(error)
-            ? error.message
-            : 'No pudimos restablecer la contraseña. Intentá nuevamente.';
-          this.errorMessage.set(message);
 
-          if (isApiError(error) && error.status === 400) {
-            this.invalidLink.set(
-              /token|enlace|inv[aá]lido|expir|venci|usado/i.test(message),
+          if (isApiError(error) && isInvalidOrExpiredTokenError(error)) {
+            this.invalidLink.set(true);
+            this.errorMessage.set(
+              'El enlace es inválido o ya venció. Solicitá uno nuevo.',
             );
+            return;
           }
+
+          this.errorMessage.set(
+            isApiError(error)
+              ? error.message
+              : 'No pudimos restablecer la contraseña. Intentá nuevamente.',
+          );
         },
       });
   }

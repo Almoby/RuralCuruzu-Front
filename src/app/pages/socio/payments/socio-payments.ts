@@ -10,18 +10,36 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { forkJoin, take } from 'rxjs';
+import {
+  EMPTY,
+  Subject,
+  catchError,
+  filter,
+  fromEvent,
+  forkJoin,
+  map,
+  of,
+  startWith,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { FeeService } from '../../../core/services/fee.service';
-import { MemberService } from '../../../core/services/member.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { UserIdentityService } from '../../../core/services/user-identity.service';
+import { ApiError } from '../../../core/interfaces/api-response.interface';
 import {
   BankDetailRow,
-  BankTransferDetails,
-  FeePayment,
-} from '../../../core/interfaces/fee.interface';
-import { PaymentMethod, PaymentStatus } from '../../../shared/enums';
+  SocioPaymentsReceiptItem,
+  SocioPaymentsViewModel,
+} from '../../../core/interfaces/socio-payments.interface';
 import {
+  buildSocioBankDetailRows,
+  mapSocioPaymentsBundleToViewModel,
+  todayLocalDateIso,
+} from '../../../core/mappers/socio-payments.mapper';
+import {
+  AppAlert,
   AppButton,
   AppEmptyState,
   AppIcon,
@@ -30,19 +48,38 @@ import {
   AppPageHeader,
   AppTextarea,
 } from '../../../shared/components';
-import { CurrencyArsPipe, DateEsPipe } from '../../../shared/pipes';
-import { formatFeePeriodTitle, formatPeriodLabel } from '../../../shared/utils';
+import { CurrencyArsPipe } from '../../../shared/pipes';
 
 type TransferStep = 1 | 2 | 3;
+type ViewState = 'loading' | 'success' | 'error';
 
 const ACCEPTED_RECEIPT_TYPES = [
   'image/png',
   'image/jpeg',
-  'image/webp',
   'application/pdf',
 ] as const;
 
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+
+const EMPTY_PAYMENTS: SocioPaymentsViewModel = {
+  currentCuota: null,
+  previousCuotas: [],
+  receipts: [],
+  bank: null,
+  memberCode: '',
+  memberName: 'Socio',
+};
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    'message' in error &&
+    typeof (error as ApiError).status === 'number' &&
+    typeof (error as ApiError).message === 'string'
+  );
+}
 
 @Component({
   selector: 'app-socio-payments',
@@ -55,9 +92,9 @@ const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
     AppTextarea,
     AppLoading,
     AppEmptyState,
+    AppAlert,
     AppIcon,
     CurrencyArsPipe,
-    DateEsPipe,
   ],
   templateUrl: './socio-payments.html',
   styleUrl: './socio-payments.scss',
@@ -65,46 +102,53 @@ const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 })
 export class SocioPayments {
   private readonly auth = inject(AuthService);
+  private readonly userIdentity = inject(UserIdentityService);
   private readonly feeService = inject(FeeService);
-  private readonly memberService = inject(MemberService);
   private readonly notifications = inject(NotificationService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly currencyPipe = new CurrencyArsPipe();
+  private readonly reload$ = new Subject<void>();
 
   private readonly fileInput =
     viewChild<ElementRef<HTMLInputElement>>('receiptFileInput');
 
-  readonly loading = signal(true);
+  readonly viewState = signal<ViewState>('loading');
   readonly submitting = signal(false);
-  readonly fees = signal<FeePayment[]>([]);
-  readonly memberId = signal<string | null>(null);
-  readonly bankTransfer = signal<BankTransferDetails | null>(null);
+  readonly linking = signal(false);
+  readonly downloadingId = signal<string | null>(null);
+  readonly data = signal<SocioPaymentsViewModel>(EMPTY_PAYMENTS);
+  readonly errorMessage = signal(
+    'No pudimos cargar tus pagos. Reintentá en unos segundos.',
+  );
   readonly linkModalOpen = signal(false);
   readonly reportModalOpen = signal(false);
   readonly transferStep = signal<TransferStep>(1);
   readonly selectedFile = signal<File | null>(null);
   readonly fileError = signal('');
   readonly copiedKey = signal<string | null>(null);
+  readonly successMessage = signal(
+    'El equipo administrativo revisará y aprobará tu pago. Recibirás una notificación por email.',
+  );
+  /** After opening Mercado Pago, reload once when the user returns to this tab. */
+  private readonly awaitingMercadoPagoReturn = signal(false);
 
   readonly reportForm = this.fb.nonNullable.group({
     notes: [''],
   });
 
-  readonly currentFee = computed(() => {
-    const list = this.fees();
-    return list.length > 0 ? list[0] : null;
+  readonly currentFee = computed(() => this.data().currentCuota);
+  readonly receipts = computed(() => this.data().receipts);
+
+  readonly memberCode = computed(() => {
+    const fromData = this.data().memberCode;
+    return fromData || this.userIdentity.socioNumero() || '';
   });
 
-  readonly previousFees = computed(() => this.fees().slice(1));
-
-  readonly memberCode = computed(
-    () => this.auth.currentUser()?.memberCode ?? this.currentFee()?.memberCode ?? '',
-  );
-
-  readonly memberName = computed(
-    () => this.auth.currentUser()?.fullName ?? this.currentFee()?.memberName ?? 'Socio',
-  );
+  readonly memberName = computed(() => {
+    const fromData = this.data().memberName;
+    return fromData || this.auth.currentUser()?.fullName || 'Socio';
+  });
 
   readonly memberSummary = computed(() => {
     const code = this.memberCode();
@@ -126,87 +170,186 @@ export class SocioPayments {
   });
 
   readonly bankRows = computed((): BankDetailRow[] => {
-    const details = this.bankTransfer();
     const fee = this.currentFee();
-    const code = this.memberCode();
-    if (!details || !fee) {
+    if (!fee) {
       return [];
     }
+    return buildSocioBankDetailRows(
+      this.data().bank,
+      this.currencyPipe.transform(fee.amount),
+      this.memberCode(),
+    );
+  });
 
-    return [
-      { key: 'bank', label: 'Banco', value: details.bank, copyable: false },
-      { key: 'cbu', label: 'CBU', value: details.cbu, copyable: true },
-      { key: 'alias', label: 'Alias', value: details.alias, copyable: true },
-      { key: 'holder', label: 'Titular', value: details.holder, copyable: false },
-      { key: 'cuit', label: 'CUIT', value: details.cuit, copyable: false },
-      {
-        key: 'amount',
-        label: 'Monto',
-        value: this.currencyPipe.transform(fee.amount),
-        copyable: false,
-      },
-      {
-        key: 'concept',
-        label: 'Concepto / Referencia',
-        value: code,
-        copyable: true,
-      },
-    ];
+  readonly canPayCurrent = computed(() => this.currentFee()?.canReportPayment === true);
+
+  readonly hasPendingOnlinePayment = computed(
+    () => this.currentFee()?.hasPendingOnlinePayment === true,
+  );
+
+  readonly paymentBlockedMessage = computed(() => {
+    const fee = this.currentFee();
+    if (!fee || fee.canReportPayment) {
+      return '';
+    }
+    if (fee.hasPendingOnlinePayment) {
+      return 'Tenés un pago con link en proceso. Todavía no está confirmado: Mercado Pago debe notificar al sistema. Si cerraste sin pagar, el estado se actualizará cuando el backend lo verifique; mientras tanto no se puede generar otro link ni informar transferencia.';
+    }
+    if (fee.estado === 'PAGADA') {
+      return 'Esta cuota figura como pagada según el sistema.';
+    }
+    return `Esta cuota está en estado “${fee.estadoLabel}” y no admite un nuevo pago por ahora.`;
   });
 
   constructor() {
-    this.load();
+    this.reload$
+      .pipe(
+        startWith(undefined),
+        tap(() => {
+          if (this.viewState() !== 'success') {
+            this.viewState.set('loading');
+          }
+        }),
+        switchMap(() =>
+          forkJoin({
+            cuotas: this.feeService.getSocioCuotas(),
+            pagos: this.feeService.getSocioPayments(),
+            bank: this.feeService.getSocioBankDetails().pipe(
+              catchError(() => of(null)),
+            ),
+          }).pipe(
+            map((bundle) =>
+              mapSocioPaymentsBundleToViewModel(bundle, {
+                memberCode: this.userIdentity.socioNumero() ?? undefined,
+                displayName: this.auth.currentUser()?.fullName,
+              }),
+            ),
+            catchError((error: unknown) => {
+              this.data.set(EMPTY_PAYMENTS);
+              this.viewState.set('error');
+              this.errorMessage.set(
+                isApiError(error)
+                  ? error.message
+                  : 'No pudimos cargar tus pagos. Reintentá en unos segundos.',
+              );
+              this.notifications.error(this.errorMessage());
+              return EMPTY;
+            }),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((payload) => {
+        this.data.set(payload);
+        this.viewState.set('success');
+      });
+
+    fromEvent(document, 'visibilitychange')
+      .pipe(
+        filter(() => document.visibilityState === 'visible'),
+        filter(() => this.awaitingMercadoPagoReturn()),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        this.awaitingMercadoPagoReturn.set(false);
+        this.reload$.next();
+      });
   }
 
-  feeTitle(period: string): string {
-    return formatFeePeriodTitle(period);
-  }
-
-  receiptTitle(period: string): string {
-    return `Cuota ${formatPeriodLabel(period)}`;
-  }
-
-  feeBadgeVariant(status: PaymentStatus): 'success' | 'warning' | 'danger' | 'neutral' {
-    switch (status) {
-      case PaymentStatus.Aprobado:
-        return 'success';
-      case PaymentStatus.Pendiente:
-        return 'warning';
-      case PaymentStatus.Rechazado:
-        return 'danger';
-      default:
-        return 'neutral';
-    }
-  }
-
-  feeStatusLabel(status: PaymentStatus): string {
-    switch (status) {
-      case PaymentStatus.Aprobado:
-        return 'Al día';
-      case PaymentStatus.Pendiente:
-        return 'Pendiente';
-      case PaymentStatus.Rechazado:
-        return 'Rechazado';
-      default:
-        return status;
-    }
+  protected retry(): void {
+    this.reload$.next();
   }
 
   openLinkModal(): void {
+    const fee = this.currentFee();
+    if (!fee?.canPayWithLink) {
+      this.notifications.error('Esta cuota no admite un nuevo link de pago en su estado actual.');
+      return;
+    }
     this.linkModalOpen.set(true);
   }
 
   closeLinkModal(): void {
+    if (this.linking()) {
+      return;
+    }
     this.linkModalOpen.set(false);
   }
 
+  confirmPaymentLink(): void {
+    if (this.linking()) {
+      return;
+    }
+    const fee = this.currentFee();
+    if (!fee?.canPayWithLink) {
+      this.notifications.error('Esta cuota no admite un nuevo link de pago en su estado actual.');
+      return;
+    }
+
+    this.linking.set(true);
+    this.feeService
+      .createSocioPaymentLink(fee.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (response) => {
+          this.linking.set(false);
+          const url = response.linkDePago?.trim();
+          if (!url) {
+            this.notifications.error(
+              response.mensaje?.trim() || 'No se recibió el link de pago.',
+            );
+            return;
+          }
+
+          // Link creation ≠ payment confirmation. Only open Mercado Pago and sync GET state.
+          this.linkModalOpen.set(false);
+          this.notifications.info(
+            'Te abrimos Mercado Pago. El pago se confirma solo cuando Mercado Pago lo notifica al sistema.',
+          );
+
+          const opened = window.open(url, '_blank', 'noopener,noreferrer');
+          this.awaitingMercadoPagoReturn.set(true);
+          this.reload$.next();
+
+          if (!opened) {
+            // Popup blocked: last resort navigates this tab (still not a payment confirmation).
+            window.location.assign(url);
+          }
+        },
+        error: (error: unknown) => {
+          this.linking.set(false);
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo generar el link de pago.',
+          );
+        },
+      });
+  }
+
   openReportModal(): void {
+    const fee = this.currentFee();
+    if (!fee?.canReportPayment) {
+      this.notifications.error(
+        'Esta cuota no admite informar un pago en su estado actual.',
+      );
+      return;
+    }
+    if (!this.data().bank) {
+      this.notifications.error(
+        'Todavía no hay datos bancarios configurados. Consultá en la cooperativa.',
+      );
+      return;
+    }
     this.resetTransferForm();
     this.transferStep.set(1);
     this.reportModalOpen.set(true);
   }
 
   closeReportModal(): void {
+    if (this.submitting()) {
+      return;
+    }
     this.reportModalOpen.set(false);
     this.resetTransferForm();
     this.transferStep.set(1);
@@ -272,35 +415,75 @@ export class SocioPayments {
     }
 
     const fee = this.currentFee();
-    const memberId = this.memberId();
-    if (!fee || !memberId) {
-      this.notifications.error('No se pudo identificar la cuota actual.');
+    if (!fee?.canReportPayment) {
+      this.notifications.error(
+        'Esta cuota no admite informar un pago en su estado actual.',
+      );
       return;
     }
 
     const notes = this.reportForm.controls.notes.getRawValue().trim();
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('notes', notes);
-    formData.append('period', fee.period);
-    formData.append('memberId', memberId);
-    formData.append('feeId', fee.id);
-    formData.append('amount', String(fee.amount));
-    formData.append('paymentMethod', PaymentMethod.Transferencia);
+    const datos = {
+      fecha: todayLocalDateIso(),
+      importe: fee.amount,
+      medioPago: 'TRANSFERENCIA' as const,
+      ...(notes ? { observacion: notes } : {}),
+    };
 
     this.submitting.set(true);
     this.feeService
-      .reportTransferPayment(formData)
+      .reportSocioTransferPayment(fee.id, datos, file)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
+        next: (response) => {
           this.submitting.set(false);
+          const message = response.mensaje?.trim();
+          if (message) {
+            this.successMessage.set(message);
+            this.notifications.success(message);
+          } else {
+            this.successMessage.set(
+              'El equipo administrativo revisará y aprobará tu pago. Recibirás una notificación por email.',
+            );
+          }
           this.transferStep.set(3);
-          this.load();
+          this.reload$.next();
         },
-        error: () => {
+        error: (error: unknown) => {
           this.submitting.set(false);
-          this.notifications.error('No se pudo informar el pago.');
+          this.notifications.error(
+            isApiError(error) ? error.message : 'No se pudo informar el pago.',
+          );
+        },
+      });
+  }
+
+  downloadReceipt(item: SocioPaymentsReceiptItem): void {
+    if (!item.canDownload || this.downloadingId()) {
+      return;
+    }
+
+    this.downloadingId.set(item.id);
+    this.feeService
+      .downloadSocioPaymentReceipt(item.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (file) => {
+          this.downloadingId.set(null);
+          const url = URL.createObjectURL(file.blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = file.fileName;
+          anchor.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (error: unknown) => {
+          this.downloadingId.set(null);
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo descargar el comprobante.',
+          );
         },
       });
   }
@@ -329,7 +512,7 @@ export class SocioPayments {
 
   private validateReceiptFile(file: File): string {
     if (!(ACCEPTED_RECEIPT_TYPES as readonly string[]).includes(file.type)) {
-      return 'El archivo debe ser PNG, JPG, WEBP o PDF.';
+      return 'El archivo debe ser PNG, JPG o PDF.';
     }
     if (file.size > MAX_RECEIPT_BYTES) {
       return 'El archivo no puede superar los 5 MB.';
@@ -346,32 +529,5 @@ export class SocioPayments {
     if (input) {
       input.value = '';
     }
-  }
-
-  private load(): void {
-    this.loading.set(true);
-    const code = this.auth.currentUser()?.memberCode;
-
-    forkJoin({
-      fees: this.feeService.list(),
-      members: this.memberService.list().pipe(take(1)),
-      bank: this.feeService.getBankTransferDetails().pipe(take(1)),
-    })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: ({ fees, members, bank }) => {
-          const member = members.find((item) => item.memberCode === code);
-          this.memberId.set(member?.id ?? null);
-          this.bankTransfer.set(bank);
-
-          const memberFees = (
-            code ? fees.filter((fee) => fee.memberCode === code) : fees
-          ).sort((a, b) => b.period.localeCompare(a.period));
-
-          this.fees.set(memberFees);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
-      });
   }
 }

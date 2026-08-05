@@ -76,6 +76,8 @@ export class Login {
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly sessionExpiredMessage = signal('');
+  /** True while redirecting `/auth/login?token=` → restablecer-password. */
+  protected readonly redirectingToReset = signal(false);
   protected readonly registerRoute = ['/', ...APP_ROUTES.auth.register.split('/')];
   protected readonly forgotPasswordRoute = [
     '/',
@@ -88,6 +90,17 @@ export class Login {
   });
 
   constructor() {
+    const recoveryToken = (this.route.snapshot.queryParamMap.get('token') ?? '').trim();
+    if (recoveryToken.length > 0) {
+      // Backend emails currently link to Login; forward to the real reset screen.
+      this.redirectingToReset.set(true);
+      void this.router.navigate(['/', ...APP_ROUTES.auth.resetPassword.split('/')], {
+        queryParams: { token: recoveryToken },
+        replaceUrl: true,
+      });
+      return;
+    }
+
     if (readSessionExpiredFlag(this.router, this.route)) {
       this.sessionExpiredMessage.set('Tu sesión expiró. Iniciá sesión nuevamente.');
       // Drop reason from the URL so a normal refresh of Login does not keep the banner.

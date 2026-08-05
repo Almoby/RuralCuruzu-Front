@@ -19,13 +19,6 @@
       </div>
     }
 
-    @case ('empty') {
-      <app-empty-state
-        title="Sin datos"
-        description="Todavía no hay información disponible para este comercio."
-      />
-    }
-
     @case ('success') {
       <div class="comercio-dashboard__metrics" aria-label="Métricas del comercio">
         <app-stat-card

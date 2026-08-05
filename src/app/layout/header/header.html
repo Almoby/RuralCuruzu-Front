@@ -17,19 +17,149 @@
 
   <div class="header__right">
     @if (showBell()) {
-      <button class="header__icon-btn" type="button" aria-label="Notificaciones">
-        <app-icon name="bell" [size]="18" />
-      </button>
+      <div class="header__action">
+        <button
+          class="header__icon-btn"
+          type="button"
+          aria-label="Notificaciones"
+          [attr.aria-expanded]="openPanel() === 'notifications'"
+          aria-haspopup="true"
+          (click)="toggleNotifications(); $event.stopPropagation()"
+        >
+          <app-icon name="bell" [size]="18" />
+          @if (showUnreadBadge()) {
+            <span class="header__badge" aria-hidden="true">{{ unreadBadge() }}</span>
+          }
+        </button>
+
+        @if (openPanel() === 'notifications') {
+          <div
+            class="header__panel header__panel--notifications"
+            role="dialog"
+            aria-label="Notificaciones"
+            (click)="$event.stopPropagation()"
+          >
+            <div class="header__panel-head">
+              <h2 class="header__panel-title">Notificaciones</h2>
+            </div>
+
+            <div class="header__panel-body">
+              @if (notificationsLoading()) {
+                <div class="header__panel-state">
+                  <app-loading message="" />
+                </div>
+              } @else if (notificationsError()) {
+                <div class="header__panel-state">
+                  <p class="header__panel-message">
+                    No pudimos cargar las notificaciones.
+                  </p>
+                  <button
+                    class="header__panel-action"
+                    type="button"
+                    (click)="loadNotifications()"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              } @else if (notifications().length === 0) {
+                <div class="header__panel-state">
+                  <p class="header__panel-message">No tenés notificaciones.</p>
+                </div>
+              } @else {
+                <ul class="header__notif-list">
+                  @for (item of notifications(); track item.id) {
+                    <li>
+                      <button
+                        type="button"
+                        class="header__notif"
+                        [class.header__notif--unread]="!item.read"
+                        [class.header__notif--success]="item.resultTone === 'success'"
+                        [class.header__notif--danger]="item.resultTone === 'danger'"
+                        (click)="onNotificationClick(item)"
+                      >
+                        <span
+                          class="header__notif-icon"
+                          [class.header__notif-icon--success]="item.resultTone === 'success'"
+                          [class.header__notif-icon--danger]="item.resultTone === 'danger'"
+                        >
+                          <app-icon [name]="item.icon" [size]="16" />
+                        </span>
+
+                        <span class="header__notif-content">
+                          <span class="header__notif-subject">
+                            @if (!item.read) {
+                              <span class="header__notif-dot" aria-hidden="true"></span>
+                            }
+                            {{ item.subject }}
+                          </span>
+                          @if (item.message) {
+                            <span class="header__notif-message">{{ item.message }}</span>
+                          }
+                          @if (item.sentAtLabel) {
+                            <span class="header__notif-date">{{ item.sentAtLabel }}</span>
+                          }
+                        </span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+        }
+      </div>
     }
 
     @if (user()) {
-      <span
-        class="header__initial"
-        [attr.aria-label]="'Usuario ' + userInitial()"
-        title="{{ user()?.fullName }}"
-      >
-        {{ userInitial() }}
-      </span>
+      <div class="header__action">
+        <button
+          class="header__initial"
+          type="button"
+          [attr.aria-label]="'Menú de usuario, ' + userDisplayName()"
+          [attr.aria-expanded]="openPanel() === 'profile'"
+          aria-haspopup="true"
+          [attr.title]="userDisplayName()"
+          (click)="toggleProfile(); $event.stopPropagation()"
+        >
+          {{ userInitial() }}
+        </button>
+
+        @if (openPanel() === 'profile') {
+          <div
+            class="header__panel header__panel--profile"
+            role="menu"
+            aria-label="Menú de usuario"
+            (click)="$event.stopPropagation()"
+          >
+            <div class="header__profile-meta">
+              <p class="header__profile-name">{{ userDisplayName() }}</p>
+              <p class="header__profile-role">{{ userRoleLabel() }}</p>
+            </div>
+
+            <div class="header__profile-actions">
+              <button
+                class="header__profile-item"
+                type="button"
+                role="menuitem"
+                (click)="goToChangePassword()"
+              >
+                <app-icon name="lock" [size]="16" />
+                <span>Cambiar contraseña</span>
+              </button>
+
+              <button
+                class="header__profile-item header__profile-item--danger"
+                type="button"
+                role="menuitem"
+                (click)="logout()"
+              >
+                <app-icon name="logout" [size]="16" />
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
     }
   </div>
 </header>

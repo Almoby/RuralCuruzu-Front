@@ -12,10 +12,7 @@
     </div>
   } @else if (viewState() === 'error') {
     <div class="socio-qr__stage">
-      <app-alert
-        variant="error"
-        message="No pudimos cargar tu QR. Reintentá en unos segundos."
-      />
+      <app-alert variant="error" [message]="errorMessage()" />
       <div class="socio-qr__retry">
         <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
       </div>
@@ -32,6 +29,50 @@
         </app-button>
       </div>
     </div>
+  } @else if (viewState() === 'blocked' && data(); as panel) {
+    <article class="socio-qr__card">
+      <div
+        class="socio-qr__status socio-qr__status--suspended"
+        role="status"
+        [attr.aria-label]="panel.message"
+      >
+        <app-icon name="alert_circle" [size]="14" />
+        <span>QR no disponible</span>
+      </div>
+
+      <div class="socio-qr__identity">
+        <p class="socio-qr__name">{{ panel.profile.memberName }}</p>
+        <p class="socio-qr__code">{{ panel.profile.memberNumber }}</p>
+      </div>
+
+      <p class="socio-qr__helper">{{ panel.message }}</p>
+    </article>
+
+    <div class="socio-qr__info-grid">
+      <article class="socio-qr__info-card">
+        <p class="socio-qr__info-label">Próx. vencimiento</p>
+        <p class="socio-qr__info-value">{{ panel.summary.nextDueDateLabel }}</p>
+      </article>
+      <article class="socio-qr__info-card">
+        <p class="socio-qr__info-label">Último pago</p>
+        <p class="socio-qr__info-value">{{ panel.summary.lastPaymentDateLabel }}</p>
+      </article>
+    </div>
+
+    <div class="socio-qr__actions">
+      <button
+        type="button"
+        class="socio-qr__btn socio-qr__btn--update"
+        [disabled]="refreshing()"
+        aria-label="Actualizar código QR"
+        (click)="refreshQr()"
+      >
+        <app-icon name="refresh" [size]="15" />
+        <span>{{ refreshing() ? 'Actualizando...' : 'Actualizar' }}</span>
+      </button>
+    </div>
+
+    <p class="socio-qr__renewal">{{ panel.summary.renewalNote }}</p>
   } @else if (data(); as panel) {
     <article class="socio-qr__card">
       @if (qr(); as code) {
@@ -50,7 +91,7 @@
         <div class="socio-qr__frame">
           @if (refreshing()) {
             <app-loading message="Actualizando..." />
-          } @else {
+          } @else if (qrImageUrl()) {
             <img
               class="socio-qr__image"
               [src]="qrImageUrl()"
@@ -96,7 +137,7 @@
       <button
         type="button"
         class="socio-qr__btn socio-qr__btn--share"
-        [disabled]="refreshing() || sharing()"
+        [disabled]="refreshing() || sharing() || !available()"
         aria-label="Compartir código QR"
         (click)="shareQr()"
       >

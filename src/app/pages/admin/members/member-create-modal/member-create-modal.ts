@@ -123,11 +123,14 @@ export class MemberCreateModal {
   }
 
   protected onClose(): void {
+    if (this.submitting()) {
+      return;
+    }
     this.close.emit();
   }
 
   protected onSubmit(): void {
-    if (this.form.invalid) {
+    if (this.submitting() || this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }

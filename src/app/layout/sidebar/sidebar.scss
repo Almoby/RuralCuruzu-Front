@@ -63,14 +63,17 @@
   text-overflow: ellipsis;
 }
 
-.sidebar__brand-subtitle {
-  font-size: 0.6875rem;
+.sidebar__brand-user {
+  font-size: 0.5875rem;
   font-weight: $font-weight-normal;
   line-height: 1.3;
   color: var(--sidebar-text-muted, rgb(255 255 255 / 68%));
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  word-break: break-word;
 }
 
 .sidebar__nav {

@@ -18,7 +18,7 @@
 
     @case ('error') {
       <div class="reports__state">
-        <app-alert variant="error" message="No se pudieron cargar los reportes." />
+        <app-alert variant="error" [message]="errorMessage()" />
         <button type="button" class="reports__retry" (click)="retry()">Reintentar</button>
       </div>
     }
@@ -76,7 +76,7 @@
               ></canvas>
             </div>
           } @else {
-            <p class="reports__empty-hint">No hay deuda acumulada.</p>
+            <p class="reports__empty-hint">No hay deuda acumulada por socio.</p>
           }
         </article>
       </div>
@@ -120,20 +120,20 @@
                   [attr.aria-expanded]="monthMenuOpen()"
                   (click)="toggleMonthMenu()"
                 >
-                  {{ selectedMonth() || 'Mes' }}
+                  {{ selectedMonthLabel() }}
                   <span aria-hidden="true">↓</span>
                 </button>
                 @if (monthMenuOpen()) {
                   <ul class="reports__month-menu" role="listbox">
-                    @for (month of monthOptions(); track month) {
+                    @for (month of monthOptions(); track month.value) {
                       <li>
                         <button
                           type="button"
                           class="reports__month-option"
-                          [class.reports__month-option--active]="selectedMonth() === month"
-                          (click)="selectMonth(month)"
+                          [class.reports__month-option--active]="selectedPeriod() === month.value"
+                          (click)="selectMonth(month.value)"
                         >
-                          {{ month }}
+                          {{ month.label }}
                         </button>
                       </li>
                     }
@@ -159,7 +159,7 @@
                     </div>
                     <div class="reports__member-amount reports__member-amount--success">
                       <p class="reports__member-value">{{ formatCurrency(item.amount) }}</p>
-                      <p class="reports__member-caption">deuda acum.</p>
+                      <p class="reports__member-caption">cobrado</p>
                     </div>
                   </li>
                 }

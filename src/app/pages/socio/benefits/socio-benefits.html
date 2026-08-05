@@ -7,10 +7,7 @@
   @if (viewState() === 'loading') {
     <app-loading message="Cargando beneficios..." />
   } @else if (viewState() === 'error') {
-    <app-alert
-      variant="error"
-      message="No pudimos cargar los beneficios. Reintentá en unos segundos."
-    />
+    <app-alert variant="error" [message]="errorMessage()" />
     <div class="socio-benefits__retry">
       <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
     </div>
@@ -50,14 +47,14 @@
     </div>
 
     @if (viewMode() === 'promotions') {
-      @if (filteredPromotions().length === 0) {
+      @if (promotions().length === 0) {
         <app-empty-state
-          title="Sin beneficios"
-          description="No encontramos beneficios con esa búsqueda."
+          [title]="emptyState().title"
+          [description]="emptyState().description"
         />
       } @else {
         <div class="promo-grid">
-          @for (benefit of filteredPromotions(); track benefit.id) {
+          @for (benefit of promotions(); track benefit.id) {
             <article class="promo-card">
               <div class="promo-card__header">
                 <span
@@ -90,14 +87,14 @@
         </div>
       }
     } @else {
-      @if (filteredMerchants().length === 0) {
+      @if (merchants().length === 0) {
         <app-empty-state
-          title="Sin comercios"
-          description="No encontramos comercios con esa búsqueda."
+          [title]="emptyState().title"
+          [description]="emptyState().description"
         />
       } @else {
         <div class="merchant-grid">
-          @for (merchant of filteredMerchants(); track merchant.id) {
+          @for (merchant of merchants(); track merchant.id) {
             <article class="merchant-card">
               <div class="merchant-card__header">
                 <span

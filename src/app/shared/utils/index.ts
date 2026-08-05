@@ -1,4 +1,5 @@
 export { delay } from './delay.util';
+export { formatCuit, isValidCuitFormat } from './cuit.util';
 export { formatFeePeriodTitle, formatPeriodLabel } from './period.util';
 export {
   MERCHANT_CATEGORY_ICON_CONFIG,

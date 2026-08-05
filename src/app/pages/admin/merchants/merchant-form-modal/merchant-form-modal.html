@@ -1,4 +1,4 @@
-<app-modal [open]="open()" [title]="title" size="lg" (close)="onClose()">
+<app-modal [open]="open()" [title]="title()" size="lg" (close)="onClose()">
   <form class="merchant-form" [formGroup]="form" (ngSubmit)="onSubmit()">
     <div class="merchant-form__grid">
       <app-input
@@ -17,12 +17,13 @@
         label="CUIT"
         placeholder="30-00000000-0"
         formControlName="cuit"
+        [maxLength]="cuitMaxLength"
         [error]="fieldError('cuit')"
       />
       <app-select
         label="Rubro"
         formControlName="category"
-        [options]="categoryOptions"
+        [options]="categoryOptions()"
         [error]="fieldError('category')"
       />
       <app-input
@@ -52,7 +53,7 @@
   <div modalFooter class="merchant-form__footer">
     <button type="button" class="merchant-form__cancel" (click)="onClose()">Cancelar</button>
     <app-button variant="primary" [disabled]="submitting()" [fullWidth]="true" (click)="onSubmit()">
-      {{ submitLabel }}
+      {{ submitLabel() }}
     </app-button>
   </div>
 </app-modal>

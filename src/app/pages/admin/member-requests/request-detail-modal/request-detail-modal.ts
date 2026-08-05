@@ -84,6 +84,8 @@ export class RequestDetailModal {
   readonly mode = input<RequestDetailMode>('view');
   readonly submitting = input(false);
   readonly loading = input(false);
+  /** Incremented by parent after a successful observation — clears the field without closing. */
+  readonly observationClearTick = input(0);
 
   readonly close = output<void>();
   readonly passToReview = output<string>();
@@ -392,6 +394,16 @@ export class RequestDetailModal {
           this.observacionError.set('');
         }
       });
+
+    effect(() => {
+      const tick = this.observationClearTick();
+      if (tick > 0) {
+        this.observacionControl.reset('');
+        this.observacionControl.markAsPristine();
+        this.observacionControl.markAsUntouched();
+        this.observacionError.set('');
+      }
+    });
   }
 
   protected hasAction(action: SolicitudAdminAction): boolean {
@@ -399,6 +411,9 @@ export class RequestDetailModal {
   }
 
   protected onClose(): void {
+    if (this.submitting() || this.loading()) {
+      return;
+    }
     this.close.emit();
   }
 
@@ -485,7 +500,6 @@ export class RequestDetailModal {
     }
     this.observacionError.set('');
     this.observe.emit(text);
-    this.observacionControl.reset('');
   }
 
   private resetLocalState(): void {

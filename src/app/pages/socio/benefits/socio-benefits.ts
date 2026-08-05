@@ -7,10 +7,21 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { BenefitService } from '../../../core/services/benefit.service';
 import {
-  Benefit,
-  BenefitMerchantCard,
+  EMPTY,
+  Subject,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  startWith,
+  switchMap,
+  tap,
+} from 'rxjs';
+import { BenefitService } from '../../../core/services/benefit.service';
+import { NotificationService } from '../../../core/services/notification.service';
+import { ApiError } from '../../../core/interfaces/api-response.interface';
+import {
+  BenefitCategoryFilter,
   BenefitsCatalogView,
   SocioBenefitsCatalogResponse,
 } from '../../../core/interfaces/benefit.interface';
@@ -25,6 +36,17 @@ import {
 import { resolveBenefitRubroIcon } from '../../../shared/utils';
 
 type ViewState = 'loading' | 'success' | 'error';
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    'message' in error &&
+    typeof (error as ApiError).status === 'number' &&
+    typeof (error as ApiError).message === 'string'
+  );
+}
 
 @Component({
   selector: 'app-socio-benefits',
@@ -43,58 +65,143 @@ type ViewState = 'loading' | 'success' | 'error';
 })
 export class SocioBenefits {
   private readonly benefitService = inject(BenefitService);
+  private readonly notifications = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly reload$ = new Subject<void>();
+  private readonly searchInput$ = new Subject<string>();
 
   readonly viewState = signal<ViewState>('loading');
   readonly catalog = signal<SocioBenefitsCatalogResponse | null>(null);
   readonly searchTerm = signal('');
   readonly categoryFilter = signal('all');
   readonly viewMode = signal<BenefitsCatalogView>('promotions');
+  readonly errorMessage = signal('No pudimos cargar los beneficios. Reintentá en unos segundos.');
+  /** Rubro chips from the last unfiltered (by rubro) response. */
+  private readonly rubroCategories = signal<BenefitCategoryFilter[]>([]);
 
   readonly title = computed(() => this.catalog()?.title ?? 'Beneficios y Comercios');
-  readonly subtitle = computed(() => this.catalog()?.subtitle ?? '');
   readonly searchPlaceholder = computed(
     () => this.catalog()?.searchPlaceholder ?? 'Buscar beneficios o comercios...',
   );
-  readonly categories = computed(() => this.catalog()?.categories ?? []);
+  readonly categories = computed(() => {
+    const fromCatalog = this.catalog()?.categories ?? [];
+    const stored = this.rubroCategories();
+    return stored.length > 0 ? stored : fromCatalog;
+  });
   readonly viewModes = computed(() => this.catalog()?.viewModes ?? []);
-
-  readonly filteredPromotions = computed(() => {
-    const items = this.catalog()?.promotions ?? [];
-    return items.filter((benefit) => this.matchesBenefit(benefit));
-  });
-
-  readonly filteredMerchants = computed(() => {
-    const items = this.catalog()?.merchants ?? [];
-    return items.filter((merchant) => this.matchesMerchant(merchant));
-  });
+  readonly promotions = computed(() => this.catalog()?.promotions ?? []);
+  readonly merchants = computed(() => this.catalog()?.merchants ?? []);
 
   readonly availableCountLabel = computed(() => {
     if (this.viewMode() === 'merchants') {
-      const merchants = this.filteredMerchants().length;
+      const merchants = this.merchants().length;
       return merchants === 1
         ? '1 comercio disponible'
         : `${merchants} comercios disponibles`;
     }
 
-    const count = this.filteredPromotions().length;
+    const count = this.promotions().length;
     return `${count} beneficio${count === 1 ? '' : 's'} disponibles para vos`;
   });
 
+  /** True when the user typed a search or selected a rubro other than “Todos”. */
+  readonly hasActiveSearchOrFilters = computed(
+    () => this.searchTerm().trim().length > 0 || this.categoryFilter() !== 'all',
+  );
+
+  readonly emptyState = computed(() => {
+    const filtered = this.hasActiveSearchOrFilters();
+    if (this.viewMode() === 'merchants') {
+      return filtered
+        ? {
+            title: 'Sin resultados',
+            description: 'No encontramos comercios con esa búsqueda.',
+          }
+        : {
+            title: 'Sin comercios',
+            description: 'No hay comercios con beneficios disponibles en este momento.',
+          };
+    }
+
+    return filtered
+      ? {
+          title: 'Sin resultados',
+          description: 'No encontramos beneficios con esa búsqueda.',
+        }
+      : {
+          title: 'Sin beneficios',
+          description: 'No hay beneficios disponibles en este momento.',
+        };
+  });
+
   constructor() {
-    this.load();
+    this.searchInput$
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe((term) => {
+        this.searchTerm.set(term);
+        this.reload$.next();
+      });
+
+    this.reload$
+      .pipe(
+        startWith(undefined),
+        tap(() => {
+          if (!this.catalog()) {
+            this.viewState.set('loading');
+          }
+        }),
+        switchMap(() => {
+          const category = this.categoryFilter();
+          const busqueda = this.searchTerm().trim();
+          const rubro = category !== 'all' ? category : undefined;
+          const preserveCategories = category !== 'all' ? this.rubroCategories() : undefined;
+
+          return this.benefitService
+            .getSocioBenefitsCatalog(
+              {
+                rubro,
+                busqueda: busqueda || undefined,
+              },
+              { categories: preserveCategories },
+            )
+            .pipe(
+              catchError((error: unknown) => {
+                this.viewState.set('error');
+                this.errorMessage.set(
+                  isApiError(error)
+                    ? error.message
+                    : 'No pudimos cargar los beneficios. Reintentá en unos segundos.',
+                );
+                this.notifications.error(this.errorMessage());
+                return EMPTY;
+              }),
+            );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((payload) => {
+        this.catalog.set(payload);
+        if (this.categoryFilter() === 'all') {
+          this.rubroCategories.set(payload.categories);
+        }
+        this.viewState.set('success');
+      });
   }
 
   protected retry(): void {
-    this.load();
+    this.reload$.next();
   }
 
   protected onSearch(term: string): void {
-    this.searchTerm.set(term);
+    this.searchInput$.next(term);
   }
 
   protected setCategory(value: string): void {
+    if (this.categoryFilter() === value) {
+      return;
+    }
     this.categoryFilter.set(value);
+    this.reload$.next();
   }
 
   protected setViewMode(mode: BenefitsCatalogView): void {
@@ -107,66 +214,5 @@ export class SocioBenefits {
 
   protected rubroIcon(categoryName: string): string {
     return resolveBenefitRubroIcon(categoryName).icon;
-  }
-
-  private matchesBenefit(benefit: Benefit): boolean {
-    if (!benefit.isActive) {
-      return false;
-    }
-
-    const category = this.categoryFilter();
-    const matchesCategory = category === 'all' || benefit.categoryName === category;
-    if (!matchesCategory) {
-      return false;
-    }
-
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) {
-      return true;
-    }
-
-    return (
-      benefit.title.toLowerCase().includes(term) ||
-      benefit.merchantName.toLowerCase().includes(term) ||
-      benefit.categoryName.toLowerCase().includes(term) ||
-      benefit.description.toLowerCase().includes(term)
-    );
-  }
-
-  private matchesMerchant(merchant: BenefitMerchantCard): boolean {
-    const category = this.categoryFilter();
-    const matchesCategory = category === 'all' || merchant.categoryName === category;
-    if (!matchesCategory) {
-      return false;
-    }
-
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) {
-      return true;
-    }
-
-    return (
-      merchant.name.toLowerCase().includes(term) ||
-      merchant.categoryName.toLowerCase().includes(term) ||
-      merchant.address.toLowerCase().includes(term) ||
-      merchant.phone.toLowerCase().includes(term)
-    );
-  }
-
-  private load(): void {
-    this.viewState.set('loading');
-    this.benefitService
-      .getCatalog()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (payload) => {
-          this.catalog.set(payload);
-          this.viewState.set('success');
-        },
-        error: () => {
-          this.catalog.set(null);
-          this.viewState.set('error');
-        },
-      });
   }
 }

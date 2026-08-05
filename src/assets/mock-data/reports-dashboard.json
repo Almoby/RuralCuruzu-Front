@@ -97,8 +97,13 @@
   },
   "monthlyCollectedFees": {
     "title": "Cuotas cobradas por mes de socios activos y adherentes",
-    "monthLabel": "Mes",
-    "monthOptions": ["Junio 2026", "Mayo 2026", "Abril 2026"],
+    "monthLabel": "Junio 2026",
+    "monthOptions": [
+      { "value": "2026-06", "label": "Junio 2026" },
+      { "value": "2026-05", "label": "Mayo 2026" },
+      { "value": "2026-04", "label": "Abril 2026" }
+    ],
+    "selectedPeriod": "2026-06",
     "items": [
       {
         "memberId": "mem-003",

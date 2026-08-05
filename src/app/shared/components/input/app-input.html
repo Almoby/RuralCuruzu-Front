@@ -10,6 +10,7 @@
     [placeholder]="placeholder()"
     [disabled]="isDisabled"
     [value]="value()"
+    [attr.maxlength]="maxLength()"
     [attr.aria-invalid]="!!error()"
     [attr.aria-describedby]="error() ? id() + '-error' : hint() ? id() + '-hint' : null"
     (input)="onInput($event)"

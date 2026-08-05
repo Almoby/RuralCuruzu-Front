@@ -4,6 +4,8 @@ export interface MemberQrProfile {
   memberId: string;
   memberNumber: string;
   memberName: string;
+  /** Swagger `categoria` label when present (ACTIVO/ADHERENTE). */
+  categoryLabel: string;
 }
 
 export interface MemberQrSummary {
@@ -14,22 +16,36 @@ export interface MemberQrSummary {
 }
 
 export interface MemberQrPayload {
+  /** Exact token from backend — encoded into the visual QR. */
   qrValue: string;
   status: MemberQrStatus;
   statusLabel: string;
   statusIcon: string;
   generatedAt: string;
+  /** Token expiry (`expiraEn`) as ISO date-time when present. */
   expirationDate: string;
 }
 
 export interface MemberQrResponse {
   profile: MemberQrProfile;
-  qr: MemberQrPayload;
+  /** Null when the QR must not be shown (blocked / unavailable). */
+  qr: MemberQrPayload | null;
   summary: MemberQrSummary;
+  /** True only when estado is ACTIVO and token is present. */
+  available: boolean;
+  /** Backend `mensaje` or derived fallback. */
+  message: string;
+  /** ISO date-time of token expiry for auto-refresh scheduling. */
+  expiresAt: string | null;
 }
 
 export interface RefreshMemberQrResponse {
-  qr: MemberQrPayload;
+  qr: MemberQrPayload | null;
+  available: boolean;
+  message: string;
+  expiresAt: string | null;
+  profile: MemberQrProfile;
+  summary: MemberQrSummary;
 }
 
 export interface ShareQrPayload {

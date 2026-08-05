@@ -5,6 +5,11 @@
   width: 100%;
 }
 
+.socio-history__retry {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .socio-history__stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -71,7 +76,8 @@
 }
 
 .tabs__tab:hover {
-  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
 }
 
 .tabs__tab:focus-visible {
@@ -79,7 +85,10 @@
   box-shadow: var(--focus-ring);
 }
 
-.tabs__tab--active {
+.tabs__tab--active,
+.tabs__tab--active:hover,
+.tabs__tab--active:focus,
+.tabs__tab--active:focus-visible {
   background: var(--color-primary);
   color: var(--color-white);
 }

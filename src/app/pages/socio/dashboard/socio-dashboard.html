@@ -2,10 +2,7 @@
   @if (viewState() === 'loading') {
     <app-loading message="Cargando tu panel..." />
   } @else if (viewState() === 'error') {
-    <app-alert
-      variant="error"
-      message="No pudimos cargar tu panel. Reintentá en unos segundos."
-    />
+    <app-alert variant="error" [message]="errorMessage()" />
     <div class="socio-dashboard__retry">
       <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
     </div>

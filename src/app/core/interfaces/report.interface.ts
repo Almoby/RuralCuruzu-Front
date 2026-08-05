@@ -39,10 +39,18 @@ export interface OverdueMemberReport {
   items: MemberDebtItem[];
 }
 
+export interface ReportMonthOption {
+  value: string;
+  label: string;
+}
+
 export interface MonthlyCollectedFeesReport {
   title: string;
   monthLabel: string;
-  monthOptions: string[];
+  /** Available `yyyy-MM` periods with display labels. */
+  monthOptions: ReportMonthOption[];
+  /** Currently selected period (`yyyy-MM`). */
+  selectedPeriod: string;
   items: MemberDebtItem[];
 }
 

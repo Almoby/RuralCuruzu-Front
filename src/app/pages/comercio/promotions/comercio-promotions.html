@@ -6,76 +6,97 @@
     </app-button>
   </app-page-header>
 
-  @if (loading()) {
-    <app-loading message="Cargando promociones..." />
-  } @else if (promotions().length === 0) {
-    <app-empty-state
-      title="Sin promociones"
-      description="Creá tu primera promoción para atraer socios."
-    />
-  } @else {
-    <div class="promo-grid">
-      @for (promo of promotions(); track promo.id) {
-        <article class="promo-card">
-          <div class="promo-card__top">
-            <div class="promo-card__identity">
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando promociones..." />
+    }
+
+    @case ('error') {
+      <div class="comercio-promotions__state">
+        <app-alert variant="error" [message]="errorMessage()" />
+        <app-button variant="outline" (click)="retry()">Reintentar</app-button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin promociones"
+        description="Creá tu primera promoción para atraer socios."
+      />
+    }
+
+    @case ('success') {
+      <div class="promo-grid">
+        @for (promo of promotions(); track promo.id) {
+          <article class="promo-card">
+            <div class="promo-card__top">
+              <div class="promo-card__identity">
+                <span
+                  class="promo-card__icon"
+                  [attr.data-tone]="promoIconTone(promo)"
+                  aria-hidden="true"
+                >
+                  <app-icon [name]="promoIcon(promo)" [size]="16" />
+                </span>
+                <div class="promo-card__titles">
+                  <div class="promo-card__title-row">
+                    <h3 class="promo-card__title">{{ promo.title }}</h3>
+                    <span
+                      class="promo-card__status"
+                      [attr.data-status]="promo.isActive ? 'activo' : 'inactivo'"
+                    >
+                      {{ promo.statusLabel }}
+                    </span>
+                  </div>
+                  <p class="promo-card__type">{{ promo.typeLabel }}</p>
+                </div>
+              </div>
+
               <span
-                class="promo-card__icon"
-                [attr.data-tone]="promoIconTone(promo)"
-                aria-hidden="true"
+                class="promo-card__value"
+                [attr.data-tone]="valueBadgeTone(promo)"
               >
-                <app-icon [name]="promoIcon(promo)" [size]="16" />
+                {{ promo.valueLabel }}
               </span>
-              <div class="promo-card__titles">
-                <h3 class="promo-card__title">{{ promo.title }}</h3>
-                <p class="promo-card__type">{{ promo.type }}</p>
+            </div>
+
+            <p class="promo-card__desc">{{ promo.description }}</p>
+
+            <div class="promo-card__footer">
+              <div class="promo-card__stats">
+                <p class="promo-card__uses">{{ promo.usesThisMonth }} usos este mes</p>
+                <p class="promo-card__until">{{ promo.validToLabel }}</p>
+              </div>
+
+              <div class="promo-card__actions">
+                <button
+                  type="button"
+                  class="promo-card__action"
+                  aria-label="Editar promoción"
+                  (click)="openEdit(promo)"
+                >
+                  <app-icon name="edit" [size]="16" />
+                </button>
+                <button
+                  type="button"
+                  class="promo-card__action promo-card__action--toggle"
+                  [attr.data-action]="promo.isActive ? 'deactivate' : 'activate'"
+                  [disabled]="togglingId() === promo.id"
+                  [attr.title]="promo.isActive ? 'Desactivar' : 'Activar'"
+                  [attr.aria-label]="promo.isActive ? 'Desactivar' : 'Activar'"
+                  (click)="requestToggleStatus(promo)"
+                >
+                  <app-icon
+                    [name]="promo.isActive ? 'power_off' : 'power'"
+                    [size]="16"
+                  />
+                </button>
               </div>
             </div>
-
-            <span
-              class="promo-card__value"
-              [attr.data-tone]="valueBadgeTone(promo)"
-            >
-              {{ promo.discountLabel }}
-            </span>
-          </div>
-
-          <p class="promo-card__desc">{{ promo.description }}</p>
-
-          <div class="promo-card__footer">
-            <div class="promo-card__stats">
-              <p class="promo-card__uses">{{ promo.redemptionsCount }} usos este mes</p>
-              <p class="promo-card__until">{{ formatUntil(promo.validTo) }}</p>
-            </div>
-
-            <div class="promo-card__actions">
-              <button
-                type="button"
-                class="promo-card__action"
-                aria-label="Editar promoción"
-                (click)="openEdit(promo)"
-              >
-                <app-icon name="edit" [size]="16" />
-              </button>
-              <button
-                type="button"
-                class="promo-card__action"
-                [disabled]="togglingId() === promo.id"
-                [attr.aria-label]="
-                  promo.status === 'Activa' ? 'Desactivar promoción' : 'Activar promoción'
-                "
-                (click)="toggleStatus(promo)"
-              >
-                <app-icon
-                  [name]="promo.status === 'Activa' ? 'power_off' : 'power'"
-                  [size]="16"
-                />
-              </button>
-            </div>
-          </div>
-        </article>
-      }
-    </div>
+          </article>
+        }
+      </div>
+    }
   }
 
   <app-modal
@@ -138,4 +159,15 @@
       </div>
     </form>
   </app-modal>
+
+  <app-confirm-dialog
+    [open]="statusConfirmOpen()"
+    [title]="statusConfirmTitle()"
+    [message]="statusConfirmMessage()"
+    [confirmLabel]="statusConfirmLabel()"
+    cancelLabel="Volver"
+    [danger]="false"
+    (confirm)="confirmStatusChange()"
+    (cancel)="cancelStatusConfirm()"
+  />
 </section>

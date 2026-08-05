@@ -430,12 +430,15 @@ export class DuesPage {
     this.rejectOpen.set(true);
   }
 
-  protected closeReject(): void {
-    if (this.actionBusy()) {
+  protected closeReject(options?: { force?: boolean }): void {
+    if (!options?.force && this.actionBusy()) {
       return;
     }
     this.rejectOpen.set(false);
     this.rejectTarget.set(null);
+    this.rejectForm.reset({ motivo: '' });
+    this.rejectForm.markAsPristine();
+    this.rejectForm.markAsUntouched();
   }
 
   protected confirmReject(): void {
@@ -459,8 +462,8 @@ export class DuesPage {
       )
       .subscribe({
         next: (result) => {
-          this.closeReject();
           this.notifications.success(result.mensaje?.trim() || 'Pago rechazado');
+          this.closeReject({ force: true });
           this.reload$.next();
         },
         error: (error: unknown) => {
@@ -481,6 +484,8 @@ export class DuesPage {
       return;
     }
     this.reglasOpen.set(false);
+    this.reglaForm.markAsPristine();
+    this.reglaForm.markAsUntouched();
   }
 
   protected saveRegla(): void {
@@ -561,6 +566,8 @@ export class DuesPage {
             putResult.mensaje?.trim() || 'Configuración de cuotas actualizada',
           );
           this.reglasOpen.set(false);
+          this.reglaForm.markAsPristine();
+          this.reglaForm.markAsUntouched();
         },
         error: (error: unknown) => {
           this.notifications.error(
@@ -577,11 +584,13 @@ export class DuesPage {
     this.loadBank();
   }
 
-  protected closeBank(): void {
-    if (this.bankSaving()) {
+  protected closeBank(options?: { force?: boolean }): void {
+    if (!options?.force && this.bankSaving()) {
       return;
     }
     this.bankOpen.set(false);
+    this.bankForm.markAsPristine();
+    this.bankForm.markAsUntouched();
   }
 
   protected saveBank(): void {
@@ -607,6 +616,7 @@ export class DuesPage {
       .subscribe({
         next: (result) => {
           this.notifications.success(result.mensaje?.trim() || 'Datos bancarios actualizados');
+          this.closeBank({ force: true });
           this.loadBank();
         },
         error: (error: unknown) => {

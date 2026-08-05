@@ -9,6 +9,8 @@
   padding: 0.55rem 1.15rem;
   background-color: $color-white;
   border-bottom: 1px solid #e8eaea;
+  position: relative;
+  z-index: 20;
 }
 
 .header__left {
@@ -32,6 +34,11 @@
 
 .header__menu:hover {
   background-color: var(--color-neutral-bg);
+}
+
+.header__menu:focus-visible {
+  outline: 2px solid $color-primary;
+  outline-offset: 2px;
 }
 
 .header__titles {
@@ -71,7 +78,12 @@
   flex-shrink: 0;
 }
 
+.header__action {
+  position: relative;
+}
+
 .header__icon-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -89,6 +101,29 @@
   color: $color-text;
 }
 
+.header__icon-btn:focus-visible,
+.header__initial:focus-visible {
+  outline: 2px solid $color-primary;
+  outline-offset: 2px;
+}
+
+.header__badge {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.2rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.28rem;
+  border-radius: $radius-full;
+  background-color: #b45309;
+  color: $color-white;
+  font-size: 0.625rem;
+  font-weight: $font-weight-semibold;
+  line-height: 1.05rem;
+  text-align: center;
+  pointer-events: none;
+}
+
 .header__initial {
   display: inline-flex;
   align-items: center;
@@ -102,6 +137,256 @@
   font-weight: $font-weight-semibold;
   line-height: 1;
   user-select: none;
+  transition: filter var(--transition-fast);
+}
+
+.header__initial:hover {
+  filter: brightness(0.96);
+}
+
+.header__panel {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  z-index: 40;
+  background-color: $color-white;
+  border: 1px solid #e8eaea;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.header__panel--notifications {
+  width: min(22.5rem, calc(100vw - 1.5rem));
+  max-height: min(26rem, calc(100vh - 5.5rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header__panel--profile {
+  width: min(16.5rem, calc(100vw - 1.5rem));
+  padding: 0.65rem 0.55rem;
+}
+
+.header__panel-head {
+  flex-shrink: 0;
+  padding: 0.75rem 0.9rem 0.55rem;
+  border-bottom: 1px solid #eef0f2;
+}
+
+.header__panel-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: $font-weight-semibold;
+  color: $color-text;
+}
+
+.header__panel-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.header__panel-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 1.35rem 1rem;
+  text-align: center;
+}
+
+.header__panel-state :is(.app-loading) {
+  padding: 0.25rem;
+  gap: 0;
+}
+
+.header__panel-state :is(.app-loading__spinner) {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-width: 2px;
+}
+
+.header__panel-message {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: #6b7280;
+}
+
+.header__panel-action {
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+  color: $color-primary;
+  background-color: color-mix(in srgb, $color-primary 8%, white);
+  transition: background-color var(--transition-fast);
+}
+
+.header__panel-action:hover {
+  background-color: color-mix(in srgb, $color-primary 14%, white);
+}
+
+.header__panel-action:focus-visible {
+  outline: 2px solid $color-primary;
+  outline-offset: 2px;
+}
+
+.header__notif-list {
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+}
+
+.header__notif {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.65rem 0.55rem;
+  border-radius: 8px;
+  text-align: left;
+  color: $color-text;
+  transition: background-color var(--transition-fast);
+}
+
+.header__notif:hover {
+  background-color: #f7f8f8;
+}
+
+.header__notif:focus-visible {
+  outline: 2px solid $color-primary;
+  outline-offset: 1px;
+}
+
+.header__notif--unread {
+  background-color: #f4f7f6;
+}
+
+.header__notif--unread .header__notif-subject {
+  font-weight: $font-weight-semibold;
+}
+
+.header__notif-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
+  background-color: #f1f3f4;
+  color: #6b7280;
+}
+
+.header__notif-icon--success {
+  background-color: #eef6f1;
+  color: #2f6b4f;
+}
+
+.header__notif-icon--danger {
+  background-color: #f8f1ef;
+  color: #8a4b3b;
+}
+
+.header__notif-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.header__notif-subject {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+  line-height: 1.3;
+  color: $color-text;
+}
+
+.header__notif-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: $radius-full;
+  background-color: $color-primary;
+  flex-shrink: 0;
+}
+
+.header__notif-message {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #6b7280;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.header__notif-date {
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: #9ca3af;
+}
+
+.header__profile-meta {
+  padding: 0.35rem 0.55rem 0.7rem;
+  border-bottom: 1px solid #eef0f2;
+  margin-bottom: 0.35rem;
+}
+
+.header__profile-name {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: $font-weight-semibold;
+  line-height: 1.3;
+  color: $color-text;
+  word-break: break-word;
+}
+
+.header__profile-role {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.header__profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.header__profile-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.55rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: $font-weight-medium;
+  color: $color-text;
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.header__profile-item:hover {
+  background-color: #f7f8f8;
+}
+
+.header__profile-item:focus-visible {
+  outline: 2px solid $color-primary;
+  outline-offset: 1px;
+}
+
+.header__profile-item--danger {
+  color: #8a4b3b;
+}
+
+.header__profile-item--danger:hover {
+  background-color: #f8f1ef;
 }
 
 @media (max-width: 1023px) {
@@ -130,5 +415,16 @@
 
   .header__date {
     display: none;
+  }
+
+  .header__panel--notifications {
+    width: min(20.5rem, calc(100vw - 1rem));
+    max-height: min(70vh, calc(100vh - 4.5rem));
+    right: -0.35rem;
+  }
+
+  .header__panel--profile {
+    width: min(15.5rem, calc(100vw - 1rem));
+    right: -0.15rem;
   }
 }

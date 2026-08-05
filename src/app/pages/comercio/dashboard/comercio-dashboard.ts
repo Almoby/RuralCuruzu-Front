@@ -10,12 +10,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartData } from 'chart.js';
+import { EMPTY, Subject, catchError, startWith, switchMap, tap } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
+import { UserIdentityService } from '../../../core/services/user-identity.service';
 import {
-  ComercioDashboardStats,
-  MerchantPromotionSummary,
-} from '../../../core/interfaces/dashboard.interface';
+  ComercioInicioFeaturedPromotion,
+  ComercioInicioViewModel,
+} from '../../../core/interfaces/comercio-inicio.interface';
 import {
   AppAlert,
   AppBadge,
@@ -35,7 +37,22 @@ import {
   chartTickStyle,
 } from '../../admin/utils/chart-theme';
 
-type ComercioHomeViewState = 'loading' | 'success' | 'empty' | 'error';
+type ComercioHomeViewState = 'loading' | 'success' | 'error';
+
+function computeYAxisMax(values: number[]): number {
+  const peak = values.reduce((max, value) => Math.max(max, value), 0);
+  if (peak <= 0) {
+    return 4;
+  }
+  if (peak <= 8) {
+    return 8;
+  }
+  if (peak <= 32) {
+    return Math.ceil(peak / 8) * 8;
+  }
+  const rough = Math.ceil(peak / 4) * 4;
+  return rough;
+}
 
 @Component({
   selector: 'app-comercio-dashboard',
@@ -59,40 +76,51 @@ type ComercioHomeViewState = 'loading' | 'success' | 'empty' | 'error';
 })
 export class ComercioDashboard {
   private readonly auth = inject(AuthService);
+  private readonly userIdentity = inject(UserIdentityService);
   private readonly dashboardService = inject(DashboardService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly reload$ = new Subject<void>();
 
   readonly routes = APP_ROUTES;
   readonly viewState = signal<ComercioHomeViewState>('loading');
-  readonly stats = signal<ComercioDashboardStats | null>(null);
+  readonly stats = signal<ComercioInicioViewModel | null>(null);
 
-  readonly merchantName = computed(
-    () =>
-      this.stats()?.merchantName ??
-      this.auth.currentUser()?.merchantName ??
-      this.auth.currentUser()?.fullName ??
-      'Comercio',
-  );
+  /**
+   * Commercial name: dashboard/beneficios → session → identity chrome → fallback.
+   * Never uses merchantId / refId.
+   */
+  readonly merchantName = computed(() => {
+    const fromApi = this.stats()?.merchantName?.trim();
+    if (fromApi) {
+      return fromApi;
+    }
+    const sessionName =
+      this.auth.currentUser()?.merchantName?.trim() ||
+      this.auth.currentUser()?.fullName?.trim() ||
+      this.auth.session()?.displayName?.trim();
+    if (sessionName) {
+      return sessionName;
+    }
+    const identity = this.userIdentity.sidebarIdentityLabel()?.trim();
+    return identity || 'Comercio';
+  });
 
   readonly featuredPromotion = computed(
-    (): MerchantPromotionSummary | null => this.stats()?.featuredPromotion ?? null,
+    (): ComercioInicioFeaturedPromotion | null =>
+      this.stats()?.featuredPromotion ?? null,
   );
 
-  readonly usesThisMonth = computed(
-    () => this.stats()?.usesThisMonth ?? this.stats()?.validationsMonth ?? 0,
-  );
+  readonly usesThisMonth = computed(() => this.stats()?.usesThisMonth ?? 0);
 
   readonly activePromotions = computed(() => this.stats()?.activePromotions ?? 0);
 
-  readonly reachedMembers = computed(
-    () => this.stats()?.reachedMembers ?? this.stats()?.uniqueMembersMonth ?? 0,
-  );
+  readonly reachedMembers = computed(() => this.stats()?.reachedMembers ?? 0);
 
   readonly validationsToday = computed(() => this.stats()?.validationsToday ?? 0);
 
   readonly weeklyChartData = computed((): ChartData<'bar'> | null => {
-    const trend = this.stats()?.validationsTrend ?? [];
+    const trend = this.stats()?.weeklyTrend ?? [];
     if (trend.length === 0) {
       return null;
     }
@@ -119,72 +147,81 @@ export class ComercioDashboard {
   });
 
   readonly weeklyChartOptions = computed(
-    (): ChartConfiguration<'bar'>['options'] => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: () => '',
-            label: (item) => `${item.label}: ${item.parsed.y ?? 0}`,
+    (): ChartConfiguration<'bar'>['options'] => {
+      const values = (this.stats()?.weeklyTrend ?? []).map((point) => point.value);
+      const yMax = computeYAxisMax(values);
+      const stepSize = yMax <= 8 ? 2 : yMax / 4;
+
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: () => '',
+              label: (item) => `${item.label}: ${item.parsed.y ?? 0}`,
+            },
           },
         },
-      },
-      scales: {
-        x: {
-          grid: { display: false },
-          border: { display: false },
-          ticks: {
-            ...chartTickStyle,
-            font: { size: 11, family: CHART_FONT_FAMILY },
+        scales: {
+          x: {
+            grid: { display: false },
+            border: { display: false },
+            ticks: {
+              ...chartTickStyle,
+              font: { size: 11, family: CHART_FONT_FAMILY },
+            },
+          },
+          y: {
+            beginAtZero: true,
+            max: yMax,
+            ticks: {
+              ...chartTickStyle,
+              stepSize,
+              font: { size: 10, family: CHART_FONT_FAMILY },
+            },
+            grid: {
+              ...chartGridStyle,
+              drawTicks: false,
+            },
+            border: { display: false, dash: [4, 4] },
           },
         },
-        y: {
-          beginAtZero: true,
-          max: 32,
-          ticks: {
-            ...chartTickStyle,
-            stepSize: 8,
-            font: { size: 10, family: CHART_FONT_FAMILY },
-          },
-          grid: {
-            ...chartGridStyle,
-            drawTicks: false,
-          },
-          border: { display: false, dash: [4, 4] },
-        },
-      },
-    }),
+      };
+    },
   );
 
   constructor() {
-    this.load();
+    this.reload$
+      .pipe(
+        startWith(undefined),
+        tap(() => {
+          this.viewState.set('loading');
+          this.stats.set(null);
+        }),
+        switchMap(() =>
+          this.dashboardService.getComercioDashboard().pipe(
+            catchError(() => {
+              this.stats.set(null);
+              this.viewState.set('error');
+              return EMPTY;
+            }),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((view) => {
+        this.stats.set(view);
+        this.viewState.set('success');
+      });
   }
 
   retry(): void {
-    this.load();
+    this.reload$.next();
   }
 
   goToValidateQr(): void {
     void this.router.navigateByUrl('/' + APP_ROUTES.comercio.validateQr);
-  }
-
-  private load(): void {
-    this.viewState.set('loading');
-
-    this.dashboardService
-      .getComercioStats()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (stats) => {
-          this.stats.set(stats);
-          this.viewState.set(stats ? 'success' : 'empty');
-        },
-        error: () => {
-          this.stats.set(null);
-          this.viewState.set('error');
-        },
-      });
   }
 }

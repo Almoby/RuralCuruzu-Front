@@ -1,25 +1,120 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { Observable, map, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { SKIP_ERROR_TOAST } from '../http/auth-http.tokens';
+import {
+  ActualizarBeneficioRequestDto,
+  BeneficioCreadoResponseDto,
+  BeneficioEstadoDto,
+  BeneficioResponseDto,
+  CambiarEstadoBeneficioRequestDto,
+  ComercioBeneficioViewModel,
+  CrearBeneficioRequestDto,
+} from '../interfaces/comercio-beneficio.interface';
 import {
   CreatePromotionRequest,
   Promotion,
   UpdatePromotionRequest,
 } from '../interfaces/promotion.interface';
+import {
+  mapComercioBeneficioDtoToViewModel,
+  mapComercioBeneficiosToViewModels,
+} from '../mappers/comercio-beneficio.mapper';
 import { PromotionStatus, PromotionType } from '../../shared/enums';
 import { mockResponse } from '../utils/mock.util';
 import promotionsMock from '../../../assets/mock-data/promotions.json';
 
+/**
+ * Promotions / beneficios access.
+ * - Comercio Mis Promociones → always real backend (`/comercio/beneficios*`).
+ * - Legacy helpers (Validar QR, etc.) → still mocks / invented `/promotions*` when `useMocks`.
+ */
 @Injectable({ providedIn: 'root' })
 export class PromotionService {
   private readonly http = inject(HttpClient);
+  private readonly comercioBase = `${environment.apiBaseUrl}/comercio/beneficios`;
+  private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
+
   private promotions: Promotion[] = (structuredClone(promotionsMock) as Promotion[]).map(
     (promo) => ({
       ...promo,
       type: promo.type ?? PromotionType.Descuento,
     }),
   );
+
+  // ---------------------------------------------------------------------------
+  // Comercio Mis Promociones — backend real (ignores environment.useMocks)
+  // ---------------------------------------------------------------------------
+
+  /** GET /comercio/beneficios */
+  getComercioBeneficios(): Observable<ComercioBeneficioViewModel[]> {
+    return this.http
+      .get<BeneficioResponseDto[]>(this.comercioBase, {
+        context: this.silentContext,
+      })
+      .pipe(map((items) => mapComercioBeneficiosToViewModels(items)));
+  }
+
+  /** GET /comercio/beneficios/{id} */
+  getComercioBeneficioById(id: string): Observable<ComercioBeneficioViewModel> {
+    return this.http
+      .get<BeneficioResponseDto>(`${this.comercioBase}/${id}`, {
+        context: this.silentContext,
+      })
+      .pipe(map(mapComercioBeneficioDtoToViewModel));
+  }
+
+  /** POST /comercio/beneficios */
+  createComercioBeneficio(
+    body: CrearBeneficioRequestDto,
+  ): Observable<ComercioBeneficioViewModel> {
+    return this.http
+      .post<BeneficioCreadoResponseDto>(this.comercioBase, body, {
+        context: this.silentContext,
+      })
+      .pipe(
+        map((response) => {
+          if (!response?.beneficio) {
+            throw {
+              status: 500,
+              message: response?.mensaje?.trim() || 'No se recibió el beneficio creado',
+              code: 'EMPTY_BENEFICIO',
+            };
+          }
+          return mapComercioBeneficioDtoToViewModel(response.beneficio);
+        }),
+      );
+  }
+
+  /** PUT /comercio/beneficios/{id} */
+  updateComercioBeneficio(
+    id: string,
+    body: ActualizarBeneficioRequestDto,
+  ): Observable<ComercioBeneficioViewModel> {
+    return this.http
+      .put<BeneficioResponseDto>(`${this.comercioBase}/${id}`, body, {
+        context: this.silentContext,
+      })
+      .pipe(map(mapComercioBeneficioDtoToViewModel));
+  }
+
+  /** PATCH /comercio/beneficios/{id}/estado */
+  changeComercioBeneficioEstado(
+    id: string,
+    nuevoEstado: BeneficioEstadoDto,
+  ): Observable<ComercioBeneficioViewModel> {
+    const body: CambiarEstadoBeneficioRequestDto = { nuevoEstado };
+    return this.http
+      .patch<BeneficioResponseDto>(`${this.comercioBase}/${id}/estado`, body, {
+        context: this.silentContext,
+      })
+      .pipe(map(mapComercioBeneficioDtoToViewModel));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy — Validar QR / unmigrated callers (mocks when useMocks)
+  // ---------------------------------------------------------------------------
 
   list(merchantId?: string): Observable<Promotion[]> {
     if (environment.useMocks) {

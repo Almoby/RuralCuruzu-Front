@@ -52,6 +52,12 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
 }
 
 .scanner-card {
@@ -74,45 +80,15 @@
     text-align: center;
   }
 
-  &__mock {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+  &__manual {
+    display: flex;
+    flex-direction: column;
     gap: var(--space-3);
     width: 100%;
 
     ::ng-deep app-button,
     ::ng-deep .app-button {
       width: 100%;
-    }
-  }
-
-  &__mock-overdue {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: 2.5rem;
-    padding: 0.5rem 0.75rem;
-    border: 0;
-    border-radius: var(--radius-md);
-    background: var(--color-brown);
-    color: var(--color-white);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-
-    &:hover:not(:disabled) {
-      background: var(--color-brown-hover);
-    }
-
-    &:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--focus-ring);
     }
   }
 }
@@ -127,6 +103,19 @@
   background: var(--color-scanner-bg);
   overflow: hidden;
   color: var(--color-white);
+
+  &--live {
+    background: #000;
+  }
+
+  &__video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
 
   &__corner {
     position: absolute;
@@ -185,12 +174,19 @@
     gap: 0.4rem;
     z-index: 1;
     color: rgb(255 255 255 / 82%);
+    pointer-events: none;
 
     p {
       margin: 0;
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-medium);
     }
+  }
+
+  &__corner,
+  &__line {
+    z-index: 1;
+    pointer-events: none;
   }
 
   &__loading {

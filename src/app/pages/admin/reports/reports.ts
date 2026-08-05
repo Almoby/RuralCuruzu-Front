@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
+import { EMPTY, Subject, catchError, finalize, startWith, switchMap, tap } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartData, TooltipItem } from 'chart.js';
 import {
@@ -19,6 +19,8 @@ import {
 } from '../../../shared/components';
 import { ReportService } from '../../../core/services/report.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { CuotaResumenResponseDto } from '../../../core/interfaces/admin-cuota.interface';
+import { ApiError } from '../../../core/interfaces/api-response.interface';
 import { ReportsDashboardResponse } from '../../../core/interfaces/report.interface';
 import { initialsFromName } from '../utils/admin-labels';
 import {
@@ -32,6 +34,17 @@ import {
 } from '../utils/chart-theme';
 
 type ReportsViewState = 'loading' | 'success' | 'empty' | 'error';
+
+function isApiError(error: unknown): error is ApiError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    'message' in error &&
+    typeof (error as ApiError).status === 'number' &&
+    typeof (error as ApiError).message === 'string'
+  );
+}
 
 @Component({
   selector: 'app-reports',
@@ -52,19 +65,22 @@ export class ReportsPage {
   private readonly reportService = inject(ReportService);
   private readonly notifications = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly reload$ = new Subject<void>();
 
   protected readonly loading = signal(true);
   protected readonly loadError = signal(false);
   protected readonly exporting = signal(false);
   protected readonly data = signal<ReportsDashboardResponse | null>(null);
-  protected readonly selectedMonth = signal('');
+  protected readonly rawCuotas = signal<CuotaResumenResponseDto[]>([]);
+  protected readonly selectedPeriod = signal('');
   protected readonly monthMenuOpen = signal(false);
+  protected readonly errorMessage = signal('No se pudieron cargar los reportes.');
 
   protected readonly viewState = computed<ReportsViewState>(() => {
-    if (this.loading()) {
+    if (this.loading() && !this.data()) {
       return 'loading';
     }
-    if (this.loadError()) {
+    if (this.loadError() && !this.data()) {
       return 'error';
     }
     if (!this.data()) {
@@ -89,6 +105,11 @@ export class ReportsPage {
   protected readonly monthOptions = computed(
     () => this.data()?.monthlyCollectedFees.monthOptions ?? [],
   );
+  protected readonly selectedMonthLabel = computed(() => {
+    const period = this.selectedPeriod();
+    const option = this.monthOptions().find((item) => item.value === period);
+    return option?.label ?? this.data()?.monthlyCollectedFees.monthLabel ?? 'Mes';
+  });
   protected readonly collectedTitle = computed(
     () => this.data()?.monthlyCollectedFees.title ?? '',
   );
@@ -242,7 +263,7 @@ export class ReportsPage {
             max,
             ticks: {
               ...chartTickStyle,
-              stepSize: 2000,
+              stepSize: Math.max(max / 5, 1),
               callback: (value) => formatChartCurrencyShort(Number(value)),
             },
             grid: chartGridStyle,
@@ -325,64 +346,87 @@ export class ReportsPage {
   protected readonly formatCurrency = formatChartCurrency;
 
   constructor() {
-    this.load();
+    this.reload$
+      .pipe(
+        startWith(undefined),
+        tap(() => {
+          this.loading.set(true);
+          this.loadError.set(false);
+        }),
+        switchMap(() =>
+          this.reportService.getAdminReports(undefined, this.selectedPeriod() || undefined).pipe(
+            catchError((error: unknown) => {
+              this.loadError.set(true);
+              this.loading.set(false);
+              this.errorMessage.set(
+                isApiError(error)
+                  ? error.message
+                  : 'No se pudieron cargar los reportes.',
+              );
+              this.notifications.error(this.errorMessage());
+              return EMPTY;
+            }),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((result) => {
+        this.data.set(result.report);
+        this.rawCuotas.set(result.cuotas);
+        this.selectedPeriod.set(result.report.monthlyCollectedFees.selectedPeriod);
+        this.loading.set(false);
+        this.loadError.set(false);
+      });
   }
 
   protected retry(): void {
-    this.load();
+    this.reload$.next();
   }
 
   protected toggleMonthMenu(): void {
     this.monthMenuOpen.update((open) => !open);
   }
 
-  protected selectMonth(month: string): void {
-    this.selectedMonth.set(month);
+  protected selectMonth(period: string): void {
+    this.selectedPeriod.set(period);
     this.monthMenuOpen.set(false);
+
+    const current = this.data();
+    if (!current) {
+      return;
+    }
+
+    this.data.set(
+      this.reportService.withCollectedPeriod(current, this.rawCuotas(), period),
+    );
   }
 
   protected exportData(): void {
+    if (this.exporting()) {
+      return;
+    }
+
     this.exporting.set(true);
     this.reportService
-      .exportReports()
+      .exportAdminReport()
       .pipe(
         finalize(() => this.exporting.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (blob) => {
-          const url = URL.createObjectURL(blob);
+        next: (file) => {
+          const url = URL.createObjectURL(file.blob);
           const anchor = document.createElement('a');
           anchor.href = url;
-          anchor.download = `reportes-rural-curuzu-${new Date().toISOString().slice(0, 10)}.csv`;
+          anchor.download = file.fileName;
           anchor.click();
           URL.revokeObjectURL(url);
           this.notifications.success('Reporte exportado');
         },
-        error: () => {
-          this.notifications.error('No se pudo exportar el reporte');
-        },
-      });
-  }
-
-  private load(): void {
-    this.loading.set(true);
-    this.loadError.set(false);
-
-    this.reportService
-      .getReports()
-      .pipe(
-        finalize(() => this.loading.set(false)),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe({
-        next: (response) => {
-          this.data.set(response);
-          this.selectedMonth.set(response.monthlyCollectedFees.monthOptions[0] ?? '');
-        },
-        error: () => {
-          this.loadError.set(true);
-          this.notifications.error('No se pudieron cargar los reportes');
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error) ? error.message : 'No se pudo exportar el reporte',
+          );
         },
       });
   }

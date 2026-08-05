@@ -4,8 +4,13 @@
     subtitle="Tus pagos y beneficios utilizados"
   />
 
-  @if (loading()) {
+  @if (viewState() === 'loading') {
     <app-loading message="Cargando historial..." />
+  } @else if (viewState() === 'error') {
+    <app-alert variant="error" [message]="errorMessage()" />
+    <div class="socio-history__retry">
+      <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
+    </div>
   } @else {
     <div class="socio-history__stats">
       <app-stat-card
@@ -68,13 +73,13 @@
                   <p class="history-list__subtitle">{{ item.merchantName }}</p>
                   <p class="history-list__datetime">
                     <app-icon name="clock" [size]="10" />
-                    <time>{{ item.redeemedAt | date: "d/M/yyyy 'a las' HH:mm" }}</time>
+                    <time>{{ item.usedAtLabel }}</time>
                   </p>
                 </div>
 
                 <div class="history-list__aside">
                   <p class="history-list__amount history-list__amount--savings">
-                    {{ item.discountApplied }}
+                    {{ item.savingsAmount | currencyArs }}
                   </p>
                   <p class="history-list__aside-label">ahorro</p>
                 </div>
@@ -99,26 +104,22 @@
                 </span>
 
                 <div class="history-list__body">
-                  <p class="history-list__title">{{ feeTitle(fee.period) }}</p>
+                  <p class="history-list__title">{{ fee.periodTitle }}</p>
                   <p class="history-list__subtitle">
-                    @if (fee.paymentMethod) {
-                      {{ fee.paymentMethod }} ·
+                    @if (fee.paymentMethodLabel) {
+                      {{ fee.paymentMethodLabel }} ·
                     }
-                    @if (fee.paidAt) {
-                      {{ fee.paidAt | date: 'd/M/yyyy' }}
-                    } @else {
-                      Vence {{ fee.dueDate | date: 'd/M/yyyy' }}
-                    }
+                    {{ fee.dateLabel }}
                   </p>
                 </div>
 
                 <div class="history-list__aside">
                   <p class="history-list__amount">{{ fee.amount | currencyArs }}</p>
-                  @if (fee.status === 'Aprobado') {
-                    <p class="history-list__status">Aprobado</p>
+                  @if (fee.isApproved) {
+                    <p class="history-list__status">{{ fee.statusLabel }}</p>
                   } @else {
                     <p class="history-list__status history-list__status--muted">
-                      {{ feeStatusLabel(fee.status) }}
+                      {{ fee.statusLabel }}
                     </p>
                   }
                 </div>

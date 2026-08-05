@@ -19,7 +19,9 @@
 
     <div class="sidebar__brand-text">
       <span class="sidebar__brand-name">{{ organizationName }}</span>
-      <span class="sidebar__brand-subtitle">{{ brandSubtitle() }}</span>
+      @if (sidebarIdentityLabel()) {
+        <span class="sidebar__brand-user">{{ sidebarIdentityLabel() }}</span>
+      }
     </div>
   </div>
 
