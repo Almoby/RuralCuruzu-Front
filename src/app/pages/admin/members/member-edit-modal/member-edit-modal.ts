@@ -5,27 +5,47 @@ import {
   inject,
   input,
   output,
+  signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
+  AppAlert,
   AppButton,
   AppInput,
+  AppLoading,
   AppModal,
+  AppSelect,
+  SelectOption,
 } from '../../../../shared/components';
 import {
-  Member,
-  UpdateMemberRequest,
-} from '../../../../core/interfaces/member.interface';
+  ActualizarSocioParcialRequestDto,
+  AdminMemberDetail,
+  AdminSocioEditFormValue,
+  SocioCategoria,
+} from '../../../../core/interfaces/admin-socio.interface';
+import {
+  hasActualizarSocioChanges,
+  mapDetailToEditFormValue,
+  mapEditFormToActualizarSocioRequest,
+} from '../../../../core/mappers/admin-socio.mapper';
 
 export interface MemberEditSave {
   id: string;
-  payload: UpdateMemberRequest;
+  payload: ActualizarSocioParcialRequestDto;
 }
 
 @Component({
   selector: 'app-member-edit-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, AppModal, AppButton, AppInput],
+  imports: [
+    ReactiveFormsModule,
+    AppModal,
+    AppButton,
+    AppInput,
+    AppSelect,
+    AppAlert,
+    AppLoading,
+  ],
   templateUrl: './member-edit-modal.html',
   styleUrl: './member-edit-modal.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,83 +54,109 @@ export class MemberEditModal {
   private readonly fb = inject(FormBuilder);
 
   readonly open = input(false);
-  readonly member = input<Member | null>(null);
+  readonly member = input<AdminMemberDetail | null>(null);
+  readonly loading = input(false);
   readonly submitting = input(false);
+  readonly successMessage = input('');
+  readonly serverFieldErrors = input<Readonly<Record<string, string>>>({});
 
   readonly close = output<void>();
   readonly save = output<MemberEditSave>();
 
+  private originalForm: AdminSocioEditFormValue | null = null;
+
+  protected readonly formError = signal('');
+
+  protected readonly categoryOptions: SelectOption[] = [
+    { value: 'ACTIVO', label: 'Socio Activo' },
+    { value: 'ADHERENTE', label: 'Socio Adherente' },
+  ];
+
   protected readonly form = this.fb.nonNullable.group({
-    fullName: ['', [Validators.required, Validators.minLength(3)]],
-    address: ['', [Validators.required]],
-    birthDate: ['', [Validators.required]],
-    documentNumber: ['', [Validators.required]],
-    phone: ['', [Validators.required]],
-    email: ['', [Validators.required, Validators.email]],
-    cuit: ['', [Validators.required]],
-    establishmentName: ['', [Validators.required]],
-    establishmentAddress: ['', [Validators.required]],
+    categoria: ['ACTIVO' as SocioCategoria, Validators.required],
+    telefono: [''],
+    correoElectronico: ['', [Validators.email]],
+    direccion: [''],
+    portalPisoDepartamento: [''],
+    nombreEstablecimiento: [''],
+    direccionEstablecimiento: [''],
   });
 
   constructor() {
     effect(() => {
       const current = this.member();
-      if (!this.open() || !current) {
+      if (!this.open() || !current || this.loading()) {
         return;
       }
 
-      this.form.reset({
-        fullName: current.fullName,
-        address: current.address ?? '',
-        birthDate: current.birthDate ?? '',
-        documentNumber: current.documentNumber,
-        phone: current.phone,
-        email: current.email,
-        cuit: current.cuit ?? '',
-        establishmentName: current.establishmentName ?? '',
-        establishmentAddress: current.establishmentAddress ?? '',
-      });
+      const values = mapDetailToEditFormValue(current);
+      this.originalForm = values;
+      this.formError.set('');
+      this.form.reset(values);
+      this.form.markAsPristine();
+      this.form.markAsUntouched();
+    });
+
+    effect(() => {
+      if (!this.open()) {
+        this.originalForm = null;
+        this.formError.set('');
+      }
     });
   }
 
   protected onClose(): void {
+    if (this.submitting()) {
+      return;
+    }
     this.close.emit();
   }
 
   protected onSubmit(): void {
+    if (this.submitting() || this.loading() || this.successMessage()) {
+      return;
+    }
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
     const member = this.member();
-    if (!member) {
+    const original = this.originalForm;
+    if (!member || !original) {
       return;
     }
 
     const value = this.form.getRawValue();
-    const fullName = value.fullName.trim();
-    const nameParts = fullName.split(/\s+/).filter(Boolean);
+    const formValue: AdminSocioEditFormValue = {
+      categoria: value.categoria,
+      telefono: value.telefono,
+      correoElectronico: value.correoElectronico,
+      direccion: value.direccion,
+      portalPisoDepartamento: value.portalPisoDepartamento,
+      nombreEstablecimiento: value.nombreEstablecimiento,
+      direccionEstablecimiento: value.direccionEstablecimiento,
+    };
 
-    this.save.emit({
-      id: member.id,
-      payload: {
-        fullName,
-        firstName: nameParts[0] ?? member.firstName,
-        lastName: nameParts.length > 1 ? nameParts.slice(1).join(' ') : member.lastName,
-        address: value.address.trim(),
-        birthDate: value.birthDate,
-        documentNumber: value.documentNumber.trim(),
-        phone: value.phone.trim(),
-        email: value.email.trim(),
-        cuit: value.cuit.trim(),
-        establishmentName: value.establishmentName.trim(),
-        establishmentAddress: value.establishmentAddress.trim(),
-      },
-    });
+    const payload = mapEditFormToActualizarSocioRequest(formValue, original);
+    if (!hasActualizarSocioChanges(payload)) {
+      this.formError.set('No hay cambios para guardar.');
+      return;
+    }
+
+    this.formError.set('');
+    this.save.emit({ id: member.id, payload });
   }
 
-  protected fieldError(controlName: keyof typeof this.form.controls): string {
+  protected fieldError(
+    controlName: keyof typeof this.form.controls,
+  ): string {
+    const server = this.serverFieldErrors()[controlName];
+    if (server) {
+      return server;
+    }
+
     const control = this.form.controls[controlName];
     if (!control.touched || !control.errors) {
       return '';
@@ -121,9 +167,16 @@ export class MemberEditModal {
     if (control.errors['email']) {
       return 'Email inválido';
     }
-    if (control.errors['minlength']) {
-      return 'Nombre demasiado corto';
-    }
     return 'Valor inválido';
+  }
+
+  protected personTypeLabel(): string {
+    const member = this.member();
+    if (!member) {
+      return '';
+    }
+    return member.personType === 'JURIDICA'
+      ? 'Persona jurídica'
+      : 'Persona física';
   }
 }

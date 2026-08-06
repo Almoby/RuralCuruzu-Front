@@ -1,3 +1,5 @@
+import { UsoBeneficioPorComercioDto } from './admin-dashboard.interface';
+
 export type TrendDirection = 'increase' | 'decrease' | 'neutral';
 
 export type DashboardValueFormat = 'integer' | 'currency' | 'compact';
@@ -85,6 +87,8 @@ export interface AdminDashboardStats {
   financialCards: DashboardMetricCard[];
   monthlyCollections: DashboardMonthlyCollections;
   memberStatus: DashboardMemberStatus;
+  /** Raw Swagger series used by the filtered “Uso de beneficios por comercio” chart. */
+  usoBeneficiosPorComercio: UsoBeneficioPorComercioDto[];
   benefitsByCommerce: DashboardBenefitsByCommerce;
 
   /**
@@ -92,6 +96,34 @@ export interface AdminDashboardStats {
    * Present in the API but not rendered by the current Admin Dashboard layout.
    */
   topBenefits?: NamedValue[];
+
+  /**
+   * Mapped from API for contract completeness / Reportes reuse.
+   * No dedicated Admin Dashboard chart in the current layout.
+   */
+  cobranzaMensualPorCategoria: Array<{
+    periodo: string;
+    mesLabel: string;
+    cobradoActivo: number;
+    cobradoAdherente: number;
+  }>;
+
+  /**
+   * Mapped from API (`sociosConDeuda`). Used by Reportes; not a Dashboard block.
+   */
+  sociosConDeuda: Array<{
+    socioId: string;
+    numeroSocio: string;
+    nombre: string;
+    montoAdeudado: number;
+    cantidadCuotasVencidas: number;
+  }>;
+
+  /** Extra indicators typed from Swagger (no extra cards in current layout). */
+  sociosActivos: number;
+  sociosNuevosEsteAnio: number;
+  sociosConCuotaPendiente: number;
+  beneficiosUtilizadosHistoricoTotal: number;
 
   /** Legacy fields kept for other admin screens until they migrate. */
   totalMembers: number;
@@ -179,68 +211,3 @@ export interface MemberDashboardResponse {
   usageTrend: ChartPoint[];
 }
 
-/** @deprecated Prefer MemberDashboardResponse — alias retained for existing imports. */
-export type SocioDashboardStats = MemberDashboardResponse;
-
-export interface ComercioDashboardStats {
-  merchantId: string;
-  merchantName: string;
-  /** Display initial for avatar/brand (e.g. "F"). */
-  merchantInitial: string;
-  activePromotions: number;
-  validationsToday: number;
-  validationsMonth: number;
-  /** Alias semantic for home metric “Usos este mes”. */
-  usesThisMonth: number;
-  uniqueMembersMonth: number;
-  /** Alias semantic for home metric “Socios alcanzados”. */
-  reachedMembers: number;
-  validationsTrend: ChartPoint[];
-  topPromotions: NamedValue[];
-  /** Compact promotion row for Inicio (Figma summary). */
-  featuredPromotion: MerchantPromotionSummary | null;
-}
-
-/** Alias aligned with backend-ready naming. */
-export type MerchantDashboardResponse = ComercioDashboardStats;
-
-export interface MerchantPromotionSummary {
-  id: string;
-  title: string;
-  usesThisMonth: number;
-  status: string;
-}
-
-/** Comercio → Estadísticas summary KPIs. */
-export interface MerchantStatisticsSummary {
-  totalHistoricalUses: number;
-  uniqueMembers: number;
-  activePromotions: number;
-  usesThisMonth: number;
-}
-
-export interface MonthlyUsageStat {
-  month: string;
-  usageCount: number;
-}
-
-export interface PromotionUsageStat {
-  promotionId: string;
-  promotionName: string;
-  usageCount: number;
-}
-
-export interface RecentBenefitUsage {
-  id: string;
-  memberName: string;
-  benefitName: string;
-  usedAt: string;
-}
-
-export interface MerchantStatisticsData {
-  merchantId: string;
-  summary: MerchantStatisticsSummary;
-  monthlyUsage: MonthlyUsageStat[];
-  promotionUsage: PromotionUsageStat[];
-  recentUsages: RecentBenefitUsage[];
-}

@@ -18,6 +18,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { FeeService } from '../../core/services/fee.service';
 import { MembershipRequestService } from '../../core/services/membership-request.service';
 import { UserIdentityService } from '../../core/services/user-identity.service';
+import { asDisplayableBusinessCode } from '../../core/utils/display-identity.util';
 import { UserRole } from '../../shared/enums';
 import { AppIcon } from '../../shared/components/icon/app-icon';
 
@@ -83,7 +84,8 @@ export class SidebarComponent {
       )
       .subscribe((count) => this.pendingRequestsCount.set(count));
 
-    // Hydrate Socio number once on private routes (reload-safe; no per-render spam).
+    // Legacy fallback: hydrate Socio number from cuotas/pagos only when login
+    // session (and cache) do not already provide numeroSocio.
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -93,9 +95,17 @@ export class SidebarComponent {
             this.socioNumeroHydrationStarted = false;
             return of(null);
           }
-          if (this.userIdentity.socioNumero() || this.socioNumeroHydrationStarted) {
+
+          const session = this.authService.getCurrentSession();
+          const hasNumero =
+            !!asDisplayableBusinessCode(session?.numeroSocio) ||
+            !!this.userIdentity.socioNumero() ||
+            !!asDisplayableBusinessCode(this.authService.currentUser()?.memberCode);
+
+          if (hasNumero || this.socioNumeroHydrationStarted) {
             return of(null);
           }
+
           this.socioNumeroHydrationStarted = true;
           return this.feeService.getSocioCuotas().pipe(
             catchError(() => this.feeService.getSocioPayments()),

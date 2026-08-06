@@ -13,6 +13,7 @@ import { filter, fromEvent, map, startWith } from 'rxjs';
 import { APP_NAVIGATION } from '../../core/config/app.config';
 import { resolveLayoutTheme } from '../../core/config/layout-theme';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationStreamService } from '../../core/services/notification-stream.service';
 import { HeaderComponent } from '../header/header';
 import { SidebarComponent } from '../sidebar/sidebar';
 
@@ -26,6 +27,7 @@ import { SidebarComponent } from '../sidebar/sidebar';
 })
 export class ShellComponent {
   private readonly authService = inject(AuthService);
+  private readonly notificationStream = inject(NotificationStreamService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -51,6 +53,8 @@ export class ShellComponent {
   });
 
   constructor() {
+    this.notificationStream.enable();
+
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -79,6 +83,7 @@ export class ShellComponent {
 
     this.destroyRef.onDestroy(() => {
       document.body.style.overflow = '';
+      this.notificationStream.disable();
     });
   }
 

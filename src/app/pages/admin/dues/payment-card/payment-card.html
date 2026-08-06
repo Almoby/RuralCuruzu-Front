@@ -22,6 +22,15 @@
 
     @if (canReview()) {
       <div class="payment-card__actions" (click)="$event.stopPropagation()">
+        @if (canDownload()) {
+          <app-button
+            variant="outline"
+            [disabled]="busy() || downloadBusy()"
+            (click)="onDownload($event)"
+          >
+            {{ downloadBusy() ? 'Descargando...' : 'Comprobante' }}
+          </app-button>
+        }
         <app-button
           variant="outline"
           [disabled]="busy()"
@@ -45,6 +54,16 @@
           (click)="onRegisterPayment($event)"
         >
           Registrar pago
+        </app-button>
+      </div>
+    } @else if (canDownload()) {
+      <div class="payment-card__actions" (click)="$event.stopPropagation()">
+        <app-button
+          variant="outline"
+          [disabled]="busy() || downloadBusy()"
+          (click)="onDownload($event)"
+        >
+          {{ downloadBusy() ? 'Descargando...' : 'Descargar comprobante' }}
         </app-button>
       </div>
     }

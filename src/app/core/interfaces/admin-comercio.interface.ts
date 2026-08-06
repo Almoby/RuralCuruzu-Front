@@ -103,7 +103,8 @@ export interface EliminarComercioRequest {
   motivo: string;
 }
 
-export interface ComercioEliminadoDto {
+/** GET /admin/comercios/eliminados item — Swagger `ComercioEliminadoResponse`. */
+export interface ComercioEliminadoResponseDto {
   id?: string;
   comercioIdOriginal?: string;
   nombreComercial?: string;
@@ -118,7 +119,24 @@ export interface ComercioEliminadoDto {
 
 export interface EliminarComercioResponseDto {
   mensaje?: string;
-  comercio?: ComercioEliminadoDto;
+  comercio?: ComercioEliminadoResponseDto;
+}
+
+/** ViewModel: historial de comercios eliminados (solo lectura). */
+export interface AdminDeletedMerchantViewModel {
+  id: string;
+  tradeName: string;
+  legalName: string;
+  cuit: string;
+  category: string;
+  statusAtDeletion: ComercioEstado | null;
+  statusAtDeletionLabel: string;
+  reason: string;
+  deletedByAdminName: string;
+  deletedAt: string;
+  deletedAtLabel: string;
+  statusLabel: string;
+  statusBadge: BadgeVariant;
 }
 
 /** ViewModel: list card + summary fields */

@@ -1,10 +1,12 @@
 /**
- * Backend DTOs for GET /api/admin/dashboard (Swagger DashboardPrincipalResponse).
+ * Backend DTOs for GET /api/admin/dashboard (Swagger `DashboardPrincipalResponse`).
  */
 
 export interface IndicadoresPrincipalesDto {
   totalSocios?: number;
+  sociosActivos?: number;
   sociosNuevosEsteMes?: number;
+  sociosNuevosEsteAnio?: number;
   sociosConCuotaAlDia?: number;
   porcentajeAlDiaDelTotal?: number;
   sociosConCuotaPendiente?: number;
@@ -26,11 +28,28 @@ export interface CobranzaMensualDto {
   pendiente?: number;
 }
 
+/** Swagger `CobranzaMensualPorCategoriaResponse` */
+export interface CobranzaMensualPorCategoriaDto {
+  periodo?: string;
+  mes?: string;
+  cobradoActivo?: number;
+  cobradoAdherente?: number;
+}
+
 export interface EstadoSociosDto {
   alDia?: number;
   pendientes?: number;
   vencidos?: number;
   inactivos?: number;
+}
+
+/** Swagger `SocioConDeudaResponse` — debt chart + overdue list in Reportes. */
+export interface SocioConDeudaDto {
+  socioId?: string;
+  numeroSocio?: string;
+  nombre?: string;
+  montoAdeudado?: number;
+  cantidadCuotasVencidas?: number;
 }
 
 export interface UsoPeriodoDto {
@@ -58,7 +77,9 @@ export interface BeneficioMasUtilizadoDto {
 export interface AdminDashboardDto {
   indicadoresPrincipales?: IndicadoresPrincipalesDto | null;
   cobranzaMensual?: CobranzaMensualDto[] | null;
+  cobranzaMensualPorCategoria?: CobranzaMensualPorCategoriaDto[] | null;
   estadoSocios?: EstadoSociosDto | null;
+  sociosConDeuda?: SocioConDeudaDto[] | null;
   usoBeneficiosPorComercio?: UsoBeneficioPorComercioDto[] | null;
   beneficiosMasUtilizados?: BeneficioMasUtilizadoDto[] | null;
 }
@@ -73,4 +94,20 @@ export interface AdminDashboardQueryParams {
 export interface AdminDashboardExportFile {
   blob: Blob;
   fileName: string;
+}
+
+/** Typed VM for category monthly collections (no dedicated chart in current layout). */
+export interface CobranzaMensualPorCategoriaViewModel {
+  periodo: string;
+  mesLabel: string;
+  cobradoActivo: number;
+  cobradoAdherente: number;
+}
+
+export interface SocioConDeudaViewModel {
+  socioId: string;
+  numeroSocio: string;
+  nombre: string;
+  montoAdeudado: number;
+  cantidadCuotasVencidas: number;
 }

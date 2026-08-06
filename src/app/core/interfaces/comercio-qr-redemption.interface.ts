@@ -5,13 +5,6 @@
 
 export type SocioCategoriaQrDto = 'ACTIVO' | 'ADHERENTE';
 
-export type BeneficioTipoQrDto =
-  | 'DESCUENTO_PORCENTAJE'
-  | 'DOS_POR_UNO'
-  | 'TRES_POR_DOS'
-  | 'GRATIS'
-  | 'OTRO';
-
 /** Swagger `ValidarBeneficioRequest` */
 export interface ValidarBeneficioRequestDto {
   codigoQr: string;
@@ -26,7 +19,7 @@ export interface ValidarBeneficioResponseDto {
   socioNumeroSocio?: string | null;
   socioCategoria?: SocioCategoriaQrDto | string | null;
   beneficioTitulo?: string | null;
-  beneficioTipo?: BeneficioTipoQrDto | string | null;
+  beneficioTipoNombre?: string | null;
   beneficioValor?: string | null;
   montoAhorro?: number | null;
   fechaUso?: string | null;

@@ -1,14 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpContext, HttpParams, HttpResponse } from '@angular/common/http';
 import {
-  BehaviorSubject,
   Observable,
   Subject,
   from,
   map,
   switchMap,
   tap,
-  throwError,
 } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { SKIP_ERROR_TOAST } from '../http/auth-http.tokens';
@@ -24,7 +22,6 @@ import {
 } from '../interfaces/admin-solicitud-socio.interface';
 import { ApiError } from '../interfaces/api-response.interface';
 import {
-  CreateMembershipRequest,
   MembershipRequest,
   MembershipRequestSummary,
 } from '../interfaces/member-request.interface';
@@ -39,14 +36,11 @@ import {
   parseContentDispositionFileName,
 } from '../mappers/admin-solicitud-socio.mapper';
 import { RequestStatus } from '../../shared/enums';
-import { mockResponse } from '../utils/mock.util';
-import requestsMock from '../../../assets/mock-data/membership-requests.json';
 
 /**
  * Membership requests access.
- * - Public create → always real backend (`POST /solicitudes-socio`).
- * - Admin Solicitudes → always real backend (`/admin/solicitudes-socio*`).
- * - Legacy `create()` still uses mocks for non-admin callers if any.
+ * - Public create → `POST /solicitudes-socio`
+ * - Admin Solicitudes → `/admin/solicitudes-socio*`
  */
 @Injectable({ providedIn: 'root' })
 export class MembershipRequestService {
@@ -54,10 +48,6 @@ export class MembershipRequestService {
   private readonly adminBase = `${environment.apiBaseUrl}/admin/solicitudes-socio`;
   private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
   private readonly changesSubject = new Subject<void>();
-
-  /** Legacy in-memory store for `create()` mock path only. */
-  private requests: MembershipRequest[] = structuredClone(requestsMock) as MembershipRequest[];
-  private readonly version$ = new BehaviorSubject(0);
 
   /** Emits when admin list/detail counters should refresh. */
   readonly changes$ = this.changesSubject.asObservable();
@@ -120,7 +110,7 @@ export class MembershipRequestService {
   }
 
   /**
-   * Public “Quiero ser socio” — always hits the real API (ignores useMocks).
+   * Public “Quiero ser socio”.
    */
   createPublic(payload: SolicitudSocioRequest): Observable<SolicitudSocioCreadaResponse> {
     return this.http.post<SolicitudSocioCreadaResponse>(
@@ -128,28 +118,6 @@ export class MembershipRequestService {
       payload,
       { context: this.silentContext },
     );
-  }
-
-  /**
-   * Legacy mock create. Prefer `createPublic` for the public registration form.
-   */
-  create(payload: CreateMembershipRequest): Observable<MembershipRequest> {
-    if (environment.useMocks) {
-      const created: MembershipRequest = {
-        id: `req-${String(this.requests.length + 1).padStart(3, '0')}`,
-        ...payload,
-        status: RequestStatus.Pendiente,
-        submittedAt: new Date().toISOString(),
-      };
-      this.requests = [created, ...this.requests];
-      this.version$.next(this.version$.value + 1);
-      return mockResponse(created);
-    }
-    return throwError(() => ({
-      status: 501,
-      message: 'Alta mock no disponible sin useMocks',
-      code: 'NOT_IMPLEMENTED',
-    }) satisfies ApiError);
   }
 
   /** PATCH /admin/solicitudes-socio/{numero}/estado */
@@ -253,25 +221,6 @@ export class MembershipRequestService {
         context: this.silentContext,
       })
       .pipe(switchMap((response) => from(this.toArchivoDownload(response, ruta))));
-  }
-
-  /** @deprecated Use approve(numero, observacion) */
-  approveRequest(
-    id: string,
-    _reviewedBy: string,
-    notes?: string,
-  ): Observable<CambiarEstadoSolicitudResponse> {
-    return this.approve(id, notes);
-  }
-
-  /** @deprecated Use reject(numero, motivo) */
-  rejectRequest(
-    id: string,
-    _reviewedBy: string,
-    rejectionReason: string,
-    notes?: string,
-  ): Observable<CambiarEstadoSolicitudResponse> {
-    return this.reject(id, rejectionReason, notes);
   }
 
   private async toArchivoDownload(

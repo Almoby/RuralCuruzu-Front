@@ -1,6 +1,5 @@
 import { ApiError } from '../interfaces/api-response.interface';
 import {
-  BeneficioTipoQrDto,
   ComercioQrRedemptionRejectedViewModel,
   ComercioQrRedemptionSuccessViewModel,
   ValidarBeneficioRequestDto,
@@ -8,25 +7,9 @@ import {
 } from '../interfaces/comercio-qr-redemption.interface';
 import { ComercioBeneficioViewModel } from '../interfaces/comercio-beneficio.interface';
 
-const TIPO_LABELS: Record<BeneficioTipoQrDto, string> = {
-  DESCUENTO_PORCENTAJE: 'Descuento',
-  DOS_POR_UNO: '2×1',
-  TRES_POR_DOS: '3×2',
-  GRATIS: 'Gratis',
-  OTRO: 'Otro',
-};
-
 function text(value: string | null | undefined, fallback = ''): string {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : fallback;
-}
-
-function asTipoLabel(tipo: string | null | undefined): string {
-  const raw = text(tipo).toUpperCase();
-  if (raw in TIPO_LABELS) {
-    return TIPO_LABELS[raw as BeneficioTipoQrDto];
-  }
-  return text(tipo) || 'Beneficio';
 }
 
 function categoryLabel(categoria: string | null | undefined): string {
@@ -95,7 +78,7 @@ export function mapValidarBeneficioResponseToSuccessViewModel(
     category: categoryLabel(dto.socioCategoria),
     benefitName: text(dto.beneficioTitulo, 'Beneficio'),
     benefitValue: text(dto.beneficioValor, '—'),
-    benefitTypeLabel: asTipoLabel(dto.beneficioTipo),
+    benefitTypeLabel: text(dto.beneficioTipoNombre, 'Beneficio'),
     savingsAmount: savings,
     savingsLabel: formatMontoAhorroLabel(savings),
     validatedAt,
@@ -226,8 +209,12 @@ export function isBeneficioEligibleForRedemption(
 export function mapBeneficioToSelectLabel(
   benefit: ComercioBeneficioViewModel,
 ): string {
-  const parts = [benefit.title, benefit.valueLabel].filter(
-    (part) => part && part !== '—',
-  );
-  return parts.join(' · ');
+  const parts = [benefit.title];
+  if (benefit.typeLabel && benefit.typeLabel !== 'Beneficio') {
+    parts.push(benefit.typeLabel);
+  }
+  if (benefit.valueLabel && benefit.valueLabel !== '—') {
+    parts.push(benefit.valueLabel);
+  }
+  return parts.filter(Boolean).join(' · ');
 }

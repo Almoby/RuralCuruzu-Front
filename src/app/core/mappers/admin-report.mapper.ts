@@ -6,13 +6,12 @@ import {
   BeneficioMasUtilizadoDto,
   CobranzaMensualDto,
   IndicadoresPrincipalesDto,
-  UsoBeneficioPorComercioDto,
+  SocioConDeudaDto,
 } from '../interfaces/admin-dashboard.interface';
 import { AdminReportRawBundle } from '../interfaces/admin-report.interface';
 import {
   BenefitUsageRanking,
   BenefitUsageRankingItem,
-  CommerceBenefitUsageReport,
   MemberDebtItem,
   MemberDebtReport,
   MonthlyCollectedFeesReport,
@@ -24,8 +23,29 @@ import {
 } from '../interfaces/report.interface';
 import { CHART_COLORS } from '../../pages/admin/utils/chart-theme';
 import { formatPeriodLabel } from '../../shared/utils';
+import {
+  asFiniteNumber,
+  formatCobranzaMonthLabel,
+} from './admin-dashboard.mapper';
+import {
+  buildBenefitsByCommerceForPeriod,
+  currentCalendarBenefitPeriod,
+  extractYearsFromPeriodos,
+  parsePeriodParts,
+} from './admin-uso-beneficios.mapper';
 
-/** Cuotas that still count toward outstanding debt (not paid / not void). */
+export {
+  BENEFIT_MONTH_OPTIONS,
+  buildBenefitsByCommerceChartTitle,
+  buildBenefitsByCommerceForPeriod,
+  currentCalendarBenefitPeriod,
+  extractYearsFromUsoPorPeriodo,
+  formatBenefitPeriodLabel,
+  parsePeriodParts,
+  resolveDefaultBenefitPeriod,
+} from './admin-uso-beneficios.mapper';
+
+/** Fallback debt states when dashboard `sociosConDeuda` is unavailable. */
 const DEBT_STATES: ReadonlySet<CuotaEstado> = new Set([
   'PENDIENTE',
   'INFORMADA',
@@ -35,49 +55,26 @@ const DEBT_STATES: ReadonlySet<CuotaEstado> = new Set([
 ]);
 
 function num(value: number | null | undefined): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return asFiniteNumber(value);
 }
 
-function monthLabel(item: CobranzaMensualDto): string {
-  const mes = typeof item.mes === 'string' ? item.mes.trim() : '';
-  if (mes.length > 0) {
-    return mes.length <= 3 ? mes : mes.slice(0, 3);
-  }
-
-  const periodo = typeof item.periodo === 'string' ? item.periodo.trim() : '';
-  if (/^\d{4}-\d{2}/.test(periodo)) {
-    const monthIndex = Number(periodo.slice(5, 7)) - 1;
-    const labels = [
-      'Ene',
-      'Feb',
-      'Mar',
-      'Abr',
-      'May',
-      'Jun',
-      'Jul',
-      'Ago',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dic',
-    ];
-    return labels[monthIndex] ?? periodo;
-  }
-
-  return periodo || '—';
+export function extractYearsFromCobranza(items: CobranzaMensualDto[]): number[] {
+  return extractYearsFromPeriodos(items.map((item) => item.periodo));
 }
 
 function resolveYear(items: CobranzaMensualDto[], fallback: number): number {
-  for (const item of items) {
-    const periodo = typeof item.periodo === 'string' ? item.periodo.trim() : '';
-    if (/^\d{4}/.test(periodo)) {
-      const year = Number(periodo.slice(0, 4));
-      if (Number.isFinite(year)) {
-        return year;
-      }
-    }
+  const years = extractYearsFromCobranza(items);
+  if (years.includes(fallback)) {
+    return fallback;
   }
-  return fallback;
+  return years[0] ?? fallback;
+}
+
+export function filterCobranzaByYear(
+  items: CobranzaMensualDto[],
+  year: number,
+): CobranzaMensualDto[] {
+  return items.filter((item) => parsePeriodParts(item.periodo)?.year === year);
 }
 
 function niceAxisMax(maxValue: number, fallback: number): number {
@@ -101,6 +98,23 @@ function shortNameFromFull(fullName: string): string {
   return `${parts[0]} ${initial}.`;
 }
 
+function toMemberDebtItem(
+  key: string,
+  name: string,
+  code: string,
+  amount: number,
+  extras?: Pick<MemberDebtItem, 'overdueCount' | 'paidAt' | 'period'>,
+): MemberDebtItem {
+  return {
+    memberId: key,
+    memberName: name || 'No informado',
+    shortName: shortNameFromFull(name || 'No informado'),
+    memberCode: code || '—',
+    amount,
+    ...extras,
+  };
+}
+
 function memberKey(cuota: CuotaResumenResponseDto): string {
   const code = cuota.socioNumeroSocio?.trim();
   if (code) {
@@ -113,25 +127,13 @@ function memberKey(cuota: CuotaResumenResponseDto): string {
   return cuota.id;
 }
 
-function toMemberDebtItem(
-  key: string,
-  name: string,
-  code: string,
-  amount: number,
-): MemberDebtItem {
-  return {
-    memberId: key,
-    memberName: name || 'No informado',
-    shortName: shortNameFromFull(name || 'No informado'),
-    memberCode: code || '—',
-    amount,
-  };
-}
-
 function aggregateByMember(
   cuotas: CuotaResumenResponseDto[],
 ): MemberDebtItem[] {
-  const map = new Map<string, { name: string; code: string; amount: number }>();
+  const map = new Map<
+    string,
+    { name: string; code: string; amount: number; overdueCount: number }
+  >();
 
   for (const cuota of cuotas) {
     const key = memberKey(cuota);
@@ -139,9 +141,11 @@ function aggregateByMember(
     const amount = num(cuota.importe);
     const name = cuota.socioNombre?.trim() || existing?.name || '';
     const code = cuota.socioNumeroSocio?.trim() || existing?.code || '';
+    const overdueInc = cuota.estado === 'VENCIDA' ? 1 : 0;
 
     if (existing) {
       existing.amount += amount;
+      existing.overdueCount += overdueInc;
       if (!existing.name && name) {
         existing.name = name;
       }
@@ -149,31 +153,48 @@ function aggregateByMember(
         existing.code = code;
       }
     } else {
-      map.set(key, { name, code, amount });
+      map.set(key, { name, code, amount, overdueCount: overdueInc });
     }
   }
 
   return Array.from(map.entries())
-    .map(([key, value]) => toMemberDebtItem(key, value.name, value.code, value.amount))
+    .map(([key, value]) =>
+      toMemberDebtItem(key, value.name, value.code, value.amount, {
+        overdueCount: value.overdueCount,
+      }),
+    )
     .filter((item) => item.amount > 0)
-    .sort((a, b) => b.amount - a.amount);
+    .sort(
+      (a, b) =>
+        b.amount - a.amount ||
+        (b.overdueCount ?? 0) - (a.overdueCount ?? 0) ||
+        a.memberName.localeCompare(b.memberName, 'es'),
+    );
+}
+
+function compareCollectedFees(a: MemberDebtItem, b: MemberDebtItem): number {
+  const paidA = a.paidAt?.trim() ?? '';
+  const paidB = b.paidAt?.trim() ?? '';
+  if (paidA !== paidB) {
+    return paidB.localeCompare(paidA);
+  }
+  const periodA = a.period?.trim() ?? '';
+  const periodB = b.period?.trim() ?? '';
+  if (periodA !== periodB) {
+    return periodB.localeCompare(periodA);
+  }
+  return a.memberName.localeCompare(b.memberName, 'es');
 }
 
 function buildMetrics(
   indicadores: IndicadoresPrincipalesDto,
-  sociosActivosCount: number | null,
   overdueDistinctCount: number,
 ): ReportMetric[] {
-  const activeValue =
-    sociosActivosCount !== null
-      ? sociosActivosCount
-      : num(indicadores.totalSocios);
-
   return [
     {
       id: 'active-members',
       label: 'Socios activos',
-      value: activeValue,
+      value: num(indicadores.sociosActivos ?? indicadores.totalSocios),
       icon: 'people',
       tone: 'primary',
     },
@@ -204,17 +225,19 @@ function buildMetrics(
   ];
 }
 
-function buildCollectionsVsPending(
+/** Builds “Cobrados vs pendientes” for a specific year (title without year). */
+export function buildCollectionsVsPending(
   items: CobranzaMensualDto[],
   year: number,
 ): MonthlyPaymentsReport {
-  const labels = items.map(monthLabel);
-  const collected = items.map((item) => num(item.cobrado));
-  const pending = items.map((item) => num(item.pendiente));
+  const forYear = filterCobranzaByYear(items, year);
+  const labels = forYear.map(formatCobranzaMonthLabel);
+  const collected = forYear.map((item) => num(item.cobrado));
+  const pending = forYear.map((item) => num(item.pendiente));
   const maxValue = Math.max(0, ...collected, ...pending);
 
   return {
-    title: `Cobrados vs pendientes — ${year}`,
+    title: 'Cobrados vs pendientes',
     year,
     labels,
     series: [
@@ -233,7 +256,67 @@ function buildCollectionsVsPending(
   };
 }
 
-/** Deuda acumulada por socio — from unpaid cuotas in GET /admin/cuotas. */
+/** Prefer Swagger `sociosConDeuda` from GET /admin/dashboard. */
+export function mapDebtByMemberFromSociosConDeuda(
+  items: SocioConDeudaDto[] | null | undefined,
+): MemberDebtReport {
+  const mapped = (items ?? [])
+    .map((item, index) =>
+      toMemberDebtItem(
+        item.socioId?.trim() || item.numeroSocio?.trim() || `deuda-${index}`,
+        item.nombre?.trim() || 'No informado',
+        item.numeroSocio?.trim() || '—',
+        num(item.montoAdeudado),
+        { overdueCount: num(item.cantidadCuotasVencidas) },
+      ),
+    )
+    .filter((item) => item.amount > 0)
+    .sort(
+      (a, b) =>
+        b.amount - a.amount ||
+        (b.overdueCount ?? 0) - (a.overdueCount ?? 0) ||
+        a.memberName.localeCompare(b.memberName, 'es'),
+    );
+
+  const max = Math.max(0, ...mapped.map((item) => item.amount));
+
+  return {
+    title: 'Deuda acumulada por socio',
+    items: mapped,
+    yAxisMax: niceAxisMax(max, 1000),
+  };
+}
+
+/** Socios con cuota vencida — from `sociosConDeuda.cantidadCuotasVencidas`. */
+export function mapOverdueMembersFromSociosConDeuda(
+  items: SocioConDeudaDto[] | null | undefined,
+): OverdueMemberReport {
+  const mapped = (items ?? [])
+    .filter((item) => num(item.cantidadCuotasVencidas) > 0)
+    .map((item, index) =>
+      toMemberDebtItem(
+        item.socioId?.trim() || item.numeroSocio?.trim() || `vencida-${index}`,
+        item.nombre?.trim() || 'No informado',
+        item.numeroSocio?.trim() || '—',
+        num(item.montoAdeudado),
+        { overdueCount: num(item.cantidadCuotasVencidas) },
+      ),
+    )
+    .filter((item) => item.amount > 0)
+    .sort(
+      (a, b) =>
+        b.amount - a.amount ||
+        (b.overdueCount ?? 0) - (a.overdueCount ?? 0) ||
+        a.memberName.localeCompare(b.memberName, 'es'),
+    );
+
+  return {
+    title: 'Socios con cuota vencida',
+    items: mapped,
+  };
+}
+
+/** Fallback when dashboard debt payload is unavailable. */
 export function mapDebtByMemberFromCuotas(
   cuotas: CuotaResumenResponseDto[],
 ): MemberDebtReport {
@@ -249,7 +332,7 @@ export function mapDebtByMemberFromCuotas(
   };
 }
 
-/** Socios con cuota vencida — from GET /admin/cuotas?estado=VENCIDA (or filtered). */
+/** Fallback overdue list from GET /admin/cuotas. */
 export function mapOverdueMembersFromCuotas(
   cuotas: CuotaResumenResponseDto[],
 ): OverdueMemberReport {
@@ -288,7 +371,7 @@ function buildMonthOptions(cuotas: CuotaResumenResponseDto[]): ReportMonthOption
     .map((value) => ({ value, label: formatPeriodLabel(value) }));
 }
 
-/** Cuotas cobradas por mes — PAGADA rows for a `yyyy-MM` period. */
+/** Cuotas cobradas por mes — one row per PAGADA cuota in the selected period. */
 export function mapCollectedFeesFromCuotas(
   cuotas: CuotaResumenResponseDto[],
   selectedPeriod?: string,
@@ -306,12 +389,27 @@ export function mapCollectedFeesFromCuotas(
       cuota.periodo.slice(0, 7) === period,
   );
 
+  const items = paidForPeriod
+    .map((cuota) => {
+      const name = cuota.socioNombre?.trim() || 'No informado';
+      const code = cuota.socioNumeroSocio?.trim() || '—';
+      const paidAt = cuota.pagoVigente?.fechaPago?.trim() || '';
+      const feePeriod =
+        typeof cuota.periodo === 'string' ? cuota.periodo.slice(0, 7) : period;
+      return toMemberDebtItem(cuota.id, name, code, num(cuota.importe), {
+        paidAt,
+        period: feePeriod,
+      });
+    })
+    .filter((item) => item.amount > 0)
+    .sort(compareCollectedFees);
+
   return {
     title: 'Cuotas cobradas por mes de socios activos y adherentes',
     monthLabel: formatPeriodLabel(period),
     monthOptions,
     selectedPeriod: period,
-    items: aggregateByMember(paidForPeriod),
+    items,
   };
 }
 
@@ -344,31 +442,10 @@ function buildTopBenefits(items: BeneficioMasUtilizadoDto[]): BenefitUsageRankin
   };
 }
 
-function buildBenefitsByCommerce(
-  items: UsoBeneficioPorComercioDto[],
-): CommerceBenefitUsageReport {
-  // Title says "mes actual" → prefer monthly count, not historical total.
-  const mapped = items
-    .map((item) => ({
-      name: item.comercioNombre?.trim() || 'Comercio',
-      value: num(item.cantidadBeneficiosUtilizadosEsteMes),
-    }))
-    .filter((item) => item.value > 0);
-
-  const max = Math.max(0, ...mapped.map((item) => item.value));
-  const niceMax = max <= 0 ? 10 : Math.ceil(max / 4) * 4 || max;
-  const step = niceMax / 4;
-  const scale = [0, step, step * 2, step * 3, niceMax].map((value) => Math.round(value));
-
-  return {
-    title: 'Uso de beneficios por comercio (mes actual)',
-    items: mapped,
-    scale,
-  };
-}
-
 /**
- * Composes the Admin Reports view-model from dashboard + cuotas (+ socios count).
+ * Composes Admin Reports from dashboard (primary) + cuotas (collected-by-month only).
+ * Debt / overdue prefer `sociosConDeuda`; cuotas aggregation is fallback only.
+ * “Uso de beneficios por comercio” always uses the current calendar month/year.
  */
 export function mapAdminReportBundleToViewModel(
   bundle: AdminReportRawBundle,
@@ -378,22 +455,39 @@ export function mapAdminReportBundleToViewModel(
   const indicadores = dashboard.indicadoresPrincipales ?? {};
   const cobranza = dashboard.cobranzaMensual ?? [];
   const year = resolveYear(cobranza, new Date().getFullYear());
-  const overdue = mapOverdueMembersFromCuotas(bundle.cuotas);
+  const comercios = dashboard.usoBeneficiosPorComercio ?? [];
+  const currentBenefit = currentCalendarBenefitPeriod();
+  const benefitsByCommerce = buildBenefitsByCommerceForPeriod(
+    comercios,
+    currentBenefit.year,
+    currentBenefit.month,
+    { titleWithPeriod: true },
+  );
+
+  const hasDashboardDebt = !bundle.dashboardFailed && dashboard.sociosConDeuda != null;
+  const debtByMember = hasDashboardDebt
+    ? mapDebtByMemberFromSociosConDeuda(dashboard.sociosConDeuda)
+    : mapDebtByMemberFromCuotas(bundle.cuotas);
+  const overdueMembers = hasDashboardDebt
+    ? mapOverdueMembersFromSociosConDeuda(dashboard.sociosConDeuda)
+    : mapOverdueMembersFromCuotas(bundle.cuotas);
 
   return {
     title: 'Reportes',
     subtitle: 'Análisis y estadísticas de la cooperativa',
-    metrics: buildMetrics(indicadores, bundle.sociosActivosCount, overdue.items.length),
+    metrics: buildMetrics(indicadores, overdueMembers.items.length),
     collectionsVsPending: buildCollectionsVsPending(cobranza, year),
-    debtByMember: mapDebtByMemberFromCuotas(bundle.cuotas),
-    overdueMembers: overdue,
+    debtByMember,
+    overdueMembers,
     monthlyCollectedFees: mapCollectedFeesFromCuotas(
       bundle.cuotas,
       selectedCollectedPeriod,
     ),
     topBenefits: buildTopBenefits(dashboard.beneficiosMasUtilizados ?? []),
-    benefitsByCommerce: buildBenefitsByCommerce(
-      dashboard.usoBeneficiosPorComercio ?? [],
-    ),
+    benefitsByCommerce: {
+      title: benefitsByCommerce.title,
+      items: benefitsByCommerce.items.map(({ name, value }) => ({ name, value })),
+      scale: benefitsByCommerce.scale,
+    },
   };
 }

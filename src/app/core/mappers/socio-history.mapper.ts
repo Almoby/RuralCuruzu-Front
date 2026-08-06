@@ -104,6 +104,7 @@ export function mapSocioBenefitHistoryDtoToViewModel(
         id: item.id?.trim() || `uso-${index}`,
         benefitTitle: item.beneficioTitulo?.trim() || 'Beneficio',
         merchantName: item.comercioNombre?.trim() || 'Comercio',
+        typeName: item.tipoBeneficioNombre?.trim() || '',
         usedAtLabel: formatHistoryDateTime(item.fechaUso) || 'Sin fecha',
         savingsAmount: num(item.montoAhorro),
         estado: item.estado ?? null,

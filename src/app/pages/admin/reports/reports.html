@@ -47,8 +47,42 @@
 
       <div class="reports__charts-row">
         <article class="reports__card">
-          <h3 class="reports__card-title">{{ collectionsTitle() }}</h3>
-          @if (collectionsChartData(); as chartData) {
+          <div class="reports__card-head">
+            <h3 class="reports__card-title">{{ collectionsTitle() }}</h3>
+            <div class="reports__filters">
+              <div class="reports__month">
+                <button
+                  type="button"
+                  class="reports__month-btn"
+                  [attr.aria-expanded]="openMenu() === 'collectionYear'"
+                  [disabled]="collectionYearLoading()"
+                  (click)="toggleMenu('collectionYear')"
+                >
+                  {{ selectedCollectionYear() }}
+                  <span aria-hidden="true">↓</span>
+                </button>
+                @if (openMenu() === 'collectionYear') {
+                  <ul class="reports__month-menu" role="listbox">
+                    @for (year of collectionYearOptions(); track year) {
+                      <li>
+                        <button
+                          type="button"
+                          class="reports__month-option"
+                          [class.reports__month-option--active]="selectedCollectionYear() === year"
+                          (click)="selectCollectionYear(year)"
+                        >
+                          {{ year }}
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+          </div>
+          @if (collectionYearLoading()) {
+            <p class="reports__empty-hint">Cargando cobranza...</p>
+          } @else if (collectionsChartData(); as chartData) {
             <div class="reports__chart-box reports__chart-box--line">
               <canvas
                 baseChart
@@ -64,7 +98,39 @@
         </article>
 
         <article class="reports__card">
-          <h3 class="reports__card-title">{{ debtTitle() }}</h3>
+          <div class="reports__card-head">
+            <h3 class="reports__card-title">{{ debtTitle() }}</h3>
+            <div class="reports__filters">
+              <div class="reports__month">
+                <button
+                  type="button"
+                  class="reports__month-btn"
+                  aria-label="Cantidad de socios en el gráfico de deuda"
+                  [attr.aria-expanded]="openMenu() === 'debtTop'"
+                  (click)="toggleMenu('debtTop')"
+                >
+                  Top {{ debtTopLimit() }}
+                  <span aria-hidden="true">↓</span>
+                </button>
+                @if (openMenu() === 'debtTop') {
+                  <ul class="reports__month-menu" role="listbox">
+                    @for (limit of debtTopOptions; track limit) {
+                      <li>
+                        <button
+                          type="button"
+                          class="reports__month-option"
+                          [class.reports__month-option--active]="debtTopLimit() === limit"
+                          (click)="selectDebtTop(limit)"
+                        >
+                          Top {{ limit }}
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+          </div>
           @if (debtChartData(); as chartData) {
             <div class="reports__chart-box reports__chart-box--bars">
               <canvas
@@ -85,18 +151,20 @@
         <div class="reports__third-left">
           <article class="reports__card">
             <h3 class="reports__card-title">{{ overdueTitle() }}</h3>
-            @if (overdueItems().length === 0) {
-              <p class="reports__empty-hint">No hay socios con cuota vencida.</p>
+            @if (overdueMembersTotal() === 0) {
+              <p class="reports__empty-hint">Sin socios con cuotas vencidas.</p>
             } @else {
               <ul class="reports__member-list">
-                @for (item of overdueItems(); track item.memberId) {
+                @for (item of paginatedOverdueMembers(); track item.memberId) {
                   <li class="reports__member-row">
                     <div class="reports__member-identity">
                       <span class="reports__avatar" aria-hidden="true">
                         {{ initialsFromName(item.memberName) }}
                       </span>
-                      <span>
-                        <p class="reports__member-name">{{ item.memberName }}</p>
+                      <span class="reports__member-text">
+                        <p class="reports__member-name" [attr.title]="item.memberName">
+                          {{ item.memberName }}
+                        </p>
                         <p class="reports__member-code">{{ item.memberCode }}</p>
                       </span>
                     </div>
@@ -107,6 +175,63 @@
                   </li>
                 }
               </ul>
+              <div
+                class="reports__pager"
+                role="navigation"
+                aria-label="Paginación de socios con cuota vencida"
+              >
+                <p class="reports__pager-range">{{ overdueRangeText() }}</p>
+                <div class="reports__pager-controls">
+                  <div class="reports__month">
+                    <button
+                      type="button"
+                      class="reports__month-btn"
+                      aria-label="Cantidad de socios por página"
+                      [attr.aria-expanded]="openMenu() === 'overduePageSize'"
+                      (click)="toggleMenu('overduePageSize')"
+                    >
+                      {{ overdueMembersPageSize() }}
+                      <span aria-hidden="true">↓</span>
+                    </button>
+                    @if (openMenu() === 'overduePageSize') {
+                      <ul class="reports__month-menu" role="listbox">
+                        @for (size of listPageSizeOptions; track size) {
+                          <li>
+                            <button
+                              type="button"
+                              class="reports__month-option"
+                              [class.reports__month-option--active]="
+                                overdueMembersPageSize() === size
+                              "
+                              (click)="setOverduePageSize(size)"
+                            >
+                              {{ size }}
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    class="reports__pager-btn"
+                    aria-label="Anterior"
+                    [disabled]="!overdueCanGoPrev()"
+                    (click)="goOverduePrev()"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    type="button"
+                    class="reports__pager-btn"
+                    aria-label="Siguiente"
+                    [disabled]="!overdueCanGoNext()"
+                    (click)="goOverdueNext()"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
             }
           </article>
 
@@ -117,13 +242,14 @@
                 <button
                   type="button"
                   class="reports__month-btn"
-                  [attr.aria-expanded]="monthMenuOpen()"
-                  (click)="toggleMonthMenu()"
+                  aria-label="Mes de cuotas cobradas"
+                  [attr.aria-expanded]="openMenu() === 'collectedMonth'"
+                  (click)="toggleMenu('collectedMonth')"
                 >
                   {{ selectedMonthLabel() }}
                   <span aria-hidden="true">↓</span>
                 </button>
-                @if (monthMenuOpen()) {
+                @if (openMenu() === 'collectedMonth') {
                   <ul class="reports__month-menu" role="listbox">
                     @for (month of monthOptions(); track month.value) {
                       <li>
@@ -142,18 +268,22 @@
               </div>
             </div>
 
-            @if (collectedItems().length === 0) {
-              <p class="reports__empty-hint">Sin cuotas cobradas para el período.</p>
+            @if (collectedFeesTotal() === 0) {
+              <p class="reports__empty-hint">
+                No hay cuotas cobradas para el período seleccionado.
+              </p>
             } @else {
               <ul class="reports__member-list">
-                @for (item of collectedItems(); track item.memberId) {
+                @for (item of paginatedCollectedFees(); track item.memberId) {
                   <li class="reports__member-row">
                     <div class="reports__member-identity">
                       <span class="reports__avatar" aria-hidden="true">
                         {{ initialsFromName(item.memberName) }}
                       </span>
-                      <span>
-                        <p class="reports__member-name">{{ item.memberName }}</p>
+                      <span class="reports__member-text">
+                        <p class="reports__member-name" [attr.title]="item.memberName">
+                          {{ item.memberName }}
+                        </p>
                         <p class="reports__member-code">{{ item.memberCode }}</p>
                       </span>
                     </div>
@@ -164,6 +294,63 @@
                   </li>
                 }
               </ul>
+              <div
+                class="reports__pager"
+                role="navigation"
+                aria-label="Paginación de cuotas cobradas"
+              >
+                <p class="reports__pager-range">{{ collectedRangeLabel() }}</p>
+                <div class="reports__pager-controls">
+                  <div class="reports__month">
+                    <button
+                      type="button"
+                      class="reports__month-btn"
+                      aria-label="Cantidad de pagos por página"
+                      [attr.aria-expanded]="openMenu() === 'collectedPageSize'"
+                      (click)="toggleMenu('collectedPageSize')"
+                    >
+                      {{ collectedFeesPageSize() }}
+                      <span aria-hidden="true">↓</span>
+                    </button>
+                    @if (openMenu() === 'collectedPageSize') {
+                      <ul class="reports__month-menu" role="listbox">
+                        @for (size of listPageSizeOptions; track size) {
+                          <li>
+                            <button
+                              type="button"
+                              class="reports__month-option"
+                              [class.reports__month-option--active]="
+                                collectedFeesPageSize() === size
+                              "
+                              (click)="setCollectedPageSize(size)"
+                            >
+                              {{ size }}
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    class="reports__pager-btn"
+                    aria-label="Anterior"
+                    [disabled]="!collectedCanGoPrev()"
+                    (click)="goCollectedPrev()"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    type="button"
+                    class="reports__pager-btn"
+                    aria-label="Siguiente"
+                    [disabled]="!collectedCanGoNext()"
+                    (click)="goCollectedNext()"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
             }
           </article>
         </div>
@@ -211,7 +398,7 @@
             ></canvas>
           </div>
         } @else {
-          <p class="reports__empty-hint">Sin consumos en el mes actual.</p>
+          <p class="reports__empty-hint">{{ commerceEmptyMessage() }}</p>
         }
       </article>
     }

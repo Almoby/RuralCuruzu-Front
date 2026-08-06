@@ -1,5 +1,8 @@
 import { UserRole } from '../../shared/enums';
 
+/** Asociación category from LoginResponse (SOCIO only). Not membership status. */
+export type SocioCategoriaAsociacion = 'ACTIVO' | 'ADHERENTE';
+
 /** Backend login credentials (Swagger LoginRequest). */
 export interface LoginRequest {
   email: string;
@@ -16,6 +19,10 @@ export interface BackendLoginResponse {
   refId: string | null;
   expiraEnSegundos: number;
   requiereCambioPassword: boolean;
+  /** Solo SOCIO; null para COMERCIO/ADMIN. */
+  numeroSocio?: string | null;
+  /** Solo SOCIO; null para COMERCIO/ADMIN. */
+  categoria?: SocioCategoriaAsociacion | string | null;
 }
 
 export interface RefreshTokenRequest {
@@ -57,6 +64,16 @@ export interface AuthSession {
   /** Absolute epoch ms when the access token should be considered expired. */
   accessTokenExpiresAt?: number;
   requiresPasswordChange: boolean;
+  /**
+   * Visible Socio business number from LoginResponse.numeroSocio.
+   * Never populated from refId. Null/absent for ADMIN/COMERCIO or legacy sessions.
+   */
+  numeroSocio?: string | null;
+  /**
+   * Asociación category from LoginResponse.categoria (ACTIVO | ADHERENTE).
+   * Distinct from Socio account status (ACTIVO | INACTIVO | DADO_DE_BAJA).
+   */
+  memberCategory?: SocioCategoriaAsociacion | null;
 }
 
 /**
@@ -68,8 +85,10 @@ export interface AuthUser {
   email: string;
   fullName: string;
   role: UserRole;
-  /** Socio reference (`refId`) when role is SOCIO. */
+  /** Visible Socio number (`LoginResponse.numeroSocio`). Never refId. */
   memberCode?: string;
+  /** Asociación category ACTIVO | ADHERENTE when role is SOCIO. */
+  memberCategory?: SocioCategoriaAsociacion;
   /** Comercio reference (`refId`) when role is COMERCIO. */
   merchantId?: string;
   /** Display name for comercio until domain data loads. */
@@ -78,19 +97,3 @@ export interface AuthUser {
   requiresPasswordChange: boolean;
 }
 
-/** @deprecated Prefer BackendLoginResponse — kept for transitional imports. */
-export type LoginResponse = BackendLoginResponse;
-
-/** Legacy user shape used by mock datasets (not auth session). */
-export interface User {
-  id: string;
-  email: string;
-  fullName: string;
-  role: UserRole;
-  memberCode?: string;
-  merchantId?: string;
-  merchantName?: string;
-  avatarUrl?: string;
-  isActive: boolean;
-  createdAt: string;
-}

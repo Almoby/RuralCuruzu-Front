@@ -1,94 +1,115 @@
 <app-modal [open]="open()" title="Editar Socio" size="xl" (close)="onClose()">
-  <form class="member-edit" [formGroup]="form" (ngSubmit)="onSubmit()">
-    <section class="member-edit__section" aria-labelledby="edit-personal-title">
-      <h3 id="edit-personal-title" class="member-edit__section-title">Datos personales</h3>
+  @if (loading()) {
+    <app-loading message="Cargando socio..." />
+  } @else if (member(); as item) {
+    <form class="member-edit" [formGroup]="form" (ngSubmit)="onSubmit()">
+      @if (successMessage()) {
+        <app-alert variant="success" [message]="successMessage()" />
+      }
 
-      <div class="member-edit__fields">
-        <app-input
-          label="Apellido y Nombre / Razón Social *"
-          placeholder="Apellido y Nombre / Razón Social"
-          formControlName="fullName"
-          [error]="fieldError('fullName')"
-        />
+      @if (formError()) {
+        <app-alert variant="error" [message]="formError()" />
+      }
 
-        <app-input
-          label="Dirección Postal *"
-          placeholder="Dirección postal"
-          formControlName="address"
-          [error]="fieldError('address')"
-        />
+      <section class="member-edit__section" aria-labelledby="edit-identity-title">
+        <h3 id="edit-identity-title" class="member-edit__section-title">Identificación</h3>
+        <div class="member-edit__fields">
+          <div class="member-edit__readonly">
+            <p class="member-edit__readonly-label">N° Socio</p>
+            <p class="member-edit__readonly-value">{{ item.memberCode }}</p>
+          </div>
+          <div class="member-edit__readonly">
+            <p class="member-edit__readonly-label">
+              {{ item.personType === 'JURIDICA' ? 'Razón social' : 'Apellido y nombre' }}
+            </p>
+            <p class="member-edit__readonly-value">{{ item.fullName }}</p>
+          </div>
+          <div class="member-edit__row">
+            <div class="member-edit__readonly">
+              <p class="member-edit__readonly-label">Tipo de persona</p>
+              <p class="member-edit__readonly-value">{{ personTypeLabel() }}</p>
+            </div>
+            @if (item.personType === 'FISICA') {
+              <div class="member-edit__readonly">
+                <p class="member-edit__readonly-label">DNI</p>
+                <p class="member-edit__readonly-value">{{ item.documentNumber }}</p>
+              </div>
+            } @else {
+              <div class="member-edit__readonly">
+                <p class="member-edit__readonly-label">CUIT</p>
+                <p class="member-edit__readonly-value">{{ item.cuit || 'No informado' }}</p>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
 
-        <div class="member-edit__row">
-          <app-input
-            label="Fecha de Nacimiento *"
-            type="date"
-            formControlName="birthDate"
-            [error]="fieldError('birthDate')"
+      <section class="member-edit__section" aria-labelledby="edit-contact-title">
+        <h3 id="edit-contact-title" class="member-edit__section-title">Datos editables</h3>
+        <div class="member-edit__fields">
+          <app-select
+            label="Categoría"
+            placeholder="Seleccionar categoría"
+            [options]="categoryOptions"
+            formControlName="categoria"
+            [error]="fieldError('categoria')"
           />
+
+          <div class="member-edit__row">
+            <app-input
+              label="Teléfono"
+              type="tel"
+              placeholder="+54 9 11..."
+              formControlName="telefono"
+              [error]="fieldError('telefono')"
+            />
+            <app-input
+              label="E-mail"
+              type="email"
+              placeholder="correo@email.com"
+              formControlName="correoElectronico"
+              [error]="fieldError('correoElectronico')"
+            />
+          </div>
+
           <app-input
-            label="D.N.I. / C.I. / L.E. *"
-            placeholder="00.000.000"
-            formControlName="documentNumber"
-            [error]="fieldError('documentNumber')"
+            label="Dirección"
+            placeholder="Dirección postal"
+            formControlName="direccion"
+            [error]="fieldError('direccion')"
+          />
+
+          <app-input
+            label="Portal / Piso / Depto"
+            placeholder="Depto B"
+            formControlName="portalPisoDepartamento"
+            [error]="fieldError('portalPisoDepartamento')"
+          />
+
+          <app-input
+            label="Nombre del establecimiento u ocupación"
+            placeholder="Nombre del establecimiento"
+            formControlName="nombreEstablecimiento"
+            [error]="fieldError('nombreEstablecimiento')"
+          />
+
+          <app-input
+            label="Dirección del establecimiento"
+            placeholder="Dirección del establecimiento"
+            formControlName="direccionEstablecimiento"
+            [error]="fieldError('direccionEstablecimiento')"
           />
         </div>
+      </section>
 
-        <app-input
-          label="Teléfono *"
-          type="tel"
-          placeholder="+54 9 11..."
-          formControlName="phone"
-          [error]="fieldError('phone')"
-        />
-
-        <app-input
-          label="E-mail *"
-          type="email"
-          placeholder="correo@email.com"
-          formControlName="email"
-          [error]="fieldError('email')"
-        />
-
-        <app-input
-          label="CUIT N° *"
-          placeholder="20-00000000-0"
-          formControlName="cuit"
-          [error]="fieldError('cuit')"
-        />
-      </div>
-    </section>
-
-    <section class="member-edit__section" aria-labelledby="edit-establishment-title">
-      <div class="member-edit__section-head">
-        <h3 id="edit-establishment-title" class="member-edit__section-title">
-          Establecimiento u ocupación
-        </h3>
-        <span class="member-edit__required">Obligatorio</span>
-      </div>
-
-      <div class="member-edit__fields">
-        <app-input
-          label="Nombre del Establecimiento u Ocupación"
-          placeholder="Nombre del establecimiento u ocupación"
-          formControlName="establishmentName"
-          [error]="fieldError('establishmentName')"
-        />
-        <app-input
-          label="Dirección del Establecimiento"
-          placeholder="Dirección del establecimiento"
-          formControlName="establishmentAddress"
-          [error]="fieldError('establishmentAddress')"
-        />
-      </div>
-    </section>
-
-    <app-button
-      variant="primary"
-      type="submit"
-      [fullWidth]="true"
-      [disabled]="submitting()"
-    >
-      Editar Socio
-    </app-button>
-  </form>
+      <app-button
+        variant="primary"
+        type="submit"
+        [fullWidth]="true"
+        [disabled]="submitting() || !!successMessage()"
+      >
+        {{ submitting() ? 'Guardando...' : 'Guardar cambios' }}
+      </app-button>
+    </form>
+  }
 </app-modal>

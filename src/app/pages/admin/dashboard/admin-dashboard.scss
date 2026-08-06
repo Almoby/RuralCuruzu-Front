@@ -311,6 +311,86 @@
   }
 }
 
+.dashboard__commerce-card {
+  ::ng-deep .app-card__header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  ::ng-deep .app-card__actions {
+    margin-left: auto;
+  }
+}
+
+.dashboard__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.dashboard__filter {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dashboard__filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: $color-white;
+  color: $color-muted;
+  font-size: 0.75rem;
+  font-weight: $font-weight-medium;
+
+  &:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+  }
+}
+
+.dashboard__filter-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 5;
+  min-width: 9rem;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  background: $color-white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(26 31 30 / 10%);
+}
+
+.dashboard__filter-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: $color-text;
+
+  &:hover,
+  &--active {
+    background: #e8f1f0;
+    color: $color-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 1px;
+  }
+}
+
 @media (max-width: 639px) {
   .dashboard__summary-card,
   .dashboard__financial-card {
@@ -332,5 +412,32 @@
 
   .dashboard__chart-box--commerce {
     height: 190px;
+  }
+
+  .dashboard__commerce-card {
+    ::ng-deep .app-card__header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    ::ng-deep .app-card__actions {
+      width: 100%;
+      margin-left: 0;
+    }
+  }
+
+  .dashboard__filters {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .dashboard__filter {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .dashboard__filter-btn {
+    width: 100%;
+    justify-content: space-between;
   }
 }

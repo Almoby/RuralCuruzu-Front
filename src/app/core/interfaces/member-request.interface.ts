@@ -74,35 +74,3 @@ export interface MembershipRequestSummary {
   rejected: number;
   cancelled: number;
 }
-
-/** Legacy mock create payload (unused by Admin real API). */
-export interface CreateMembershipRequest {
-  fullName: string;
-  email: string;
-  documentNumber: string;
-  phone: string;
-  category: MemberCategory;
-  address?: string;
-  birthDate?: string;
-  personType?: PersonType;
-  cuit?: string;
-  establishmentName?: string;
-  establishmentAddress?: string;
-  notes?: string;
-}
-
-/** @deprecated Prefer CambiarEstadoSolicitudRequest via MembershipRequestService.changeEstado */
-export interface ReviewMembershipRequest {
-  status: RequestStatus.Aprobada | RequestStatus.Rechazada;
-  rejectionReason?: string;
-  reviewedBy: string;
-  notes?: string;
-}
-
-/** @deprecated Prefer CambiarEstadoSolicitudRequest */
-export interface UpdateMembershipRequestPayload {
-  status: RequestStatus.Aprobada | RequestStatus.Rechazada;
-  reviewedBy: string;
-  rejectionReason?: string;
-  notes?: string;
-}

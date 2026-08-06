@@ -13,13 +13,6 @@ import {
   PagoResponseDto,
 } from './admin-cuota.interface';
 
-export type BeneficioTipoDto =
-  | 'DESCUENTO_PORCENTAJE'
-  | 'DOS_POR_UNO'
-  | 'TRES_POR_DOS'
-  | 'GRATIS'
-  | 'OTRO';
-
 /** GET /api/socio/beneficios item (Swagger BeneficioResumenResponse). */
 export interface SocioBeneficioResumenDto {
   id?: string;
@@ -28,26 +21,31 @@ export interface SocioBeneficioResumenDto {
   comercioRubro?: string;
   titulo?: string;
   descripcion?: string;
-  tipo?: BeneficioTipoDto;
+  tipoBeneficioId?: string;
+  tipoBeneficioNombre?: string;
   valor?: string;
   fechaFinVigencia?: string;
 }
 
-/** GET /api/socio/beneficios/historial-beneficios item. */
+/** GET /api/socio/beneficios/historial-beneficios item (Swagger HistorialBeneficioResponse). */
 export interface SocioHistorialBeneficioDto {
   id?: string;
   comercioNombre?: string;
   beneficioTitulo?: string;
-  tipo?: BeneficioTipoDto;
+  tipoBeneficioNombre?: string;
   valor?: string;
   montoAhorro?: number;
   estado?: 'USADO' | 'ANULADO';
   fechaUso?: string;
 }
 
-/** Session fields needed to compose the greeting (LoginResponse.nombre). */
+/** Session fields needed to compose the greeting / identity (LoginResponse). */
 export interface SocioPanelSessionContext {
   displayName: string;
+  /** From LoginResponse.numeroSocio when available. */
+  numeroSocio?: string | null;
+  /** From LoginResponse.categoria (ACTIVO | ADHERENTE). */
+  memberCategory?: 'ACTIVO' | 'ADHERENTE' | null;
 }
 
 /** Raw bundle before mapping to Mi panel ViewModel. */

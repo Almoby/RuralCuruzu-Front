@@ -1,6 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { AppBadge, AppLoading, AppModal } from '../../../../shared/components';
-import { AdminMemberDetail } from '../../../../core/interfaces/admin-socio.interface';
+import { AppBadge, AppButton, AppIcon, AppLoading, AppModal } from '../../../../shared/components';
+import {
+  AdminMemberDetail,
+  SocioEstado,
+} from '../../../../core/interfaces/admin-socio.interface';
+import { CuotaEstado } from '../../../../core/interfaces/admin-cuota.interface';
+import { cuotaEstadoBadge } from '../../../../core/mappers/admin-cuota.mapper';
 import { formatMemberDate, initialsFromName } from '../../utils/admin-labels';
 import {
   socioCategoryBadge,
@@ -15,12 +20,11 @@ interface DetailField {
 }
 
 const NOT_PROVIDED = 'No informado';
-const NO_DATA = 'Sin datos';
 
 @Component({
   selector: 'app-member-detail-modal',
   standalone: true,
-  imports: [AppModal, AppBadge, AppLoading],
+  imports: [AppModal, AppBadge, AppLoading, AppButton, AppIcon],
   templateUrl: './member-detail-modal.html',
   styleUrl: './member-detail-modal.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -29,8 +33,11 @@ export class MemberDetailModal {
   readonly open = input(false);
   readonly member = input<AdminMemberDetail | null>(null);
   readonly loading = input(false);
+  readonly statusBusy = input(false);
 
   readonly close = output<void>();
+  readonly edit = output<AdminMemberDetail>();
+  readonly changeStatus = output<{ member: AdminMemberDetail; nuevoEstado: SocioEstado }>();
 
   protected readonly initials = computed(() => {
     const member = this.member();
@@ -43,16 +50,46 @@ export class MemberDetailModal {
       return [];
     }
 
-    const fields: DetailField[] = [
-      {
-        label: 'Tipo de persona',
-        value:
-          member.personType === 'FISICA'
-            ? 'Persona física'
-            : member.personType === 'JURIDICA'
-              ? 'Persona jurídica'
-              : NOT_PROVIDED,
-      },
+    if (member.personType === 'JURIDICA') {
+      return [
+        { label: 'Tipo de persona', value: 'Persona jurídica' },
+        { label: 'CUIT', value: this.valueOrPlaceholder(member.cuit) },
+        { label: 'Teléfono', value: this.valueOrPlaceholder(member.phone) },
+        { label: 'Email', value: this.valueOrPlaceholder(member.email) },
+        { label: 'Dirección', value: this.valueOrPlaceholder(member.address) },
+        {
+          label: 'Portal / Piso / Depto',
+          value: this.valueOrPlaceholder(member.portalFloor),
+        },
+        {
+          label: 'Establecimiento',
+          value: this.valueOrPlaceholder(member.establishmentName),
+        },
+        {
+          label: 'Dirección establecimiento',
+          value: this.valueOrPlaceholder(member.establishmentAddress),
+        },
+        {
+          label: 'Responsable',
+          value: this.valueOrPlaceholder(member.responsableName),
+        },
+        {
+          label: 'DNI responsable',
+          value: this.valueOrPlaceholder(member.responsableDocument),
+        },
+        {
+          label: 'Alta',
+          value: member.joinDate ? formatMemberDate(member.joinDate) : NOT_PROVIDED,
+        },
+        {
+          label: 'Solicitud origen',
+          value: this.valueOrPlaceholder(member.originRequestNumber),
+        },
+      ];
+    }
+
+    return [
+      { label: 'Tipo de persona', value: 'Persona física' },
       { label: 'DNI', value: this.valueOrPlaceholder(member.documentNumber) },
       {
         label: 'Nacimiento',
@@ -74,22 +111,6 @@ export class MemberDetailModal {
         label: 'Dirección establecimiento',
         value: this.valueOrPlaceholder(member.establishmentAddress),
       },
-    ];
-
-    if (member.personType === 'JURIDICA') {
-      fields.push(
-        {
-          label: 'Responsable',
-          value: this.valueOrPlaceholder(member.responsableName),
-        },
-        {
-          label: 'DNI responsable',
-          value: this.valueOrPlaceholder(member.responsableDocument),
-        },
-      );
-    }
-
-    fields.push(
       {
         label: 'Alta',
         value: member.joinDate ? formatMemberDate(member.joinDate) : NOT_PROVIDED,
@@ -98,48 +119,39 @@ export class MemberDetailModal {
         label: 'Solicitud origen',
         value: this.valueOrPlaceholder(member.originRequestNumber),
       },
-    );
-
-    return fields;
-  });
-
-  protected readonly accountRows = computed(() => {
-    const member = this.member();
-    if (!member) {
-      return [];
-    }
-
-    return [
-      {
-        label: 'Estado de membresía',
-        value: socioEstadoLabel(member.membershipStatus),
-        emphasis: member.membershipStatus === 'ACTIVO',
-      },
-      {
-        label: 'Cuota mensual',
-        value: member.monthlyFeeLabel || NO_DATA,
-        emphasis: false,
-      },
-      {
-        label: 'Próx. vencimiento',
-        value: member.nextDueDateLabel || NO_DATA,
-        emphasis: false,
-      },
-      {
-        label: 'Estado de cuota',
-        value: member.feeStatusLabel || NO_DATA,
-        emphasis: false,
-      },
     ];
   });
+
+  protected readonly accountState = computed(() => this.member()?.accountState ?? null);
 
   protected readonly socioCategoryBadge = socioCategoryBadge;
   protected readonly socioCategoryLabel = socioCategoryLabel;
   protected readonly socioEstadoBadge = socioEstadoBadge;
   protected readonly socioEstadoLabel = socioEstadoLabel;
+  protected readonly cuotaEstadoBadge = (estado: string) =>
+    cuotaEstadoBadge(estado as CuotaEstado);
 
   protected onClose(): void {
     this.close.emit();
+  }
+
+  protected onEdit(): void {
+    const member = this.member();
+    if (!member || this.loading()) {
+      return;
+    }
+    this.edit.emit(member);
+  }
+
+  protected onChangeStatus(nuevoEstado: SocioEstado): void {
+    const member = this.member();
+    if (!member || this.loading() || this.statusBusy()) {
+      return;
+    }
+    if (member.membershipStatus === nuevoEstado) {
+      return;
+    }
+    this.changeStatus.emit({ member, nuevoEstado });
   }
 
   private valueOrPlaceholder(value: string | null | undefined): string {

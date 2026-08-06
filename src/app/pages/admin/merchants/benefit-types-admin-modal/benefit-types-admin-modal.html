@@ -1,0 +1,172 @@
+<app-modal
+  class="benefit-types-modal-host"
+  [open]="open()"
+  [title]="modalTitle()"
+  [subtitle]="modalSubtitle()"
+  size="lg"
+  (close)="onClose()"
+>
+  @if (view() === 'list') {
+    @if (conflictMessage()) {
+      <app-alert variant="warning" [message]="conflictMessage()" />
+    }
+
+    @switch (listState()) {
+      @case ('loading') {
+        <app-loading message="Cargando tipos de beneficio..." />
+      }
+
+      @case ('error') {
+        <div class="bt-admin__state">
+          <app-alert variant="error" [message]="listError()" />
+          <app-button variant="outline" type="button" (click)="retry()">
+            Reintentar
+          </app-button>
+        </div>
+      }
+
+      @case ('empty') {
+        <app-empty-state
+          title="No hay tipos de beneficio"
+          description="Creá el primero para que los comercios puedan utilizarlo en sus promociones."
+        >
+          <app-button variant="primary" type="button" (click)="openCreate()">
+            <app-icon name="plus" [size]="16" />
+            Nuevo tipo
+          </app-button>
+        </app-empty-state>
+      }
+
+      @default {
+        <div class="bt-admin__toolbar">
+          <app-button variant="outline" type="button" (click)="openCreate()">
+            <app-icon name="plus" [size]="16" />
+            Nuevo tipo
+          </app-button>
+        </div>
+
+        <ul class="bt-admin__list" role="list">
+          @for (item of items(); track item.id) {
+            <li class="bt-admin__row" role="listitem">
+              <div class="bt-admin__info">
+                <div class="bt-admin__title-row">
+                  <p class="bt-admin__name">{{ item.nombre }}</p>
+                  <app-badge [variant]="item.statusBadge">
+                    {{ item.statusLabel }}
+                  </app-badge>
+                </div>
+                <p class="bt-admin__codigo">{{ item.codigo }}</p>
+              </div>
+
+              <div class="bt-admin__actions">
+                <button
+                  type="button"
+                  class="bt-admin__action"
+                  title="Editar"
+                  [attr.aria-label]="'Editar ' + item.nombre"
+                  [disabled]="actionBusy()"
+                  (click)="openEdit(item)"
+                >
+                  <app-icon name="edit" [size]="16" />
+                </button>
+                <button
+                  type="button"
+                  class="bt-admin__action"
+                  [attr.data-action]="item.activo ? 'deactivate' : 'activate'"
+                  [attr.title]="item.activo ? 'Desactivar' : 'Activar'"
+                  [attr.aria-label]="
+                    (item.activo ? 'Desactivar ' : 'Activar ') + item.nombre
+                  "
+                  [disabled]="actionBusy()"
+                  (click)="requestToggle(item)"
+                >
+                  <app-icon
+                    [name]="item.activo ? 'power_off' : 'power'"
+                    [size]="16"
+                  />
+                </button>
+                <button
+                  type="button"
+                  class="bt-admin__action bt-admin__action--danger"
+                  title="Eliminar"
+                  [attr.aria-label]="'Eliminar ' + item.nombre"
+                  [disabled]="actionBusy()"
+                  (click)="requestDelete(item)"
+                >
+                  <app-icon name="trash" [size]="16" />
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    }
+  } @else {
+    <form class="bt-admin__form" [formGroup]="form" (ngSubmit)="save()">
+      @if (formError()) {
+        <app-alert variant="error" [message]="formError()" />
+      }
+
+      <app-input
+        label="Código"
+        formControlName="codigo"
+        [hint]="
+          editing()
+            ? 'El código no se puede modificar.'
+            : 'Solo mayúsculas, números y guion bajo (ej. DESCUENTO_PORCENTAJE o 2X1).'
+        "
+        [error]="fieldError('codigo')"
+      />
+
+      <app-input
+        label="Nombre"
+        formControlName="nombre"
+        [error]="fieldError('nombre')"
+      />
+    </form>
+  }
+
+  @if (view() === 'list') {
+    <div modalFooter class="bt-admin__footer">
+      <app-button variant="outline" type="button" (click)="onClose()">
+        Cerrar
+      </app-button>
+    </div>
+  } @else {
+    <div modalFooter class="bt-admin__footer bt-admin__footer--form">
+      <button
+        type="button"
+        class="bt-admin__cancel"
+        [disabled]="submitting()"
+        (click)="backToList()"
+      >
+        Volver
+      </button>
+      <app-button
+        variant="primary"
+        type="button"
+        [disabled]="submitting()"
+        (click)="save()"
+      >
+        {{
+          submitting()
+            ? 'Guardando...'
+            : editing()
+              ? 'Guardar'
+              : 'Crear tipo'
+        }}
+      </app-button>
+    </div>
+  }
+</app-modal>
+
+<app-confirm-dialog
+  [open]="confirmOpen()"
+  [title]="confirmTitle()"
+  [message]="confirmMessage()"
+  [confirmLabel]="confirmLabel()"
+  cancelLabel="Volver"
+  [danger]="confirmDanger()"
+  (confirm)="confirmAction()"
+  (cancel)="cancelConfirm()"
+/>

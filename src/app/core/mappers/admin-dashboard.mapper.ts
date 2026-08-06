@@ -2,13 +2,14 @@ import {
   AdminDashboardDto,
   BeneficioMasUtilizadoDto,
   CobranzaMensualDto,
+  CobranzaMensualPorCategoriaDto,
   EstadoSociosDto,
   IndicadoresPrincipalesDto,
+  SocioConDeudaDto,
   UsoBeneficioPorComercioDto,
 } from '../interfaces/admin-dashboard.interface';
 import {
   AdminDashboardStats,
-  DashboardBenefitsByCommerce,
   DashboardMetricCard,
   DashboardMonthlyCollections,
   DashboardMemberStatus,
@@ -16,6 +17,10 @@ import {
   TrendDirection,
 } from '../interfaces/dashboard.interface';
 import { CHART_COLORS } from '../../pages/admin/utils/chart-theme';
+import {
+  buildBenefitsByCommerceForPeriod,
+  currentCalendarBenefitPeriod,
+} from './admin-uso-beneficios.mapper';
 
 function num(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
@@ -142,7 +147,10 @@ function buildFinancialCards(indicadores: IndicadoresPrincipalesDto): DashboardM
   ];
 }
 
-function monthLabel(item: CobranzaMensualDto): string {
+/** Shared month label for cobranza series (Dashboard + Reportes). */
+export function formatCobranzaMonthLabel(
+  item: Pick<CobranzaMensualDto, 'mes' | 'periodo'>,
+): string {
   const mes = typeof item.mes === 'string' ? item.mes.trim() : '';
   if (mes.length > 0) {
     return mes.length <= 3 ? mes : mes.slice(0, 3);
@@ -169,10 +177,37 @@ function monthLabel(item: CobranzaMensualDto): string {
   return periodo || '—';
 }
 
+export function asFiniteNumber(value: number | null | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+export function mapCobranzaMensualPorCategoriaDto(
+  items: CobranzaMensualPorCategoriaDto[] | null | undefined,
+): AdminDashboardStats['cobranzaMensualPorCategoria'] {
+  return (items ?? []).map((item) => ({
+    periodo: typeof item.periodo === 'string' ? item.periodo.trim() : '',
+    mesLabel: formatCobranzaMonthLabel(item),
+    cobradoActivo: asFiniteNumber(item.cobradoActivo),
+    cobradoAdherente: asFiniteNumber(item.cobradoAdherente),
+  }));
+}
+
+export function mapSociosConDeudaDto(
+  items: SocioConDeudaDto[] | null | undefined,
+): AdminDashboardStats['sociosConDeuda'] {
+  return (items ?? []).map((item, index) => ({
+    socioId: item.socioId?.trim() || `deuda-${index}`,
+    numeroSocio: item.numeroSocio?.trim() || '—',
+    nombre: item.nombre?.trim() || 'No informado',
+    montoAdeudado: asFiniteNumber(item.montoAdeudado),
+    cantidadCuotasVencidas: asFiniteNumber(item.cantidadCuotasVencidas),
+  }));
+}
+
 function buildMonthlyCollections(
   items: CobranzaMensualDto[],
 ): DashboardMonthlyCollections {
-  const labels = items.map(monthLabel);
+  const labels = items.map(formatCobranzaMonthLabel);
   const collected = items.map((item) => num(item.cobrado));
   const pending = items.map((item) => num(item.pendiente));
   const maxValue = Math.max(0, ...collected, ...pending);
@@ -244,28 +279,6 @@ function buildMemberStatus(estado: EstadoSociosDto | null | undefined): Dashboar
   };
 }
 
-function buildBenefitsByCommerce(
-  items: UsoBeneficioPorComercioDto[],
-): DashboardBenefitsByCommerce {
-  const mapped = items.map((item, index) => ({
-    id: item.comercioId?.trim() || `commerce-${index}`,
-    name: item.comercioNombre?.trim() || 'Comercio',
-    value: num(
-      item.cantidadBeneficiosUtilizadosEsteMes ?? item.cantidadBeneficiosUtilizados,
-    ),
-  }));
-
-  const max = Math.max(0, ...mapped.map((item) => item.value));
-  const niceMax = max <= 0 ? 10 : Math.ceil(max / 4) * 4 || max;
-  const step = niceMax / 4;
-  const scale = [0, step, step * 2, step * 3, niceMax].map((value) => Math.round(value));
-
-  return {
-    title: 'Uso de beneficios por comercio',
-    scale,
-    items: mapped,
-  };
-}
 
 function buildTopBenefits(items: BeneficioMasUtilizadoDto[]): NamedValue[] {
   return items.map((item) => ({
@@ -287,7 +300,12 @@ export function mapAdminDashboardDtoToViewModel(dto: AdminDashboardDto): AdminDa
   const financialCards = buildFinancialCards(indicadores);
   const monthlyCollections = buildMonthlyCollections(cobranza);
   const memberStatus = buildMemberStatus(dto.estadoSocios);
-  const benefitsByCommerce = buildBenefitsByCommerce(comercios);
+  const defaultBenefit = currentCalendarBenefitPeriod();
+  const benefitsChart = buildBenefitsByCommerceForPeriod(
+    comercios,
+    defaultBenefit.year,
+    defaultBenefit.month,
+  );
 
   return {
     title: 'Dashboard General',
@@ -296,9 +314,24 @@ export function mapAdminDashboardDtoToViewModel(dto: AdminDashboardDto): AdminDa
     financialCards,
     monthlyCollections,
     memberStatus,
-    benefitsByCommerce,
+    usoBeneficiosPorComercio: comercios,
+    benefitsByCommerce: {
+      title: benefitsChart.title,
+      scale: benefitsChart.scale,
+      items: benefitsChart.items,
+    },
+    cobranzaMensualPorCategoria: mapCobranzaMensualPorCategoriaDto(
+      dto.cobranzaMensualPorCategoria,
+    ),
+    sociosConDeuda: mapSociosConDeudaDto(dto.sociosConDeuda),
+    sociosActivos: num(indicadores.sociosActivos),
+    sociosNuevosEsteAnio: num(indicadores.sociosNuevosEsteAnio),
+    sociosConCuotaPendiente: num(indicadores.sociosConCuotaPendiente),
+    beneficiosUtilizadosHistoricoTotal: num(
+      indicadores.beneficiosUtilizadosHistoricoTotal,
+    ),
     totalMembers: num(indicadores.totalSocios),
-    activeMembers: num(indicadores.sociosConCuotaAlDia),
+    activeMembers: num(indicadores.sociosActivos),
     pendingRequests: 0,
     activeMerchants: num(indicadores.comerciosActivos),
     feesCollectedMonth: num(indicadores.facturacionMensual),
@@ -314,7 +347,7 @@ export function mapAdminDashboardDtoToViewModel(dto: AdminDashboardDto): AdminDa
       value: monthlyCollections.series[0]?.values[index] ?? 0,
     })),
     redemptionsTrend: [],
-    topMerchants: benefitsByCommerce.items.map((item) => ({
+    topMerchants: benefitsChart.items.map((item) => ({
       name: item.name,
       value: item.value,
     })),

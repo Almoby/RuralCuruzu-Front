@@ -20,6 +20,7 @@ import {
   SocioPanelRawBundle,
 } from '../interfaces/socio-panel.interface';
 import { APP_ROUTES } from '../constants/routes.constant';
+import { asDisplayableBusinessCode } from '../utils/display-identity.util';
 
 const PREVIEW_LIMIT = 3;
 const UNPAID_STATES: ReadonlySet<CuotaEstado> = new Set([
@@ -85,11 +86,25 @@ function pickIdentity(bundle: SocioPanelRawBundle): {
     '';
 
   const memberCode =
-    fromCuota?.socioNumeroSocio?.trim() ||
-    fromPago?.socioNumeroSocio?.trim() ||
+    asDisplayableBusinessCode(bundle.session.numeroSocio) ||
+    asDisplayableBusinessCode(fromCuota?.socioNumeroSocio) ||
+    asDisplayableBusinessCode(fromPago?.socioNumeroSocio) ||
     '';
 
   return { fullName, memberCode };
+}
+
+function planLabelFromSession(
+  categoria: SocioPanelRawBundle['session']['memberCategory'],
+): string {
+  switch (categoria) {
+    case 'ACTIVO':
+      return 'Activo';
+    case 'ADHERENTE':
+      return 'Adherente';
+    default:
+      return '';
+  }
 }
 
 function buildProfile(bundle: SocioPanelRawBundle): MemberProfileSummary {
@@ -98,8 +113,7 @@ function buildProfile(bundle: SocioPanelRawBundle): MemberProfileSummary {
     memberCode: memberCode || '—',
     fullName: fullName || 'Socio',
     firstName: firstNameFrom(fullName || 'Socio'),
-    // No Socio endpoint returns categoría (ACTIVO/ADHERENTE) for the panel.
-    planLabel: '',
+    planLabel: planLabelFromSession(bundle.session.memberCategory),
   };
 }
 

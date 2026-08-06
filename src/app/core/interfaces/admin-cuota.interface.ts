@@ -85,6 +85,13 @@ export interface CuotaResponseDto {
   fechaActualizacion?: string;
 }
 
+/** Nested in ResumenCuotasResponse (also used by Reportes). */
+export interface CobranzaPorCategoriaResponseDto {
+  categoria?: SocioCategoriaCuota;
+  totalCobrado?: number;
+  cantidadCuotas?: number;
+}
+
 /** GET /admin/cuotas/resumen */
 export interface ResumenCuotasResponseDto {
   totalCobrado?: number;
@@ -94,6 +101,7 @@ export interface ResumenCuotasResponseDto {
   cantidadPendientes?: number;
   cantidadAprobadas?: number;
   cantidadRechazadas?: number;
+  cobranzaPorCategoria?: CobranzaPorCategoriaResponseDto[] | null;
 }
 
 /** POST /admin/cuotas/pagos body */
@@ -182,12 +190,19 @@ export interface DatosBancariosActualizadosResponseDto {
   datosBancarios?: DatosBancariosResponseDto;
 }
 
+/** GET /admin/cuotas/estado-cuenta/{socioId} — Swagger `EstadoCuentaSocioResponse` */
 export interface EstadoCuentaSocioResponseDto {
   socioId?: string;
   socioNumeroSocio?: string;
   socioNombre?: string;
   deudaTotal?: number;
-  cuotas?: CuotaResumenResponseDto[];
+  cuotas?: CuotaResumenResponseDto[] | null;
+}
+
+/** Blob download for GET /admin/cuotas/pagos/{pagoId}/comprobante */
+export interface AdminPaymentReceiptDownload {
+  blob: Blob;
+  fileName: string;
 }
 
 /** ViewModel: list card */
@@ -210,9 +225,11 @@ export interface AdminCuotaListItem {
   paymentMethodLabel: string;
   paymentMethodIcon: string;
   notes?: string;
+  pagoId?: string;
   canReview: boolean;
   canRegisterPayment: boolean;
   canAnular: boolean;
+  canDownloadComprobante: boolean;
   filterBucket: AdminCuotaFilter | 'other';
 }
 
@@ -230,6 +247,7 @@ export interface AdminCuotaDetail extends AdminCuotaListItem {
 
 export interface AdminPagoViewModel {
   id: string;
+  estado?: PagoEstado;
   importeLabel: string;
   medioPagoLabel: string;
   estadoLabel: string;
@@ -239,6 +257,15 @@ export interface AdminPagoViewModel {
   informadoPorSocio: boolean;
   registradoPorAdminNombre: string;
   hasComprobantePath: boolean;
+  canDownloadComprobante: boolean;
+}
+
+export interface AdminCobranzaPorCategoriaViewModel {
+  categoria: SocioCategoriaCuota;
+  categoriaLabel: string;
+  totalCobrado: number;
+  totalCobradoLabel: string;
+  cantidadCuotas: number;
 }
 
 /** ViewModel: summary cards + tab counts */
@@ -250,6 +277,44 @@ export interface AdminCuotasResumenViewModel {
   pendingCount: number;
   approvedCount: number;
   rejectedCount: number;
+  /** Typed for Reportes / future use; not shown in Cuotas cards. */
+  cobranzaPorCategoria: AdminCobranzaPorCategoriaViewModel[];
+}
+
+/** ViewModel: GET /admin/cuotas/ejecuciones item (= GeneracionCuotasResponse) */
+export interface AdminEjecucionGeneracionViewModel {
+  periodo: string;
+  periodoLabel: string;
+  origen: GeneracionCuotasOrigen;
+  origenLabel: string;
+  cantidadSociosActivos: number;
+  cantidadCuotasGeneradas: number;
+  cantidadSociosOmitidos: number;
+  fechaEjecucion: string;
+  fechaEjecucionLabel: string;
+  mensaje: string;
+}
+
+/** Payable cuota row inside register-payment (from estado de cuenta). */
+export interface AdminEstadoCuentaPeriodoOption {
+  cuotaId: string;
+  periodo: string;
+  periodoLabel: string;
+  importe: number;
+  importeLabel: string;
+  estado: CuotaEstado;
+  estadoLabel: string;
+  dueDateLabel: string;
+}
+
+export interface AdminEstadoCuentaViewModel {
+  socioId: string;
+  socioNumeroSocio: string;
+  socioNombre: string;
+  deudaTotal: number;
+  deudaTotalLabel: string;
+  cuotas: AdminCuotaListItem[];
+  periodosPagables: AdminEstadoCuentaPeriodoOption[];
 }
 
 export interface AdminReglaCuotaViewModel {
@@ -274,11 +339,9 @@ export interface AdminDatosBancariosViewModel {
 
 /**
  * Form emit from register-payment modal.
- * API body uses socioId + periodos (Swagger RegistrarPagoCuotaRequest);
- * cuotaId is kept for defensive eligibility checks before POST.
+ * Maps 1:1 to Swagger `RegistrarPagoCuotaRequest` (multi-period).
  */
 export interface RegisterAdminPagoFormValue {
-  cuotaId: string;
   socioId: string;
   periodos: string[];
   fecha: string;

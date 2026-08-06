@@ -2,21 +2,10 @@ import {
   ActualizarBeneficioRequestDto,
   BeneficioEstadoDto,
   BeneficioResponseDto,
-  BeneficioTipoDto,
   ComercioBeneficioFormValue,
   ComercioBeneficioViewModel,
   CrearBeneficioRequestDto,
 } from '../interfaces/comercio-beneficio.interface';
-
-const TIPO_LABELS: Record<BeneficioTipoDto, string> = {
-  DESCUENTO_PORCENTAJE: 'Descuento',
-  DOS_POR_UNO: '2×1',
-  TRES_POR_DOS: '3×2',
-  GRATIS: 'Gratis',
-  OTRO: 'Otro',
-};
-
-const TIPO_VALUES = new Set<string>(Object.keys(TIPO_LABELS));
 
 function text(value: string | null | undefined, fallback = ''): string {
   const trimmed = value?.trim();
@@ -25,14 +14,6 @@ function text(value: string | null | undefined, fallback = ''): string {
 
 function asNumber(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-function asTipo(value: string | null | undefined): BeneficioTipoDto {
-  const raw = text(value).toUpperCase();
-  if (TIPO_VALUES.has(raw)) {
-    return raw as BeneficioTipoDto;
-  }
-  return 'OTRO';
 }
 
 function asEstado(value: string | null | undefined): BeneficioEstadoDto {
@@ -52,34 +33,29 @@ function formatUntilLabel(date: string | null | undefined): string {
   return `Hasta ${Number(match[3])}/${Number(match[2])}/${match[1]}`;
 }
 
-function isPercentType(tipo: BeneficioTipoDto, valor: string): boolean {
-  if (tipo === 'DESCUENTO_PORCENTAJE') {
-    return true;
-  }
+function isPercentValue(valor: string): boolean {
   return valor.includes('%');
-}
-
-export function mapBeneficioTipoLabel(tipo: BeneficioTipoDto | string): string {
-  const normalized = asTipo(String(tipo));
-  return TIPO_LABELS[normalized];
 }
 
 export function mapComercioBeneficioDtoToViewModel(
   dto: BeneficioResponseDto,
 ): ComercioBeneficioViewModel {
-  const tipo = asTipo(dto.tipo);
   const valor = text(dto.valor);
   const estado = asEstado(dto.estado);
   const isActive = estado === 'ACTIVO';
+  const tipoBeneficioId = text(dto.tipoBeneficioId);
+  const tipoBeneficioNombre = text(dto.tipoBeneficioNombre);
+  const typeLabel = tipoBeneficioNombre || 'Beneficio';
 
   return {
     id: text(dto.id),
     title: text(dto.titulo, 'Sin título'),
     description: text(dto.descripcion),
-    type: tipo,
-    typeLabel: TIPO_LABELS[tipo],
+    tipoBeneficioId,
+    tipoBeneficioNombre,
+    typeLabel,
     valueLabel: valor || '—',
-    isPercent: isPercentType(tipo, valor),
+    isPercent: isPercentValue(valor),
     status: estado,
     statusLabel: isActive ? 'Activa' : 'Inactiva',
     isActive,
@@ -110,7 +86,7 @@ export function mapPromotionFormToCreateRequest(
   return {
     titulo: form.title.trim(),
     descripcion: form.description.trim() || undefined,
-    tipo: asTipo(form.type),
+    tipoBeneficioId: form.typeId.trim(),
     valor: form.value.trim(),
     fechaInicioVigencia: optionalDate(form.validFrom),
     fechaFinVigencia: optionalDate(form.validTo),
@@ -123,7 +99,7 @@ export function mapPromotionFormToUpdateRequest(
   return {
     titulo: form.title.trim(),
     descripcion: form.description.trim() || undefined,
-    tipo: asTipo(form.type),
+    tipoBeneficioId: form.typeId.trim(),
     valor: form.value.trim(),
     fechaInicioVigencia: optionalDate(form.validFrom),
     fechaFinVigencia: optionalDate(form.validTo),

@@ -6,13 +6,6 @@
  * - PATCH /api/comercio/beneficios/{id}/estado
  */
 
-export type BeneficioTipoDto =
-  | 'DESCUENTO_PORCENTAJE'
-  | 'DOS_POR_UNO'
-  | 'TRES_POR_DOS'
-  | 'GRATIS'
-  | 'OTRO';
-
 export type BeneficioEstadoDto = 'ACTIVO' | 'INACTIVO';
 
 /** Swagger `BeneficioResponse` */
@@ -22,7 +15,8 @@ export interface BeneficioResponseDto {
   comercioNombre?: string | null;
   titulo?: string | null;
   descripcion?: string | null;
-  tipo?: BeneficioTipoDto | string | null;
+  tipoBeneficioId?: string | null;
+  tipoBeneficioNombre?: string | null;
   valor?: string | null;
   fechaInicioVigencia?: string | null;
   fechaFinVigencia?: string | null;
@@ -36,7 +30,7 @@ export interface BeneficioResponseDto {
 export interface CrearBeneficioRequestDto {
   titulo: string;
   descripcion?: string;
-  tipo: BeneficioTipoDto;
+  tipoBeneficioId: string;
   valor: string;
   fechaInicioVigencia?: string | null;
   fechaFinVigencia?: string | null;
@@ -46,7 +40,7 @@ export interface CrearBeneficioRequestDto {
 export interface ActualizarBeneficioRequestDto {
   titulo: string;
   descripcion?: string;
-  tipo: BeneficioTipoDto;
+  tipoBeneficioId: string;
   valor: string;
   fechaInicioVigencia?: string | null;
   fechaFinVigencia?: string | null;
@@ -67,7 +61,8 @@ export interface BeneficioCreadoResponseDto {
 export interface ComercioBeneficioFormValue {
   title: string;
   description: string;
-  type: BeneficioTipoDto;
+  /** Selected catalog id (`tipoBeneficioId`). */
+  typeId: string;
   value: string;
   validFrom: string;
   validTo: string;
@@ -78,7 +73,9 @@ export interface ComercioBeneficioViewModel {
   id: string;
   title: string;
   description: string;
-  type: BeneficioTipoDto | string;
+  tipoBeneficioId: string;
+  tipoBeneficioNombre: string;
+  /** Display label for cards (= tipoBeneficioNombre or neutral fallback). */
   typeLabel: string;
   valueLabel: string;
   isPercent: boolean;

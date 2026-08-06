@@ -43,6 +43,8 @@ import {
 } from '../../../core/mappers/admin-comercio.mapper';
 import { resolveMerchantCategoryIcon } from '../../../shared/utils';
 import { MerchantFormModal, MerchantFormSave } from './merchant-form-modal/merchant-form-modal';
+import { BenefitTypesAdminModal } from './benefit-types-admin-modal/benefit-types-admin-modal';
+import { DeletedMerchantsModal } from './deleted-merchants-modal/deleted-merchants-modal';
 
 type MerchantsViewState = 'loading' | 'success' | 'empty' | 'error';
 
@@ -121,6 +123,8 @@ function mapComercioFieldErrors(error: ApiError): Readonly<Record<string, string
     AppModal,
     AppTextarea,
     MerchantFormModal,
+    BenefitTypesAdminModal,
+    DeletedMerchantsModal,
   ],
   templateUrl: './merchants.html',
   styleUrl: './merchants.scss',
@@ -142,6 +146,9 @@ export class MerchantsPage {
   protected readonly selectedDetail = signal<AdminMerchantDetail | null>(null);
   protected readonly detailLoading = signal(false);
   protected readonly formOpen = signal(false);
+  protected readonly benefitTypesOpen = signal(false);
+  protected readonly deletedMerchantsOpen = signal(false);
+  protected readonly deletedMerchantsRefreshToken = signal(0);
   protected readonly editing = signal<AdminMerchant | null>(null);
   protected readonly formServerErrors = signal<Readonly<Record<string, string>>>({});
   protected readonly confirmOpen = signal(false);
@@ -231,6 +238,22 @@ export class MerchantsPage {
   protected selectMerchant(merchant: AdminMerchant): void {
     this.selectedId.set(merchant.id);
     this.loadDetail(merchant.id);
+  }
+
+  protected openBenefitTypes(): void {
+    this.benefitTypesOpen.set(true);
+  }
+
+  protected closeBenefitTypes(): void {
+    this.benefitTypesOpen.set(false);
+  }
+
+  protected openDeletedMerchants(): void {
+    this.deletedMerchantsOpen.set(true);
+  }
+
+  protected closeDeletedMerchants(): void {
+    this.deletedMerchantsOpen.set(false);
   }
 
   protected openCreate(): void {
@@ -361,6 +384,9 @@ export class MerchantsPage {
             result.mensaje?.trim() || 'Comercio eliminado',
           );
           this.reload$.next();
+          if (this.deletedMerchantsOpen()) {
+            this.deletedMerchantsRefreshToken.update((token) => token + 1);
+          }
         },
         error: (error: unknown) => {
           this.notifications.error(

@@ -7,12 +7,9 @@
  * There is no Socio detail/image/categories endpoint.
  */
 
-import {
-  BeneficioTipoDto,
-  SocioBeneficioResumenDto,
-} from './socio-panel.interface';
+import { SocioBeneficioResumenDto } from './socio-panel.interface';
 
-export type { BeneficioTipoDto, SocioBeneficioResumenDto };
+export type { SocioBeneficioResumenDto };
 
 /** Query params shared by listarBeneficios / listarComercios. */
 export interface ListarSocioBeneficiosParams {

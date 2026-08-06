@@ -17,11 +17,13 @@ import {
   switchMap,
   take,
   tap,
+  timer,
 } from 'rxjs';
 import {
   AppAlert,
   AppBadge,
   AppButton,
+  AppConfirmDialog,
   AppEmptyState,
   AppIcon,
   AppLoading,
@@ -38,7 +40,8 @@ import {
   AdminMemberDetail,
   SocioEstado,
 } from '../../../core/interfaces/admin-socio.interface';
-import { formatMemberDate, initialsFromName } from '../utils/admin-labels';
+import { mapSocioDetalleDtoToViewModel } from '../../../core/mappers/admin-socio.mapper';
+import { initialsFromName } from '../utils/admin-labels';
 import {
   socioCategoryBadge,
   socioCategoryLabel,
@@ -50,8 +53,22 @@ import {
   MemberCreateModal,
   MemberCreateSave,
 } from './member-create-modal/member-create-modal';
+import {
+  MemberEditModal,
+  MemberEditSave,
+} from './member-edit-modal/member-edit-modal';
 
 type MembersViewState = 'loading' | 'success' | 'empty' | 'error';
+
+type StatusConfirmKind = 'deactivate' | 'reactivate' | 'baja';
+
+interface StatusConfirmState {
+  kind: StatusConfirmKind;
+  member: AdminMember;
+  nuevoEstado: SocioEstado;
+}
+
+const SUCCESS_CLOSE_DELAY_MS = 1500;
 
 function isApiError(error: unknown): error is ApiError {
   return (
@@ -68,13 +85,27 @@ function isSocioEstado(value: string): value is SocioEstado {
   return value === 'ACTIVO' || value === 'INACTIVO' || value === 'DADO_DE_BAJA';
 }
 
+function mapSocioFieldErrors(error: ApiError): Readonly<Record<string, string>> {
+  const mapped: Record<string, string> = {};
+  for (const item of error.fieldErrors ?? []) {
+    const field = item.field?.trim();
+    const message = item.message.trim();
+    if (!field || !message) {
+      continue;
+    }
+    const key = field.includes('.') ? (field.split('.').pop() ?? field) : field;
+    mapped[key] = message;
+  }
+  return mapped;
+}
+
 /**
- * Admin Gestión de Socios — consumes ONLY:
- * - getAdminSocios() → GET /admin/socios
- * - getAdminSocioById() → GET /admin/socios/{id}
- * - createAdminSocio() → POST /admin/socios
- *
- * Never calls legacy getMembers() / list() (those stay mocked for Cuotas/Portal Socio).
+ * Admin Gestión de Socios — real backend only:
+ * - GET /admin/socios
+ * - GET /admin/socios/{id}
+ * - POST /admin/socios
+ * - PATCH /admin/socios/{id}
+ * - PATCH /admin/socios/{id}/estado
  */
 @Component({
   selector: 'app-members',
@@ -90,8 +121,10 @@ function isSocioEstado(value: string): value is SocioEstado {
     AppLoading,
     AppEmptyState,
     AppAlert,
+    AppConfirmDialog,
     MemberCreateModal,
     MemberDetailModal,
+    MemberEditModal,
   ],
   templateUrl: './members.html',
   styleUrl: './members.scss',
@@ -107,6 +140,8 @@ export class MembersPage {
   protected readonly loadError = signal(false);
   protected readonly submitting = signal(false);
   protected readonly detailLoading = signal(false);
+  protected readonly editLoading = signal(false);
+  protected readonly statusBusyId = signal<string | null>(null);
 
   /** Always starts empty — filled only by GET /admin/socios. */
   protected readonly members = signal<AdminMember[]>([]);
@@ -117,6 +152,11 @@ export class MembersPage {
   protected readonly createOpen = signal(false);
   protected readonly detailOpen = signal(false);
   protected readonly detailMember = signal<AdminMemberDetail | null>(null);
+  protected readonly editOpen = signal(false);
+  protected readonly editMember = signal<AdminMemberDetail | null>(null);
+  protected readonly editSuccessMessage = signal('');
+  protected readonly editServerErrors = signal<Readonly<Record<string, string>>>({});
+  protected readonly statusConfirm = signal<StatusConfirmState | null>(null);
 
   /** Backend-supported filter only: `estado`. */
   protected readonly filterOptions: SelectOption[] = [
@@ -161,11 +201,49 @@ export class MembersPage {
     return 'success';
   });
 
+  protected readonly confirmTitle = computed(() => {
+    switch (this.statusConfirm()?.kind) {
+      case 'deactivate':
+        return 'Desactivar socio';
+      case 'reactivate':
+        return 'Reactivar socio';
+      case 'baja':
+        return 'Dar de baja al socio';
+      default:
+        return 'Confirmar acción';
+    }
+  });
+
+  protected readonly confirmMessage = computed(() => {
+    switch (this.statusConfirm()?.kind) {
+      case 'deactivate':
+        return '¿Querés pasar este socio a estado inactivo?';
+      case 'reactivate':
+        return '¿Querés volver a activar este socio?';
+      case 'baja':
+        return '¿Querés dar de baja este socio? Esta acción puede afectar su acceso y beneficios.';
+      default:
+        return '';
+    }
+  });
+
+  protected readonly confirmLabel = computed(() => {
+    switch (this.statusConfirm()?.kind) {
+      case 'deactivate':
+        return 'Desactivar';
+      case 'reactivate':
+        return 'Reactivar';
+      case 'baja':
+        return 'Dar de baja';
+      default:
+        return 'Confirmar';
+    }
+  });
+
   protected readonly socioCategoryBadge = socioCategoryBadge;
   protected readonly socioCategoryLabel = socioCategoryLabel;
   protected readonly socioEstadoBadge = socioEstadoBadge;
   protected readonly socioEstadoLabel = socioEstadoLabel;
-  protected readonly formatMemberDate = formatMemberDate;
   protected readonly initialsFromName = initialsFromName;
 
   constructor() {
@@ -184,7 +262,6 @@ export class MembersPage {
             catchError((error: unknown) => {
               this.loadError.set(true);
               this.loading.set(false);
-              // Keep previous members only if we already had real data; otherwise stay empty.
               if (this.members().length === 0) {
                 this.members.set([]);
               }
@@ -232,16 +309,60 @@ export class MembersPage {
     this.createOpen.set(false);
   }
 
-  protected openEdit(): void {
-    this.notifications.error(
-      'La edición de socios no está disponible en el backend actual.',
-    );
+  protected openEdit(member: AdminMember | AdminMemberDetail): void {
+    this.editOpen.set(true);
+    this.editSuccessMessage.set('');
+    this.editServerErrors.set({});
+
+    const detail = this.detailMember();
+    if (detail && detail.id === member.id && !this.detailLoading()) {
+      this.editMember.set(detail);
+      this.editLoading.set(false);
+      return;
+    }
+
+    this.editMember.set(null);
+    this.editLoading.set(true);
+
+    this.memberService
+      .getAdminSocioById(member.id)
+      .pipe(
+        take(1),
+        finalize(() => this.editLoading.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (loaded) => {
+          if (!this.editOpen()) {
+            return;
+          }
+          this.editMember.set(loaded);
+        },
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo cargar el socio para editar',
+          );
+          this.editOpen.set(false);
+        },
+      });
+  }
+
+  protected closeEdit(options?: { force?: boolean }): void {
+    if (!options?.force && this.submitting()) {
+      return;
+    }
+    this.editOpen.set(false);
+    this.editMember.set(null);
+    this.editLoading.set(false);
+    this.editSuccessMessage.set('');
+    this.editServerErrors.set({});
   }
 
   protected openDetail(member: AdminMember): void {
     this.detailOpen.set(true);
-    // Show basic row data while the real detail loads.
-    this.detailMember.set({ ...member });
+    this.detailMember.set({ ...member, accountState: null });
     this.detailLoading.set(true);
 
     this.memberService
@@ -274,10 +395,63 @@ export class MembersPage {
     this.detailLoading.set(false);
   }
 
-  protected askDeactivate(): void {
-    this.notifications.error(
-      'La baja/desactivación de socios no está disponible en el backend actual.',
-    );
+  protected askStatusChange(member: AdminMember, nuevoEstado: SocioEstado): void {
+    if (this.statusBusyId() || member.membershipStatus === nuevoEstado) {
+      return;
+    }
+
+    let kind: StatusConfirmKind;
+    if (nuevoEstado === 'ACTIVO') {
+      kind = 'reactivate';
+    } else if (nuevoEstado === 'INACTIVO') {
+      kind = 'deactivate';
+    } else {
+      kind = 'baja';
+    }
+
+    this.statusConfirm.set({ kind, member, nuevoEstado });
+  }
+
+  protected cancelStatusChange(): void {
+    if (this.statusBusyId()) {
+      return;
+    }
+    this.statusConfirm.set(null);
+  }
+
+  protected confirmStatusChange(): void {
+    const pending = this.statusConfirm();
+    if (!pending || this.statusBusyId()) {
+      return;
+    }
+
+    this.statusBusyId.set(pending.member.id);
+    this.memberService
+      .changeAdminSocioEstado(pending.member.id, {
+        nuevoEstado: pending.nuevoEstado,
+      })
+      .pipe(
+        take(1),
+        finalize(() => this.statusBusyId.set(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (response) => {
+          this.statusConfirm.set(null);
+          this.notifications.success(
+            response.mensaje?.trim() || 'Estado actualizado correctamente',
+          );
+          this.reload$.next();
+          this.refreshDetailIfOpen(pending.member.id);
+        },
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo cambiar el estado del socio',
+          );
+        },
+      });
   }
 
   protected saveCreate(event: MemberCreateSave): void {
@@ -305,6 +479,85 @@ export class MembersPage {
           this.notifications.error(
             isApiError(error) ? error.message : 'No se pudo crear el socio',
           );
+        },
+      });
+  }
+
+  protected saveEdit(event: MemberEditSave): void {
+    if (this.submitting()) {
+      return;
+    }
+
+    this.editServerErrors.set({});
+    this.editSuccessMessage.set('');
+    this.submitting.set(true);
+
+    this.memberService
+      .updateAdminSocio(event.id, event.payload)
+      .pipe(
+        take(1),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (response) => {
+          const message =
+            response.mensaje?.trim() || 'Socio actualizado correctamente';
+          this.editSuccessMessage.set(message);
+          this.notifications.success(message);
+
+          if (response.socio) {
+            const detail = mapSocioDetalleDtoToViewModel(response.socio);
+            this.editMember.set(detail);
+            if (this.detailOpen() && this.detailMember()?.id === event.id) {
+              this.detailMember.set(detail);
+            }
+          }
+
+          timer(SUCCESS_CLOSE_DELAY_MS)
+            .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+            .subscribe(() => {
+              this.submitting.set(false);
+              this.closeEdit({ force: true });
+              this.reload$.next();
+              if (this.detailOpen() && this.detailMember()?.id === event.id) {
+                this.refreshDetailIfOpen(event.id);
+              }
+            });
+        },
+        error: (error: unknown) => {
+          this.submitting.set(false);
+          if (isApiError(error)) {
+            this.editServerErrors.set(mapSocioFieldErrors(error));
+            this.notifications.error(error.message);
+            return;
+          }
+          this.notifications.error('No se pudo actualizar el socio');
+        },
+      });
+  }
+
+  private refreshDetailIfOpen(id: string): void {
+    if (!this.detailOpen() || this.detailMember()?.id !== id) {
+      return;
+    }
+
+    this.detailLoading.set(true);
+    this.memberService
+      .getAdminSocioById(id)
+      .pipe(
+        take(1),
+        finalize(() => this.detailLoading.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (detail) => {
+          if (!this.detailOpen()) {
+            return;
+          }
+          this.detailMember.set(detail);
+        },
+        error: () => {
+          // Keep previous detail visible; list reload still applies.
         },
       });
   }

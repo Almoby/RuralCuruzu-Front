@@ -119,12 +119,32 @@
         [error]="fieldError('description')"
       />
 
+      @if (catalogState() === 'error') {
+        <div class="promo-form__catalog-state">
+          <app-alert variant="error" [message]="catalogError()" />
+          <app-button
+            variant="outline"
+            type="button"
+            (click)="retryCatalog()"
+          >
+            Reintentar
+          </app-button>
+        </div>
+      } @else if (catalogState() === 'empty') {
+        <app-alert
+          variant="warning"
+          message="No hay tipos de beneficio disponibles. Contactá a un administrador para que configure el catálogo."
+        />
+      }
+
       <div class="promo-form__row">
         <app-select
           label="Tipo"
-          formControlName="type"
-          [options]="typeOptions"
-          [error]="fieldError('type')"
+          formControlName="typeId"
+          [options]="typeOptions()"
+          [placeholder]="typeSelectPlaceholder()"
+          [disabled]="typeSelectDisabled()"
+          [error]="fieldError('typeId')"
         />
         <app-input
           label="Valor"
@@ -153,7 +173,7 @@
         <button type="button" class="promo-form__cancel" (click)="closeModal()">
           Cancelar
         </button>
-        <app-button [disabled]="saving()" type="submit">
+        <app-button [disabled]="!canSubmit()" type="submit">
           {{ saving() ? 'Guardando...' : editing() ? 'Guardar' : 'Crear' }}
         </app-button>
       </div>

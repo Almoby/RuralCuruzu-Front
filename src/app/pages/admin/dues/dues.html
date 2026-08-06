@@ -9,6 +9,10 @@
         <app-icon name="payments" [size]="16" />
         Datos bancarios
       </app-button>
+      <app-button variant="outline" (click)="openEjecuciones()">
+        <app-icon name="history" [size]="16" />
+        Historial de generación
+      </app-button>
       <app-button variant="outline" [disabled]="submitting()" (click)="askGenerateFees()">
         <app-icon name="refresh" [size]="16" />
         Generar cuotas
@@ -73,10 +77,12 @@
             <app-payment-card
               [payment]="payment"
               [busy]="actionBusy() || submitting()"
+              [downloadBusy]="downloadBusyPagoId() === payment.pagoId"
               (openDetail)="openDetail($event)"
               (approve)="askApprovePayment($event)"
               (reject)="openReject($event)"
               (registerPayment)="openPaymentModal($event)"
+              (downloadComprobante)="downloadComprobanteFromList($event)"
             />
           }
         </div>
@@ -86,7 +92,6 @@
 
   <app-register-payment-modal
     [open]="paymentModalOpen()"
-    [cuotas]="eligibleCuotas()"
     [preselectedCuotaId]="preselectedCuotaId()"
     [submitting]="submitting()"
     (close)="closePaymentModal()"
@@ -170,17 +175,94 @@
           <dt>Actualizada</dt>
           <dd>{{ item.fechaActualizacionLabel }}</dd>
         </div>
-        @if (item.pago?.hasComprobantePath) {
+        @if (item.pago; as pago) {
           <div class="dues-detail__row">
             <dt>Comprobante</dt>
-            <dd>Registrado (descarga solo disponible en Portal Socio)</dd>
+            <dd>
+              @if (pago.canDownloadComprobante) {
+                Disponible
+              } @else {
+                No disponible
+              }
+            </dd>
           </div>
         }
       </dl>
     }
 
     <div modalFooter class="dues-modal-footer">
+      @if (detail()?.pago?.canDownloadComprobante) {
+        <app-button
+          variant="outline"
+          [disabled]="downloadBusyPagoId() === detail()?.pago?.id"
+          (click)="downloadComprobanteFromDetail()"
+        >
+          {{
+            downloadBusyPagoId() === detail()?.pago?.id
+              ? 'Descargando...'
+              : 'Descargar comprobante'
+          }}
+        </app-button>
+      }
       <app-button variant="outline" (click)="closeDetail()">Cerrar</app-button>
+    </div>
+  </app-modal>
+
+  <app-modal
+    [open]="ejecucionesOpen()"
+    title="Historial de generación"
+    subtitle="Ejecuciones automáticas y manuales, más recientes primero"
+    size="lg"
+    (close)="closeEjecuciones()"
+  >
+    @if (ejecucionesLoading()) {
+      <app-loading message="Cargando historial..." />
+    } @else if (ejecucionesError()) {
+      <div class="dues__state">
+        <app-alert variant="error" message="No se pudo cargar el historial de generación." />
+        <button type="button" class="dues__retry" (click)="retryEjecuciones()">Reintentar</button>
+      </div>
+    } @else if (ejecuciones().length === 0) {
+      <app-empty-state
+        title="Sin ejecuciones"
+        description="No hay ejecuciones registradas."
+      />
+    } @else {
+      <ul class="dues-ejecuciones">
+        @for (item of ejecuciones(); track item.fechaEjecucion + item.periodo + item.origen) {
+          <li class="dues-ejecuciones__item">
+            <div class="dues-ejecuciones__head">
+              <strong>{{ item.periodoLabel }}</strong>
+              <span>{{ item.origenLabel }}</span>
+            </div>
+            <dl class="dues-ejecuciones__meta">
+              <div>
+                <dt>Fecha</dt>
+                <dd>{{ item.fechaEjecucionLabel }}</dd>
+              </div>
+              <div>
+                <dt>Socios activos</dt>
+                <dd>{{ item.cantidadSociosActivos }}</dd>
+              </div>
+              <div>
+                <dt>Cuotas generadas</dt>
+                <dd>{{ item.cantidadCuotasGeneradas }}</dd>
+              </div>
+              <div>
+                <dt>Socios omitidos</dt>
+                <dd>{{ item.cantidadSociosOmitidos }}</dd>
+              </div>
+            </dl>
+            @if (item.mensaje && item.mensaje !== 'No informado') {
+              <p class="dues-ejecuciones__msg">{{ item.mensaje }}</p>
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    <div modalFooter class="dues-modal-footer">
+      <app-button variant="outline" (click)="closeEjecuciones()">Cerrar</app-button>
     </div>
   </app-modal>
 

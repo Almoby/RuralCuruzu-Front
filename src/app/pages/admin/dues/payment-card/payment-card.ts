@@ -21,11 +21,13 @@ import { formatPeriodLabel } from '../../../../shared/utils';
 export class PaymentCard {
   readonly payment = input.required<AdminCuotaListItem>();
   readonly busy = input(false);
+  readonly downloadBusy = input(false);
 
   readonly openDetail = output<AdminCuotaListItem>();
   readonly approve = output<AdminCuotaListItem>();
   readonly reject = output<AdminCuotaListItem>();
   readonly registerPayment = output<AdminCuotaListItem>();
+  readonly downloadComprobante = output<AdminCuotaListItem>();
 
   protected readonly methodIcon = computed(() => this.payment().paymentMethodIcon);
   protected readonly methodLabel = computed(() => this.payment().paymentMethodLabel);
@@ -42,6 +44,7 @@ export class PaymentCard {
   protected readonly statusLabel = computed(() => this.payment().estadoLabel);
   protected readonly canReview = computed(() => this.payment().canReview);
   protected readonly canRegister = computed(() => canRegisterPayment(this.payment()));
+  protected readonly canDownload = computed(() => this.payment().canDownloadComprobante);
 
   protected onOpenDetail(): void {
     this.openDetail.emit(this.payment());
@@ -60,5 +63,10 @@ export class PaymentCard {
   protected onRegisterPayment(event: Event): void {
     event.stopPropagation();
     this.registerPayment.emit(this.payment());
+  }
+
+  protected onDownload(event: Event): void {
+    event.stopPropagation();
+    this.downloadComprobante.emit(this.payment());
   }
 }

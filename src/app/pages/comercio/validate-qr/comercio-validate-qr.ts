@@ -163,6 +163,7 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
     const benefit = this.selectedBenefit();
     const amount = parseMontoAhorroInput(this.form.controls.montoAhorro.value);
     const title = benefit?.title ?? 'Beneficio';
+    const typeLabel = benefit?.typeLabel ?? '';
     const value = benefit?.valueLabel ?? '—';
     const savings =
       amount === null
@@ -173,7 +174,8 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           }).format(amount);
-    return `Beneficio: ${title}. Valor: ${value}. Ahorro informado: ${savings}. Se registrará el canje en el sistema.`;
+    const typePart = typeLabel && typeLabel !== 'Beneficio' ? ` Tipo: ${typeLabel}.` : '';
+    return `Beneficio: ${title}.${typePart} Valor: ${value}. Ahorro informado: ${savings}. Se registrará el canje en el sistema.`;
   });
 
   readonly showBenefitSelect = computed(() => {

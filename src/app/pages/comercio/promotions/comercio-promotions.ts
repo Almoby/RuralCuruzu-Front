@@ -24,14 +24,19 @@ import {
   switchMap,
   tap,
 } from 'rxjs';
+import { BenefitTypeOptionViewModel } from '../../../core/interfaces/benefit-type.interface';
 import { NotificationService } from '../../../core/services/notification.service';
+import { BenefitTypeService } from '../../../core/services/benefit-type.service';
 import { PromotionService } from '../../../core/services/promotion.service';
 import { ApiError } from '../../../core/interfaces/api-response.interface';
 import {
   BeneficioEstadoDto,
-  BeneficioTipoDto,
   ComercioBeneficioViewModel,
 } from '../../../core/interfaces/comercio-beneficio.interface';
+import {
+  ensureBenefitTypeOption,
+  mapBenefitTypeOptionsToSelectOptions,
+} from '../../../core/mappers/benefit-type.mapper';
 import {
   mapPromotionFormToCreateRequest,
   mapPromotionFormToUpdateRequest,
@@ -53,6 +58,7 @@ import {
 } from '../../../shared/components';
 
 type PromotionsViewState = 'loading' | 'success' | 'empty' | 'error';
+type CatalogState = 'idle' | 'loading' | 'success' | 'empty' | 'error';
 
 interface StatusConfirmState {
   promo: ComercioBeneficioViewModel;
@@ -104,6 +110,7 @@ function isApiError(error: unknown): error is ApiError {
 })
 export class ComercioPromotions {
   private readonly promotionService = inject(PromotionService);
+  private readonly benefitTypeService = inject(BenefitTypeService);
   private readonly notifications = inject(NotificationService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
@@ -119,6 +126,46 @@ export class ComercioPromotions {
   readonly errorMessage = signal(
     'No se pudieron cargar las promociones. Intentá nuevamente.',
   );
+
+  private readonly catalogOptionsSignal = signal<BenefitTypeOptionViewModel[]>([]);
+  private readonly catalogStateSignal = signal<CatalogState>('idle');
+  private readonly catalogErrorSignal = signal(
+    'No se pudieron cargar los tipos de beneficio.',
+  );
+
+  readonly catalogState = this.catalogStateSignal.asReadonly();
+  readonly catalogError = this.catalogErrorSignal.asReadonly();
+
+  readonly typeOptions = computed<SelectOption[]>(() =>
+    mapBenefitTypeOptionsToSelectOptions(this.catalogOptionsSignal()),
+  );
+
+  readonly typeSelectDisabled = computed(
+    () =>
+      this.saving() ||
+      this.catalogStateSignal() === 'loading' ||
+      this.catalogStateSignal() === 'error' ||
+      this.catalogStateSignal() === 'empty',
+  );
+
+  readonly typeSelectPlaceholder = computed(() => {
+    switch (this.catalogStateSignal()) {
+      case 'loading':
+        return 'Cargando tipos…';
+      case 'empty':
+        return 'No hay tipos disponibles';
+      case 'error':
+        return 'No se pudieron cargar los tipos';
+      default:
+        return 'Seleccionar tipo…';
+    }
+  });
+
+  readonly canSubmit = computed(() => {
+    const catalogOk = this.catalogStateSignal() === 'success';
+    const hasType = !!this.form.controls.typeId.value?.trim();
+    return catalogOk && hasType && !this.saving();
+  });
 
   readonly statusConfirmOpen = computed(() => this.statusConfirm() !== null);
 
@@ -147,20 +194,11 @@ export class ComercioPromotions {
     return `${count} ${count === 1 ? 'activa' : 'activas'}`;
   });
 
-  /** Swagger `BeneficioResponse.tipo` / create-update enums. */
-  readonly typeOptions: SelectOption[] = [
-    { value: 'DESCUENTO_PORCENTAJE', label: 'Descuento' },
-    { value: 'DOS_POR_UNO', label: '2×1' },
-    { value: 'TRES_POR_DOS', label: '3×2' },
-    { value: 'GRATIS', label: 'Gratis' },
-    { value: 'OTRO', label: 'Otro' },
-  ];
-
   readonly form = this.fb.nonNullable.group(
     {
       title: ['', [Validators.required, Validators.minLength(1)]],
       description: [''],
-      type: ['DESCUENTO_PORCENTAJE' as BeneficioTipoDto, [Validators.required]],
+      typeId: ['', [Validators.required]],
       value: ['', [Validators.required, Validators.minLength(1)]],
       validFrom: ['', [Validators.required]],
       validTo: ['', [Validators.required]],
@@ -207,6 +245,7 @@ export class ComercioPromotions {
     this.editing.set(null);
     this.resetForm();
     this.modalOpen.set(true);
+    this.loadCatalog();
   }
 
   openEdit(promo: ComercioBeneficioViewModel): void {
@@ -214,7 +253,7 @@ export class ComercioPromotions {
     this.form.reset({
       title: promo.title,
       description: promo.description,
-      type: (promo.type as BeneficioTipoDto) || 'DESCUENTO_PORCENTAJE',
+      typeId: promo.tipoBeneficioId,
       value: promo.valueLabel === '—' ? '' : promo.valueLabel,
       validFrom: promo.validFrom,
       validTo: promo.validTo,
@@ -222,6 +261,7 @@ export class ComercioPromotions {
     this.form.markAsPristine();
     this.form.markAsUntouched();
     this.modalOpen.set(true);
+    this.loadCatalog();
   }
 
   closeModal(options?: { force?: boolean }): void {
@@ -231,6 +271,13 @@ export class ComercioPromotions {
     this.modalOpen.set(false);
     this.editing.set(null);
     this.resetForm();
+    this.catalogStateSignal.set('idle');
+    this.catalogOptionsSignal.set([]);
+    this.catalogErrorSignal.set('No se pudieron cargar los tipos de beneficio.');
+  }
+
+  retryCatalog(): void {
+    this.loadCatalog({ forceRefresh: true });
   }
 
   promoIcon(promo: ComercioBeneficioViewModel): string {
@@ -246,7 +293,7 @@ export class ComercioPromotions {
   }
 
   fieldError(
-    controlName: 'title' | 'description' | 'type' | 'value' | 'validFrom' | 'validTo',
+    controlName: 'title' | 'description' | 'typeId' | 'value' | 'validFrom' | 'validTo',
   ): string {
     const control = this.form.controls[controlName];
     if (!control.touched || !control.invalid) {
@@ -322,8 +369,18 @@ export class ComercioPromotions {
   }
 
   save(): void {
-    if (this.form.invalid || this.saving()) {
+    if (
+      this.form.invalid ||
+      this.saving() ||
+      this.catalogStateSignal() !== 'success'
+    ) {
       this.form.markAllAsTouched();
+      return;
+    }
+
+    const typeId = this.form.controls.typeId.value.trim();
+    if (!typeId) {
+      this.form.controls.typeId.markAsTouched();
       return;
     }
 
@@ -331,7 +388,7 @@ export class ComercioPromotions {
     const formValue = {
       title: raw.title,
       description: raw.description,
-      type: raw.type,
+      typeId,
       value: raw.value,
       validFrom: raw.validFrom,
       validTo: raw.validTo,
@@ -372,11 +429,62 @@ export class ComercioPromotions {
       });
   }
 
+  private loadCatalog(options?: { forceRefresh?: boolean }): void {
+    this.catalogStateSignal.set('loading');
+    this.catalogErrorSignal.set('No se pudieron cargar los tipos de beneficio.');
+
+    if (options?.forceRefresh) {
+      this.benefitTypeService.clearCache();
+    }
+
+    this.benefitTypeService
+      .getActiveBenefitTypes({ forceRefresh: options?.forceRefresh })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          const editing = this.editing();
+          const withCurrent = ensureBenefitTypeOption(
+            items,
+            editing?.tipoBeneficioId,
+            editing?.tipoBeneficioNombre,
+          );
+          this.catalogOptionsSignal.set(withCurrent);
+
+          if (withCurrent.length === 0) {
+            this.catalogStateSignal.set('empty');
+            this.form.controls.typeId.setValue('');
+            return;
+          }
+
+          this.catalogStateSignal.set('success');
+
+          const currentId = this.form.controls.typeId.value.trim();
+          if (currentId && withCurrent.some((item) => item.id === currentId)) {
+            return;
+          }
+          if (editing?.tipoBeneficioId) {
+            this.form.controls.typeId.setValue(editing.tipoBeneficioId);
+            return;
+          }
+          this.form.controls.typeId.setValue('');
+        },
+        error: (error: unknown) => {
+          this.catalogOptionsSignal.set([]);
+          this.catalogStateSignal.set('error');
+          this.catalogErrorSignal.set(
+            isApiError(error)
+              ? error.message
+              : 'No se pudieron cargar los tipos de beneficio.',
+          );
+        },
+      });
+  }
+
   private resetForm(): void {
     this.form.reset({
       title: '',
       description: '',
-      type: 'DESCUENTO_PORCENTAJE',
+      typeId: '',
       value: '',
       validFrom: '',
       validTo: '',

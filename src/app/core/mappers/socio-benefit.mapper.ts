@@ -7,7 +7,6 @@ import {
   SocioBenefitsCatalogResponse,
 } from '../interfaces/benefit.interface';
 import {
-  BeneficioTipoDto,
   SocioBeneficioResumenDto,
   SocioBenefitsRawBundle,
   SocioComercioConBeneficiosDto,
@@ -30,39 +29,43 @@ function formatLocalDateLabel(value: string | null | undefined): string {
   return `${Number(match[3])}/${Number(match[2])}/${match[1]}`;
 }
 
-function mapOfferType(tipo: BeneficioTipoDto | undefined): {
+/**
+ * Visual category for existing card layout.
+ * Uses the real catalog name + value shape; no legacy enum mapping.
+ */
+function mapOfferVisual(
+  tipoNombre: string,
+  valor: string,
+): {
   offerType: BenefitOfferType;
   offerTypeLabel: string;
   offerTypeIcon: string;
 } {
-  switch (tipo) {
-    case 'DESCUENTO_PORCENTAJE':
-      return {
-        offerType: 'descuento',
-        offerTypeLabel: 'Descuento',
-        offerTypeIcon: 'local_offer',
-      };
-    case 'DOS_POR_UNO':
-    case 'TRES_POR_DOS':
-      return {
-        offerType: 'promocion',
-        offerTypeLabel: 'Promoción',
-        offerTypeIcon: 'gift',
-      };
-    case 'GRATIS':
-      return {
-        offerType: 'fijo',
-        offerTypeLabel: 'Gratis',
-        offerTypeIcon: 'gift',
-      };
-    case 'OTRO':
-    default:
-      return {
-        offerType: 'promocion',
-        offerTypeLabel: 'Promoción',
-        offerTypeIcon: 'local_offer',
-      };
+  const label = text(tipoNombre, 'Beneficio');
+  const lower = label.toLocaleLowerCase('es-AR');
+  const isPercent = valor.includes('%') || lower.includes('descuento');
+
+  if (isPercent) {
+    return {
+      offerType: 'descuento',
+      offerTypeLabel: label,
+      offerTypeIcon: 'percent',
+    };
   }
+
+  if (lower.includes('gratis')) {
+    return {
+      offerType: 'fijo',
+      offerTypeLabel: label,
+      offerTypeIcon: 'gift',
+    };
+  }
+
+  return {
+    offerType: 'promocion',
+    offerTypeLabel: label,
+    offerTypeIcon: 'local_offer',
+  };
 }
 
 function parseDiscountPercent(valor: string): number | undefined {
@@ -78,8 +81,8 @@ export function mapSocioBeneficioDtoToViewModel(
   dto: SocioBeneficioResumenDto,
   index: number,
 ): Benefit {
-  const offer = mapOfferType(dto.tipo);
   const valor = text(dto.valor, '—');
+  const offer = mapOfferVisual(text(dto.tipoBeneficioNombre), valor);
   const validTo = text(dto.fechaFinVigencia);
   const validToDisplay = formatLocalDateLabel(validTo);
   const categoryName = text(dto.comercioRubro, 'General');

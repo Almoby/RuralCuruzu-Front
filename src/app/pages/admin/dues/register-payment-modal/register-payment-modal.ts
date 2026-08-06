@@ -18,6 +18,7 @@ import {
   finalize,
   of,
   switchMap,
+  take,
   tap,
 } from 'rxjs';
 import {
@@ -26,24 +27,21 @@ import {
   AppEmptyState,
   AppIcon,
   AppInput,
+  AppLoading,
   AppModal,
   AppSelect,
   AppTextarea,
   SelectOption,
 } from '../../../../shared/components';
 import {
-  AdminCuotaListItem,
+  AdminEstadoCuentaPeriodoOption,
+  AdminEstadoCuentaViewModel,
   MedioPagoCuota,
   RegisterAdminPagoFormValue,
 } from '../../../../core/interfaces/admin-cuota.interface';
 import { FeeService } from '../../../../core/services/fee.service';
-import {
-  canRegisterPayment,
-  formatCuotaImporte,
-  formatCuotaOptionLabel,
-  medioPagoIcon,
-} from '../../../../core/mappers/admin-cuota.mapper';
-import { formatPeriodLabel } from '../../../../shared/utils';
+import { MemberService } from '../../../../core/services/member.service';
+import { formatCuotaImporte, medioPagoIcon } from '../../../../core/mappers/admin-cuota.mapper';
 
 interface MethodChoice {
   value: MedioPagoCuota;
@@ -64,6 +62,7 @@ interface MethodChoice {
     AppIcon,
     AppEmptyState,
     AppAlert,
+    AppLoading,
   ],
   templateUrl: './register-payment-modal.html',
   styleUrl: './register-payment-modal.scss',
@@ -73,11 +72,11 @@ export class RegisterPaymentModal {
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly feeService = inject(FeeService);
-  private readonly cuotaSelected$ = new Subject<string>();
+  private readonly memberService = inject(MemberService);
+  private readonly socioSelected$ = new Subject<string>();
 
   readonly open = input(false);
-  /** Eligible cuotas only (PENDIENTE | VENCIDA). */
-  readonly cuotas = input<AdminCuotaListItem[]>([]);
+  /** Optional cuota id to resolve socio + preselect its period. */
   readonly preselectedCuotaId = input<string | null>(null);
   readonly submitting = input(false);
 
@@ -93,32 +92,36 @@ export class RegisterPaymentModal {
   ];
 
   protected readonly selectedMethod = signal<MedioPagoCuota>('EFECTIVO');
-  protected readonly resolvingSocio = signal(false);
-  protected readonly resolveError = signal('');
-  protected readonly resolvedSocioId = signal('');
-  private resolvedPeriod = '';
-  private readonly selectedCuotaId = signal('');
+  protected readonly sociosLoading = signal(false);
+  protected readonly sociosError = signal('');
+  protected readonly socioOptions = signal<SelectOption[]>([]);
+  protected readonly accountLoading = signal(false);
+  protected readonly accountError = signal('');
+  protected readonly account = signal<AdminEstadoCuentaViewModel | null>(null);
+  protected readonly selectedPeriodos = signal<string[]>([]);
+  protected readonly selectedSocioId = signal('');
+  private preselectedPeriod = '';
 
   protected readonly form = this.fb.nonNullable.group({
-    cuotaId: ['', Validators.required],
+    socioId: ['', Validators.required],
     paymentMethod: ['EFECTIVO' as MedioPagoCuota, Validators.required],
-    amountDisplay: [{ value: '—', disabled: true }],
-    periodDisplay: [{ value: '—', disabled: true }],
-    estadoDisplay: [{ value: '—', disabled: true }],
     paidAt: [new Date().toISOString().slice(0, 10), Validators.required],
     notes: [''],
   });
 
-  protected readonly cuotaOptions = computed<SelectOption[]>(() =>
-    this.cuotas()
-      .filter((cuota) => canRegisterPayment(cuota))
-      .map((cuota) => ({
-        value: cuota.id,
-        label: formatCuotaOptionLabel(cuota),
-      })),
+  protected readonly periodosPagables = computed(
+    () => this.account()?.periodosPagables ?? [],
   );
 
-  protected readonly hasEligibleCuotas = computed(() => this.cuotaOptions().length > 0);
+  protected readonly hasPagables = computed(() => this.periodosPagables().length > 0);
+
+  protected readonly selectedTotalLabel = computed(() => {
+    const selected = new Set(this.selectedPeriodos());
+    const total = this.periodosPagables()
+      .filter((item) => selected.has(item.periodo))
+      .reduce((sum, item) => sum + item.importe, 0);
+    return formatCuotaImporte(total);
+  });
 
   protected readonly isCash = computed(
     () => this.selectedMethod() === 'EFECTIVO' || this.selectedMethod() === 'VENTANILLA',
@@ -130,10 +133,12 @@ export class RegisterPaymentModal {
   protected readonly submitDisabled = computed(
     () =>
       this.submitting() ||
-      this.resolvingSocio() ||
-      !this.hasEligibleCuotas() ||
-      !this.selectedCuotaId() ||
-      !this.resolvedSocioId(),
+      this.sociosLoading() ||
+      this.accountLoading() ||
+      !this.selectedSocioId() ||
+      this.selectedPeriodos().length === 0 ||
+      !!this.accountError() ||
+      !this.hasPagables(),
   );
 
   constructor() {
@@ -142,41 +147,16 @@ export class RegisterPaymentModal {
         return;
       }
 
-      const preselected = this.preselectedCuotaId();
-      const options = this.cuotaOptions();
-      const initialCuotaId =
-        preselected && options.some((option) => option.value === preselected)
-          ? preselected
-          : '';
-
-      this.selectedMethod.set('EFECTIVO');
-      this.resolveError.set('');
-      this.resolvedSocioId.set('');
-      this.resolvedPeriod = '';
-      this.selectedCuotaId.set(initialCuotaId);
-      this.form.reset({
-        cuotaId: initialCuotaId,
-        paymentMethod: 'EFECTIVO',
-        amountDisplay: '—',
-        periodDisplay: '—',
-        estadoDisplay: '—',
-        paidAt: new Date().toISOString().slice(0, 10),
-        notes: '',
-      });
-      this.form.controls.amountDisplay.disable({ emitEvent: false });
-      this.form.controls.periodDisplay.disable({ emitEvent: false });
-      this.form.controls.estadoDisplay.disable({ emitEvent: false });
-
-      if (initialCuotaId) {
-        this.cuotaSelected$.next(initialCuotaId);
-      }
+      this.resetModalState();
+      this.loadSociosAndMaybePreselect();
     });
 
-    this.form.controls.cuotaId.valueChanges
+    this.form.controls.socioId.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((cuotaId) => {
-        this.selectedCuotaId.set(cuotaId);
-        this.cuotaSelected$.next(cuotaId);
+      .subscribe((socioId) => {
+        this.selectedSocioId.set(socioId);
+        this.selectedPeriodos.set([]);
+        this.socioSelected$.next(socioId);
       });
 
     this.form.controls.paymentMethod.valueChanges
@@ -185,34 +165,24 @@ export class RegisterPaymentModal {
         this.selectedMethod.set(method as MedioPagoCuota);
       });
 
-    this.cuotaSelected$
+    this.socioSelected$
       .pipe(
-        tap((cuotaId) => this.prepareLocalCuotaFields(cuotaId)),
-        switchMap((cuotaId) => {
-          if (!cuotaId) {
-            this.resolvingSocio.set(false);
+        tap(() => {
+          this.account.set(null);
+          this.accountError.set('');
+        }),
+        switchMap((socioId) => {
+          if (!socioId) {
+            this.accountLoading.set(false);
             return EMPTY;
           }
 
-          const cuota = this.cuotas().find((item) => item.id === cuotaId);
-          if (!cuota || !canRegisterPayment(cuota)) {
-            this.resolveError.set(
-              'La cuota seleccionada no es elegible para registrar un pago.',
-            );
-            this.resolvingSocio.set(false);
-            return EMPTY;
-          }
-
-          this.resolvingSocio.set(true);
-          this.resolveError.set('');
-
-          return this.feeService.getAdminCuotaById(cuotaId).pipe(
-            finalize(() => this.resolvingSocio.set(false)),
+          this.accountLoading.set(true);
+          return this.feeService.getAdminEstadoCuenta(socioId).pipe(
+            finalize(() => this.accountLoading.set(false)),
             catchError(() => {
-              this.resolvedSocioId.set('');
-              this.resolvedPeriod = '';
-              this.resolveError.set(
-                'No se pudo obtener el detalle de la cuota seleccionada.',
+              this.accountError.set(
+                'No se pudo cargar el estado de cuenta del socio seleccionado.',
               );
               return of(null);
             }),
@@ -220,28 +190,33 @@ export class RegisterPaymentModal {
         }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((detail) => {
-        if (!detail) {
+      .subscribe((account) => {
+        if (!account) {
           return;
         }
 
-        if (!canRegisterPayment(detail) || !detail.socioId || !detail.period) {
-          this.resolvedSocioId.set('');
-          this.resolvedPeriod = '';
-          this.resolveError.set(
-            'La cuota ya no admite registro de pago. Actualizá el listado e intentá de nuevo.',
-          );
-          return;
-        }
+        this.account.set(account);
 
-        this.resolvedSocioId.set(detail.socioId);
-        this.resolvedPeriod = detail.period;
-        this.form.controls.amountDisplay.setValue(detail.amountLabel, { emitEvent: false });
-        this.form.controls.periodDisplay.setValue(formatPeriodLabel(detail.period), {
-          emitEvent: false,
-        });
-        this.form.controls.estadoDisplay.setValue(detail.estadoLabel, { emitEvent: false });
+        if (
+          this.preselectedPeriod &&
+          account.periodosPagables.some((item) => item.periodo === this.preselectedPeriod)
+        ) {
+          this.selectedPeriodos.set([this.preselectedPeriod]);
+        }
       });
+  }
+
+  protected togglePeriodo(option: AdminEstadoCuentaPeriodoOption): void {
+    const current = this.selectedPeriodos();
+    if (current.includes(option.periodo)) {
+      this.selectedPeriodos.set(current.filter((item) => item !== option.periodo));
+      return;
+    }
+    this.selectedPeriodos.set([...current, option.periodo].sort());
+  }
+
+  protected isPeriodoSelected(periodo: string): boolean {
+    return this.selectedPeriodos().includes(periodo);
   }
 
   protected selectMethod(method: MedioPagoCuota): void {
@@ -275,19 +250,15 @@ export class RegisterPaymentModal {
     }
 
     const value = this.form.getRawValue();
-    const cuota = this.cuotas().find((item) => item.id === value.cuotaId);
-    const socioId = this.resolvedSocioId();
-    if (!cuota || !canRegisterPayment(cuota) || !socioId || !this.resolvedPeriod) {
-      this.resolveError.set(
-        'La cuota seleccionada ya no admite registro de pago. Actualizá el listado e intentá de nuevo.',
-      );
+    const periodos = this.selectedPeriodos();
+    if (!value.socioId || periodos.length === 0) {
+      this.accountError.set('Seleccioná al menos un período pagable.');
       return;
     }
 
     this.save.emit({
-      cuotaId: cuota.id,
-      socioId,
-      periodos: [this.resolvedPeriod],
+      socioId: value.socioId,
+      periodos,
       fecha: value.paidAt,
       medioPago: value.paymentMethod as MedioPagoCuota,
       observacion: value.notes.trim() || undefined,
@@ -305,33 +276,74 @@ export class RegisterPaymentModal {
     return 'Valor inválido';
   }
 
-  private prepareLocalCuotaFields(cuotaId: string): void {
-    this.resolvedSocioId.set('');
-    this.resolvedPeriod = '';
-    this.resolveError.set('');
-
-    if (!cuotaId) {
-      this.form.controls.amountDisplay.setValue('—', { emitEvent: false });
-      this.form.controls.periodDisplay.setValue('—', { emitEvent: false });
-      this.form.controls.estadoDisplay.setValue('—', { emitEvent: false });
-      return;
-    }
-
-    const cuota = this.cuotas().find((item) => item.id === cuotaId);
-    if (!cuota || !canRegisterPayment(cuota)) {
-      this.form.controls.amountDisplay.setValue('—', { emitEvent: false });
-      this.form.controls.periodDisplay.setValue('—', { emitEvent: false });
-      this.form.controls.estadoDisplay.setValue('—', { emitEvent: false });
-      return;
-    }
-
-    this.form.controls.amountDisplay.setValue(formatCuotaImporte(cuota.amount), {
-      emitEvent: false,
+  private resetModalState(): void {
+    this.selectedMethod.set('EFECTIVO');
+    this.sociosError.set('');
+    this.accountError.set('');
+    this.account.set(null);
+    this.selectedPeriodos.set([]);
+    this.selectedSocioId.set('');
+    this.preselectedPeriod = '';
+    this.form.reset({
+      socioId: '',
+      paymentMethod: 'EFECTIVO',
+      paidAt: new Date().toISOString().slice(0, 10),
+      notes: '',
     });
-    this.form.controls.periodDisplay.setValue(
-      cuota.period ? formatPeriodLabel(cuota.period) : 'Sin datos',
-      { emitEvent: false },
-    );
-    this.form.controls.estadoDisplay.setValue(cuota.estadoLabel, { emitEvent: false });
+  }
+
+  private loadSociosAndMaybePreselect(): void {
+    this.sociosLoading.set(true);
+    this.sociosError.set('');
+
+    this.memberService
+      .getAdminSocios()
+      .pipe(
+        take(1),
+        finalize(() => this.sociosLoading.set(false)),
+        catchError(() => {
+          this.sociosError.set('No se pudieron cargar los socios.');
+          this.socioOptions.set([]);
+          return of([]);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((socios) => {
+        if (!this.open()) {
+          return;
+        }
+
+        this.socioOptions.set(
+          socios.map((socio) => ({
+            value: socio.id,
+            label: `${socio.memberCode} · ${socio.fullName}`,
+          })),
+        );
+
+        const preselectedCuotaId = this.preselectedCuotaId();
+        if (!preselectedCuotaId) {
+          return;
+        }
+
+        this.feeService
+          .getAdminCuotaById(preselectedCuotaId)
+          .pipe(
+            take(1),
+            catchError(() => {
+              this.accountError.set(
+                'No se pudo precargar la cuota seleccionada. Elegí el socio manualmente.',
+              );
+              return of(null);
+            }),
+            takeUntilDestroyed(this.destroyRef),
+          )
+          .subscribe((detail) => {
+            if (!this.open() || !detail?.socioId) {
+              return;
+            }
+            this.preselectedPeriod = detail.period;
+            this.form.controls.socioId.setValue(detail.socioId);
+          });
+      });
   }
 }

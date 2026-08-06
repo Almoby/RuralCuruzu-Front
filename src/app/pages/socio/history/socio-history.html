@@ -70,7 +70,12 @@
 
                 <div class="history-list__body">
                   <p class="history-list__title">{{ item.benefitTitle }}</p>
-                  <p class="history-list__subtitle">{{ item.merchantName }}</p>
+                  <p class="history-list__subtitle">
+                    {{ item.merchantName }}
+                    @if (item.typeName) {
+                      <span> · {{ item.typeName }}</span>
+                    }
+                  </p>
                   <p class="history-list__datetime">
                     <app-icon name="clock" [size]="10" />
                     <time>{{ item.usedAtLabel }}</time>

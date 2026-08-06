@@ -1,27 +1,75 @@
 <app-modal
   [open]="open()"
   title="Registrar pago"
-  subtitle="El pago quedará marcado como aprobado automáticamente. El importe se toma de la cuota generada."
+  subtitle="Seleccioná un socio y uno o varios períodos. El importe se toma de cada cuota generada."
   size="lg"
   (close)="onClose()"
 >
-  @if (!hasEligibleCuotas()) {
+  @if (sociosLoading()) {
+    <app-loading message="Cargando socios..." />
+  } @else if (sociosError()) {
+    <app-alert variant="error" [message]="sociosError()" />
+  } @else if (socioOptions().length === 0) {
     <app-empty-state
-      title="Sin cuotas pendientes"
-      description="No hay cuotas pendientes disponibles para registrar un pago."
+      title="Sin socios"
+      description="No hay socios disponibles para registrar un pago."
     />
   } @else {
     <form class="register-payment" [formGroup]="form" (ngSubmit)="onSubmit()">
       <app-select
-        label="Seleccionar cuota pendiente"
-        placeholder="Seleccionar cuota pendiente..."
-        formControlName="cuotaId"
-        [options]="cuotaOptions()"
-        [error]="fieldError('cuotaId')"
+        label="Socio"
+        placeholder="Seleccionar socio..."
+        formControlName="socioId"
+        [options]="socioOptions()"
+        [error]="fieldError('socioId')"
       />
 
-      @if (resolveError(); as errorMessage) {
+      @if (accountLoading()) {
+        <app-loading message="Cargando estado de cuenta..." />
+      } @else if (accountError(); as errorMessage) {
         <app-alert variant="error" [message]="errorMessage" />
+      } @else if (account(); as accountState) {
+        <div class="register-payment__account">
+          <div class="register-payment__account-row">
+            <span>Deuda total</span>
+            <strong>{{ accountState.deudaTotalLabel }}</strong>
+          </div>
+        </div>
+
+        @if (!hasPagables()) {
+          <app-empty-state
+            title="Sin períodos pagables"
+            description="Este socio no tiene cuotas pendientes, vencidas o rechazadas para registrar."
+          />
+        } @else {
+          <fieldset class="register-payment__periods">
+            <legend class="register-payment__legend">Períodos a pagar</legend>
+            <div class="register-payment__period-list">
+              @for (option of periodosPagables(); track option.cuotaId) {
+                <label class="register-payment__period">
+                  <input
+                    type="checkbox"
+                    [checked]="isPeriodoSelected(option.periodo)"
+                    (change)="togglePeriodo(option)"
+                  />
+                  <span class="register-payment__period-body">
+                    <span class="register-payment__period-title">
+                      {{ option.periodoLabel }}
+                      <span class="register-payment__period-estado">{{ option.estadoLabel }}</span>
+                    </span>
+                    <span class="register-payment__period-meta">
+                      {{ option.importeLabel }} · Vence {{ option.dueDateLabel }}
+                    </span>
+                  </span>
+                </label>
+              }
+            </div>
+            <div class="register-payment__account-row register-payment__account-row--total">
+              <span>Total seleccionado</span>
+              <strong>{{ selectedTotalLabel() }}</strong>
+            </div>
+          </fieldset>
+        }
       }
 
       <fieldset class="register-payment__methods">
@@ -54,26 +102,6 @@
         </div>
       }
 
-      <div class="register-payment__row">
-        <app-input
-          label="Monto ($)"
-          type="text"
-          formControlName="amountDisplay"
-          hint="Se toma del importe de la cuota (no editable)"
-        />
-        <app-input
-          label="Período"
-          type="text"
-          formControlName="periodDisplay"
-        />
-      </div>
-
-      <app-input
-        label="Estado"
-        type="text"
-        formControlName="estadoDisplay"
-      />
-
       <app-input
         label="Fecha de pago"
         type="date"
@@ -98,8 +126,8 @@
       [fullWidth]="true"
       (click)="onSubmit()"
     >
-      @if (resolvingSocio()) {
-        Cargando cuota...
+      @if (accountLoading() || sociosLoading()) {
+        Cargando...
       } @else {
         Registrar y marcar como abonado
       }

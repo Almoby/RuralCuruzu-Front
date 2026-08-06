@@ -4,6 +4,7 @@
  * - GET /api/notificaciones
  * - GET /api/notificaciones/no-leidas/contador
  * - PATCH /api/notificaciones/{id}/leida
+ * - GET /api/notificaciones/stream?token=... (SSE event: notificacion)
  */
 
 export type NotificacionTipoDto =

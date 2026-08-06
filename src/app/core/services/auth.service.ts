@@ -34,7 +34,6 @@ export const SESSION_EXPIRED_LOGIN_REASON = 'session-expired';
 
 /**
  * Authentication against the real backend (Swagger Autenticación).
- * Domain modules may keep using `environment.useMocks`; Auth never uses mocks.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -100,7 +99,7 @@ export class AuthService {
       .pipe(
         map((response) => {
           const email = current?.email || '';
-          const session = mapBackendLoginToSession(response, email);
+          const session = mapBackendLoginToSession(response, email, current);
           this.persistSession(session);
           return session;
         }),
@@ -161,11 +160,6 @@ export class AuthService {
 
   getAccessToken(): string | null {
     return this.sessionSignal()?.accessToken ?? localStorage.getItem(STORAGE_KEYS.accessToken);
-  }
-
-  /** @deprecated Prefer getAccessToken(). */
-  getToken(): string | null {
-    return this.getAccessToken();
   }
 
   getRefreshToken(): string | null {

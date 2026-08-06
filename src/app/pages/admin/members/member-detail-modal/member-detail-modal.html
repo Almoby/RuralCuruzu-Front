@@ -30,20 +30,123 @@
 
       <section class="member-detail__account" aria-label="Estado de cuenta">
         <h4 class="member-detail__account-title">Estado de cuenta</h4>
-        <div class="member-detail__account-rows">
-          @for (row of accountRows(); track row.label) {
+
+        @if (accountState(); as account) {
+          <div class="member-detail__account-rows">
             <div class="member-detail__account-row">
-              <span class="member-detail__account-label">{{ row.label }}</span>
-              <span
-                class="member-detail__account-value"
-                [class.member-detail__account-value--success]="row.emphasis"
-              >
-                {{ row.value }}
-              </span>
+              <span class="member-detail__account-label">Deuda total</span>
+              <span class="member-detail__account-value">{{ account.deudaTotalLabel }}</span>
             </div>
+            <div class="member-detail__account-row">
+              <span class="member-detail__account-label">Cantidad de cuotas</span>
+              <span class="member-detail__account-value">{{ account.cuotasCount }}</span>
+            </div>
+          </div>
+
+          @if (account.cuotas.length === 0) {
+            <p class="member-detail__account-empty">Sin cuotas registradas.</p>
+          } @else {
+            <ul class="member-detail__cuotas">
+              @for (cuota of account.cuotas; track cuota.id) {
+                <li class="member-detail__cuota">
+                  <div class="member-detail__cuota-head">
+                    <span class="member-detail__cuota-period">{{ cuota.periodoLabel }}</span>
+                    <app-badge [variant]="cuotaEstadoBadge(cuota.estado)">
+                      {{ cuota.estadoLabel }}
+                    </app-badge>
+                  </div>
+                  <div class="member-detail__cuota-grid">
+                    <div>
+                      <p class="member-detail__label">Importe</p>
+                      <p class="member-detail__value">{{ cuota.importeLabel }}</p>
+                    </div>
+                    <div>
+                      <p class="member-detail__label">Vencimiento</p>
+                      <p class="member-detail__value">{{ cuota.dueDateLabel }}</p>
+                    </div>
+                    <div>
+                      <p class="member-detail__label">Fecha de pago</p>
+                      <p class="member-detail__value">{{ cuota.paidAtLabel }}</p>
+                    </div>
+                  </div>
+                </li>
+              }
+            </ul>
           }
-        </div>
+        } @else {
+          <p class="member-detail__account-empty">Sin cuotas registradas.</p>
+        }
       </section>
+
+      <div class="member-detail__actions">
+        <app-button variant="secondary" type="button" (click)="onEdit()">
+          <app-icon name="edit" [size]="16" />
+          Editar
+        </app-button>
+
+        @if (item.membershipStatus === 'ACTIVO') {
+          <app-button
+            variant="secondary"
+            type="button"
+            [disabled]="statusBusy()"
+            (click)="onChangeStatus('INACTIVO')"
+          >
+            <app-icon name="power_off" [size]="16" />
+            Pasar a inactivo
+          </app-button>
+          <app-button
+            variant="secondary"
+            type="button"
+            [disabled]="statusBusy()"
+            (click)="onChangeStatus('DADO_DE_BAJA')"
+          >
+            <app-icon name="trash" [size]="16" />
+            Dar de baja
+          </app-button>
+        }
+
+        @if (item.membershipStatus === 'INACTIVO') {
+          <app-button
+            variant="secondary"
+            type="button"
+            [disabled]="statusBusy()"
+            (click)="onChangeStatus('ACTIVO')"
+          >
+            <app-icon name="power" [size]="16" />
+            Reactivar
+          </app-button>
+          <app-button
+            variant="secondary"
+            type="button"
+            [disabled]="statusBusy()"
+            (click)="onChangeStatus('DADO_DE_BAJA')"
+          >
+            <app-icon name="trash" [size]="16" />
+            Dar de baja
+          </app-button>
+        }
+
+        @if (item.membershipStatus === 'DADO_DE_BAJA') {
+          <app-button
+            variant="secondary"
+            type="button"
+            [disabled]="statusBusy()"
+            (click)="onChangeStatus('ACTIVO')"
+          >
+            <app-icon name="power" [size]="16" />
+            Reactivar
+          </app-button>
+          <app-button
+            variant="secondary"
+            type="button"
+            [disabled]="statusBusy()"
+            (click)="onChangeStatus('INACTIVO')"
+          >
+            <app-icon name="power_off" [size]="16" />
+            Pasar a inactivo
+          </app-button>
+        }
+      </div>
     </div>
   }
 </app-modal>

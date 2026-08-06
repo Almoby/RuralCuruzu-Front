@@ -1,0 +1,181 @@
+<app-modal
+  class="deleted-merchants-modal-host"
+  [open]="open()"
+  title="Comercios eliminados"
+  subtitle="Historial de comercios dados de baja de forma definitiva."
+  size="lg"
+  (close)="onClose()"
+>
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando comercios eliminados..." />
+    }
+
+    @case ('error') {
+      <div class="dm-admin__state">
+        <app-alert variant="error" [message]="listError()" />
+        <app-button variant="outline" type="button" (click)="retry()">
+          Reintentar
+        </app-button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="No hay comercios eliminados"
+        description="Todavía no se eliminaron comercios."
+      />
+    }
+
+    @default {
+      <div class="dm-admin__toolbar">
+        <app-input
+          label="Buscar"
+          type="search"
+          placeholder="Nombre, razón social, CUIT o rubro"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="onSearch($event)"
+        />
+      </div>
+
+      @if (viewState() === 'no-results') {
+        <app-empty-state
+          title="Sin resultados"
+          description="No encontramos comercios eliminados con esa búsqueda."
+        />
+      } @else {
+        <ul class="dm-admin__list" role="list">
+          @for (item of paginatedItems(); track item.id) {
+            <li class="dm-admin__row" role="listitem">
+              <button
+                type="button"
+                class="dm-admin__main"
+                [class.dm-admin__main--selected]="selectedId() === item.id"
+                [attr.aria-expanded]="selectedId() === item.id"
+                (click)="selectItem(item)"
+              >
+                <span class="dm-admin__info">
+                  <span class="dm-admin__title-row">
+                    <span class="dm-admin__name">{{ item.tradeName }}</span>
+                    <app-badge [variant]="item.statusBadge">
+                      {{ item.statusLabel }}
+                    </app-badge>
+                  </span>
+                  <span class="dm-admin__meta">
+                    {{ item.legalName }} · {{ item.cuit }}
+                  </span>
+                  <span class="dm-admin__secondary">
+                    {{ item.category }}
+                    @if (item.deletedAtLabel !== '—') {
+                      · Baja: {{ item.deletedAtLabel }}
+                    }
+                  </span>
+                  @if (item.reason !== 'No informado') {
+                    <span class="dm-admin__reason">Motivo: {{ item.reason }}</span>
+                  }
+                </span>
+                <span class="dm-admin__chevron" aria-hidden="true">
+                  <app-icon
+                    [name]="selectedId() === item.id ? 'chevron_down' : 'chevron_right'"
+                    [size]="16"
+                  />
+                </span>
+              </button>
+
+              @if (selected()?.id === item.id) {
+                <div class="dm-admin__detail" aria-label="Detalle del comercio eliminado">
+                  <div class="dm-admin__detail-grid">
+                    <div class="dm-admin__field">
+                      <p class="dm-admin__label">Razón social</p>
+                      <p class="dm-admin__value">{{ item.legalName }}</p>
+                    </div>
+                    <div class="dm-admin__field">
+                      <p class="dm-admin__label">CUIT</p>
+                      <p class="dm-admin__value">{{ item.cuit }}</p>
+                    </div>
+                    <div class="dm-admin__field">
+                      <p class="dm-admin__label">Rubro</p>
+                      <p class="dm-admin__value">{{ item.category }}</p>
+                    </div>
+                    <div class="dm-admin__field">
+                      <p class="dm-admin__label">Fecha de eliminación</p>
+                      <p class="dm-admin__value">{{ item.deletedAtLabel }}</p>
+                    </div>
+                    <div class="dm-admin__field">
+                      <p class="dm-admin__label">Estado al eliminar</p>
+                      <p class="dm-admin__value">{{ item.statusAtDeletionLabel }}</p>
+                    </div>
+                    <div class="dm-admin__field">
+                      <p class="dm-admin__label">Responsable</p>
+                      <p class="dm-admin__value">{{ item.deletedByAdminName }}</p>
+                    </div>
+                    <div class="dm-admin__field dm-admin__field--full">
+                      <p class="dm-admin__label">Motivo</p>
+                      <p class="dm-admin__value">{{ item.reason }}</p>
+                    </div>
+                  </div>
+                </div>
+              }
+            </li>
+          }
+        </ul>
+
+        <div
+          class="dm-admin__pager"
+          role="navigation"
+          aria-label="Paginación de comercios eliminados"
+        >
+          <p class="dm-admin__pager-range">{{ rangeLabel() }}</p>
+          <div class="dm-admin__pager-controls">
+            <div class="dm-admin__page-size">
+              <button
+                type="button"
+                class="dm-admin__page-size-btn"
+                aria-label="Cantidad de comercios por página"
+                [attr.aria-expanded]="pageSizeMenuOpen()"
+                (click)="togglePageSizeMenu()"
+              >
+                {{ pageSize() }}
+                <span aria-hidden="true">↓</span>
+              </button>
+              @if (pageSizeMenuOpen()) {
+                <ul class="dm-admin__page-size-menu" role="listbox">
+                  @for (size of pageSizeOptions; track size) {
+                    <li>
+                      <button
+                        type="button"
+                        class="dm-admin__page-size-option"
+                        [class.dm-admin__page-size-option--active]="pageSize() === size"
+                        (click)="setPageSize(size)"
+                      >
+                        {{ size }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+            <button
+              type="button"
+              class="dm-admin__pager-btn"
+              aria-label="Anterior"
+              [disabled]="!canGoPrev()"
+              (click)="goPrev()"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              class="dm-admin__pager-btn"
+              aria-label="Siguiente"
+              [disabled]="!canGoNext()"
+              (click)="goNext()"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      }
+    }
+  }
+</app-modal>

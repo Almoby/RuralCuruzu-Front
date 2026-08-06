@@ -58,3 +58,26 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.member-edit__readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.member-edit__readonly-label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.member-edit__readonly-value {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  word-break: break-word;
+}

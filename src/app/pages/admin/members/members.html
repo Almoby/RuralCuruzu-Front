@@ -108,19 +108,64 @@
                       class="members-table__action"
                       title="Editar"
                       aria-label="Editar a {{ member.fullName }}"
-                      (click)="openEdit()"
+                      (click)="openEdit(member)"
                     >
                       <app-icon name="edit" [size]="16" />
                     </button>
-                    @if (member.isActive) {
+                    @if (member.membershipStatus === 'ACTIVO') {
+                      <button
+                        type="button"
+                        class="members-table__action"
+                        title="Pasar a inactivo"
+                        aria-label="Pasar a inactivo a {{ member.fullName }}"
+                        [disabled]="statusBusyId() === member.id"
+                        (click)="askStatusChange(member, 'INACTIVO')"
+                      >
+                        <app-icon name="power_off" [size]="16" />
+                      </button>
                       <button
                         type="button"
                         class="members-table__action members-table__action--danger"
-                        title="Desactivar"
-                        aria-label="Desactivar a {{ member.fullName }}"
-                        (click)="askDeactivate()"
+                        title="Dar de baja"
+                        aria-label="Dar de baja a {{ member.fullName }}"
+                        [disabled]="statusBusyId() === member.id"
+                        (click)="askStatusChange(member, 'DADO_DE_BAJA')"
                       >
                         <app-icon name="trash" [size]="16" />
+                      </button>
+                    }
+                    @if (member.membershipStatus === 'INACTIVO') {
+                      <button
+                        type="button"
+                        class="members-table__action"
+                        title="Reactivar"
+                        aria-label="Reactivar a {{ member.fullName }}"
+                        [disabled]="statusBusyId() === member.id"
+                        (click)="askStatusChange(member, 'ACTIVO')"
+                      >
+                        <app-icon name="power" [size]="16" />
+                      </button>
+                      <button
+                        type="button"
+                        class="members-table__action members-table__action--danger"
+                        title="Dar de baja"
+                        aria-label="Dar de baja a {{ member.fullName }}"
+                        [disabled]="statusBusyId() === member.id"
+                        (click)="askStatusChange(member, 'DADO_DE_BAJA')"
+                      >
+                        <app-icon name="trash" [size]="16" />
+                      </button>
+                    }
+                    @if (member.membershipStatus === 'DADO_DE_BAJA') {
+                      <button
+                        type="button"
+                        class="members-table__action"
+                        title="Reactivar"
+                        aria-label="Reactivar a {{ member.fullName }}"
+                        [disabled]="statusBusyId() === member.id"
+                        (click)="askStatusChange(member, 'ACTIVO')"
+                      >
+                        <app-icon name="power" [size]="16" />
                       </button>
                     }
                   </td>
@@ -158,19 +203,64 @@
                     class="members-table__action"
                     title="Editar"
                     aria-label="Editar a {{ member.fullName }}"
-                    (click)="openEdit()"
+                    (click)="openEdit(member)"
                   >
                     <app-icon name="edit" [size]="16" />
                   </button>
-                  @if (member.isActive) {
+                  @if (member.membershipStatus === 'ACTIVO') {
+                    <button
+                      type="button"
+                      class="members-table__action"
+                      title="Pasar a inactivo"
+                      aria-label="Pasar a inactivo a {{ member.fullName }}"
+                      [disabled]="statusBusyId() === member.id"
+                      (click)="askStatusChange(member, 'INACTIVO')"
+                    >
+                      <app-icon name="power_off" [size]="16" />
+                    </button>
                     <button
                       type="button"
                       class="members-table__action members-table__action--danger"
-                      title="Desactivar"
-                      aria-label="Desactivar a {{ member.fullName }}"
-                      (click)="askDeactivate()"
+                      title="Dar de baja"
+                      aria-label="Dar de baja a {{ member.fullName }}"
+                      [disabled]="statusBusyId() === member.id"
+                      (click)="askStatusChange(member, 'DADO_DE_BAJA')"
                     >
                       <app-icon name="trash" [size]="16" />
+                    </button>
+                  }
+                  @if (member.membershipStatus === 'INACTIVO') {
+                    <button
+                      type="button"
+                      class="members-table__action"
+                      title="Reactivar"
+                      aria-label="Reactivar a {{ member.fullName }}"
+                      [disabled]="statusBusyId() === member.id"
+                      (click)="askStatusChange(member, 'ACTIVO')"
+                    >
+                      <app-icon name="power" [size]="16" />
+                    </button>
+                    <button
+                      type="button"
+                      class="members-table__action members-table__action--danger"
+                      title="Dar de baja"
+                      aria-label="Dar de baja a {{ member.fullName }}"
+                      [disabled]="statusBusyId() === member.id"
+                      (click)="askStatusChange(member, 'DADO_DE_BAJA')"
+                    >
+                      <app-icon name="trash" [size]="16" />
+                    </button>
+                  }
+                  @if (member.membershipStatus === 'DADO_DE_BAJA') {
+                    <button
+                      type="button"
+                      class="members-table__action"
+                      title="Reactivar"
+                      aria-label="Reactivar a {{ member.fullName }}"
+                      [disabled]="statusBusyId() === member.id"
+                      (click)="askStatusChange(member, 'ACTIVO')"
+                    >
+                      <app-icon name="power" [size]="16" />
                     </button>
                   }
                 </div>
@@ -215,7 +305,7 @@
 
   <app-member-create-modal
     [open]="createOpen()"
-    [submitting]="submitting()"
+    [submitting]="submitting() && createOpen()"
     (close)="closeCreate()"
     (save)="saveCreate($event)"
   />
@@ -224,6 +314,31 @@
     [open]="detailOpen()"
     [member]="detailMember()"
     [loading]="detailLoading()"
+    [statusBusy]="statusBusyId() === detailMember()?.id"
     (close)="closeDetail()"
+    (edit)="openEdit($event)"
+    (changeStatus)="askStatusChange($event.member, $event.nuevoEstado)"
+  />
+
+  <app-member-edit-modal
+    [open]="editOpen()"
+    [member]="editMember()"
+    [loading]="editLoading()"
+    [submitting]="submitting() && editOpen()"
+    [successMessage]="editSuccessMessage()"
+    [serverFieldErrors]="editServerErrors()"
+    (close)="closeEdit()"
+    (save)="saveEdit($event)"
+  />
+
+  <app-confirm-dialog
+    [open]="!!statusConfirm()"
+    [title]="confirmTitle()"
+    [message]="confirmMessage()"
+    [confirmLabel]="confirmLabel()"
+    cancelLabel="Volver"
+    [danger]="statusConfirm()?.kind === 'baja'"
+    (confirm)="confirmStatusChange()"
+    (cancel)="cancelStatusChange()"
   />
 </section>

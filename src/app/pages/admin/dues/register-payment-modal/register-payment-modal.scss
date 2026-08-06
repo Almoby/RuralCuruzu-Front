@@ -97,6 +97,92 @@
   }
 }
 
+.register-payment__account {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: #f7f8f8;
+}
+
+.register-payment__account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+
+  strong {
+    color: var(--color-text);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &--total {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+.register-payment__periods {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.register-payment__period-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.register-payment__period {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  cursor: pointer;
+
+  input {
+    margin-top: 0.2rem;
+  }
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+}
+
+.register-payment__period-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.register-payment__period-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.register-payment__period-estado {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-muted);
+}
+
+.register-payment__period-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-muted);
+}
+
 .register-payment__footer {
   display: grid;
   grid-template-columns: 1fr;

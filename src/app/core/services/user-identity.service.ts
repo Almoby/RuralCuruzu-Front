@@ -10,7 +10,9 @@ interface StoredSocioNumero {
 }
 
 /**
- * Caches the Socio business number (`numeroSocio` / `socioNumeroSocio`) for chrome.
+ * Socio chrome identity (`numeroSocio`).
+ * Primary source: LoginResponse / AuthSession.numeroSocio.
+ * Legacy email cache + domain endpoints remain as fallback for old sessions.
  * Never stores or exposes Mongo/UUID technical ids from login `refId`.
  */
 @Injectable({ providedIn: 'root' })
@@ -42,11 +44,9 @@ export class UserIdentityService {
     }
 
     if (user.role === UserRole.Comercio) {
-      // Login `refId` is a profile id (technical). No commerce business code in Swagger login.
       return user.merchantName?.trim() || fullName;
     }
 
-    // Admin — no visible business code in contract.
     return fullName;
   });
 
@@ -58,12 +58,22 @@ export class UserIdentityService {
         return;
       }
 
+      const fromSession = asDisplayableBusinessCode(session.numeroSocio);
+      if (fromSession) {
+        this.socioNumeroSignal.set(fromSession);
+        this.writeStored({ email: session.email, numeroSocio: fromSession });
+        return;
+      }
+
       const stored = this.readStoredForEmail(session.email);
       this.socioNumeroSignal.set(stored);
     });
   }
 
-  /** Persist a real Socio number from QR / cuotas / pagos when available. */
+  /**
+   * Persist a real Socio number from QR / cuotas / pagos when available.
+   * Does not overwrite a different session.numeroSocio from login.
+   */
   setSocioNumero(value: string | null | undefined): void {
     const numero = asDisplayableBusinessCode(value);
     if (!numero) {
@@ -72,6 +82,17 @@ export class UserIdentityService {
 
     const session = this.auth.getCurrentSession();
     if (!session || session.role !== UserRole.Socio) {
+      return;
+    }
+
+    const fromSession = asDisplayableBusinessCode(session.numeroSocio);
+    if (fromSession) {
+      if (fromSession !== numero) {
+        // Session from LoginResponse wins; keep chrome aligned with session.
+        if (this.socioNumeroSignal() !== fromSession) {
+          this.socioNumeroSignal.set(fromSession);
+        }
+      }
       return;
     }
 

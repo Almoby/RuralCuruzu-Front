@@ -26,6 +26,8 @@ export interface SocioHistoryBenefitItem {
   id: string;
   benefitTitle: string;
   merchantName: string;
+  /** Real catalog name from `tipoBeneficioNombre` (empty when absent). */
+  typeName: string;
   /** Prefomatted local datetime for the list (`d/m/yyyy a las HH:mm`). */
   usedAtLabel: string;
   savingsAmount: number;

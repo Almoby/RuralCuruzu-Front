@@ -1,4 +1,7 @@
 import { MemberCategory } from '../../shared/enums';
+import {
+  CuotaResumenResponseDto,
+} from './admin-cuota.interface';
 import { TipoPersonaSolicitud } from './solicitud-socio.interface';
 
 /** Backend membership status (Swagger SocioResumenResponse.estado). */
@@ -15,6 +18,44 @@ export interface SocioResumenDto {
   tipoPersona: TipoPersonaSolicitud;
   estado: SocioEstado;
   correoElectronico: string;
+}
+
+/** Swagger `EstadoCuentaSocioResponse` (nested in SocioResponse). */
+export interface EstadoCuentaSocioDto {
+  socioId?: string | null;
+  socioNumeroSocio?: string | null;
+  socioNombre?: string | null;
+  deudaTotal?: number | null;
+  cuotas?: CuotaResumenResponseDto[] | null;
+}
+
+/** Swagger `ActualizarSocioParcialRequest` */
+export interface ActualizarSocioParcialRequestDto {
+  categoria?: SocioCategoria;
+  telefono?: string;
+  correoElectronico?: string;
+  direccion?: string;
+  portalPisoDepartamento?: string;
+  nombreEstablecimiento?: string;
+  direccionEstablecimiento?: string;
+}
+
+/** Swagger `SocioActualizadoResponse` */
+export interface SocioActualizadoResponseDto {
+  mensaje?: string | null;
+  socio?: SocioDetalleDto | null;
+}
+
+/** Swagger `CambiarEstadoSocioRequest` */
+export interface CambiarEstadoSocioRequestDto {
+  nuevoEstado: SocioEstado;
+}
+
+/** Swagger `CambiarEstadoSocioResponse` */
+export interface CambiarEstadoSocioResponseDto {
+  id?: string | null;
+  estado?: SocioEstado | null;
+  mensaje?: string | null;
 }
 
 export interface SocioDatosPersonaFisicaDto {
@@ -43,7 +84,7 @@ export interface SocioDatosPersonaJuridicaDto {
   direccionEstablecimiento?: string;
 }
 
-/** GET /admin/socios/{id} */
+/** GET /admin/socios/{id} — Swagger `SocioResponse` */
 export interface SocioDetalleDto {
   id: string;
   numeroSocio: string;
@@ -56,6 +97,7 @@ export interface SocioDetalleDto {
   numeroSolicitudOrigen?: string;
   fechaAlta?: string;
   fechaActualizacion?: string;
+  estadoCuenta?: EstadoCuentaSocioDto | null;
 }
 
 /** POST /admin/socios body */
@@ -138,6 +180,37 @@ export interface AdminMember {
   nextDueDateLabel: string;
 }
 
+/** Editable fields for PATCH /admin/socios/{id} (partial). */
+export interface AdminSocioEditFormValue {
+  categoria: SocioCategoria;
+  telefono: string;
+  correoElectronico: string;
+  direccion: string;
+  portalPisoDepartamento: string;
+  nombreEstablecimiento: string;
+  direccionEstablecimiento: string;
+}
+
+export interface AdminMemberAccountCuota {
+  id: string;
+  periodo: string;
+  periodoLabel: string;
+  importe: number;
+  importeLabel: string;
+  dueDateLabel: string;
+  estado: string;
+  estadoLabel: string;
+  paidAtLabel: string;
+}
+
+export interface AdminMemberAccountState {
+  deudaTotal: number;
+  deudaTotalLabel: string;
+  cuotasCount: number;
+  cuotas: AdminMemberAccountCuota[];
+}
+
 export interface AdminMemberDetail extends AdminMember {
   notes?: string;
+  accountState: AdminMemberAccountState | null;
 }

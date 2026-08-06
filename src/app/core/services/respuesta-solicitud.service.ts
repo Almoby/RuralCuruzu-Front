@@ -10,7 +10,7 @@ import {
 
 /**
  * Public member-request observation reply endpoints.
- * Always uses the real HTTP API (tokenized email links — no mocks).
+ * Tokenized email-link flow against the real HTTP API.
  */
 @Injectable({ providedIn: 'root' })
 export class RespuestaSolicitudService {

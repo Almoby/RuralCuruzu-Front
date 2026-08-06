@@ -1,5 +1,13 @@
 <section class="admin-page merchants">
   <app-page-header title="Comercios Adheridos" [subtitle]="subtitle()">
+    <app-button variant="outline" (click)="openBenefitTypes()">
+      <app-icon name="local_offer" [size]="16" />
+      Tipos de beneficio
+    </app-button>
+    <app-button variant="secondary" (click)="openDeletedMerchants()">
+      <app-icon name="history" [size]="16" />
+      Comercios eliminados
+    </app-button>
     <app-button variant="primary" (click)="openCreate()">
       <app-icon name="plus" [size]="16" />
       Nuevo comercio
@@ -229,5 +237,16 @@
     [danger]="true"
     (confirm)="confirmDelete()"
     (cancel)="cancelDelete()"
+  />
+
+  <app-benefit-types-admin-modal
+    [open]="benefitTypesOpen()"
+    (close)="closeBenefitTypes()"
+  />
+
+  <app-deleted-merchants-modal
+    [open]="deletedMerchantsOpen()"
+    [refreshToken]="deletedMerchantsRefreshToken()"
+    (close)="closeDeletedMerchants()"
   />
 </section>

@@ -27,9 +27,16 @@ import {
   DashboardValueFormat,
   TrendDirection,
 } from '../../../core/interfaces/dashboard.interface';
+import {
+  BENEFIT_MONTH_OPTIONS,
+  buildBenefitsByCommerceForPeriod,
+  currentCalendarBenefitPeriod,
+  extractYearsFromUsoPorPeriodo,
+} from '../../../core/mappers/admin-uso-beneficios.mapper';
 import { CHART_COLORS } from '../utils/chart-theme';
 
 type DashboardViewState = 'loading' | 'success' | 'empty' | 'error';
+type CommerceFilterMenu = 'benefitMonth' | 'benefitYear' | null;
 
 function isApiError(error: unknown): error is ApiError {
   return (
@@ -66,6 +73,12 @@ export class AdminDashboardPage {
 
   protected readonly viewState = signal<DashboardViewState>('loading');
   protected readonly stats = signal<AdminDashboardStats | null>(null);
+  protected readonly openCommerceMenu = signal<CommerceFilterMenu>(null);
+  protected readonly selectedBenefitYear = signal(new Date().getFullYear());
+  protected readonly selectedBenefitMonth = signal(
+    String(new Date().getMonth() + 1).padStart(2, '0'),
+  );
+  protected readonly benefitMonthOptions = BENEFIT_MONTH_OPTIONS;
 
   protected readonly title = computed(() => this.stats()?.title ?? 'Dashboard General');
   protected readonly subtitle = computed(
@@ -81,8 +94,27 @@ export class AdminDashboardPage {
 
   protected readonly memberStatus = computed(() => this.stats()?.memberStatus ?? null);
 
-  protected readonly benefitsByCommerce = computed(
-    () => this.stats()?.benefitsByCommerce ?? null,
+  protected readonly benefitYearOptions = computed(() => {
+    const years = new Set(
+      extractYearsFromUsoPorPeriodo(this.stats()?.usoBeneficiosPorComercio ?? []),
+    );
+    years.add(new Date().getFullYear());
+    return Array.from(years).sort((a, b) => b - a);
+  });
+
+  protected readonly selectedBenefitMonthLabel = computed(() => {
+    const month = this.selectedBenefitMonth();
+    return (
+      this.benefitMonthOptions.find((item) => item.value === month)?.label ?? 'Mes'
+    );
+  });
+
+  protected readonly benefitsByCommerce = computed(() =>
+    buildBenefitsByCommerceForPeriod(
+      this.stats()?.usoBeneficiosPorComercio ?? [],
+      this.selectedBenefitYear(),
+      this.selectedBenefitMonth(),
+    ),
   );
 
   protected readonly collectionChartData = computed((): ChartData<'bar'> | null => {
@@ -345,12 +377,24 @@ export class AdminDashboardPage {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((stats) => {
+        // Always open on the current calendar period (never jump to last period with data).
+        const defaultBenefit = currentCalendarBenefitPeriod();
+        this.selectedBenefitYear.set(defaultBenefit.year);
+        this.selectedBenefitMonth.set(defaultBenefit.month);
+        this.openCommerceMenu.set(null);
+
+        const filteredBenefits = buildBenefitsByCommerceForPeriod(
+          stats.usoBeneficiosPorComercio,
+          defaultBenefit.year,
+          defaultBenefit.month,
+        );
+
         const isEmpty =
           stats.summaryCards.length === 0 &&
           stats.financialCards.length === 0 &&
           stats.monthlyCollections.labels.length === 0 &&
           stats.memberStatus.segments.every((segment) => segment.value === 0) &&
-          stats.benefitsByCommerce.items.length === 0;
+          filteredBenefits.items.length === 0;
 
         this.stats.set(stats);
         this.viewState.set(isEmpty ? 'empty' : 'success');
@@ -359,6 +403,20 @@ export class AdminDashboardPage {
 
   protected retry(): void {
     this.reload$.next();
+  }
+
+  protected toggleCommerceMenu(menu: CommerceFilterMenu): void {
+    this.openCommerceMenu.update((current) => (current === menu ? null : menu));
+  }
+
+  protected selectBenefitYear(year: number): void {
+    this.openCommerceMenu.set(null);
+    this.selectedBenefitYear.set(year);
+  }
+
+  protected selectBenefitMonth(month: string): void {
+    this.openCommerceMenu.set(null);
+    this.selectedBenefitMonth.set(month);
   }
 
   protected formatCardValue(card: DashboardMetricCard): string {

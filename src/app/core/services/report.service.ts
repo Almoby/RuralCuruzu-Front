@@ -5,56 +5,46 @@ import { catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { SKIP_ERROR_TOAST } from '../http/auth-http.tokens';
 import { CuotaResumenResponseDto } from '../interfaces/admin-cuota.interface';
-import { AdminDashboardDto } from '../interfaces/admin-dashboard.interface';
+import {
+  AdminDashboardDto,
+  CobranzaMensualDto,
+} from '../interfaces/admin-dashboard.interface';
 import {
   AdminReportExportFile,
   AdminReportQueryParams,
   AdminReportRawBundle,
   AdminReportsLoadResult,
 } from '../interfaces/admin-report.interface';
-import { SocioResumenDto } from '../interfaces/admin-socio.interface';
 import { ApiError } from '../interfaces/api-response.interface';
 import {
-  BenefitUsageRanking,
-  CommerceBenefitUsageReport,
-  ExportReportRow,
-  MemberDebtReport,
-  MonthlyCollectedFeesReport,
   MonthlyPaymentsReport,
-  OverdueMemberReport,
-  ReportMetric,
   ReportsDashboardResponse,
 } from '../interfaces/report.interface';
 import { ApiErrorResponse } from '../interfaces/respuesta-solicitud.interface';
 import {
+  buildCollectionsVsPending,
   mapAdminReportBundleToViewModel,
   mapCollectedFeesFromCuotas,
 } from '../mappers/admin-report.mapper';
 import { parseContentDispositionFileName } from '../mappers/admin-solicitud-socio.mapper';
-import { mockResponse } from '../utils/mock.util';
-import reportsMock from '../../../assets/mock-data/reports-dashboard.json';
 
 /**
- * Reports data access.
- * Admin Reportes → real backend (dashboard + cuotas + socios).
- * Legacy helpers → mocks until other roles need them.
+ * Reports data access — Admin Reportes:
+ * - GET /admin/dashboard (KPIs, debt, benefits, collections series)
+ * - GET /admin/cuotas (only “Cuotas cobradas por mes”)
+ * - GET /admin/dashboard/exportar (PDF)
  */
 @Injectable({ providedIn: 'root' })
 export class ReportService {
   private readonly http = inject(HttpClient);
   private readonly adminDashboardBase = `${environment.apiBaseUrl}/admin/dashboard`;
   private readonly adminCuotasBase = `${environment.apiBaseUrl}/admin/cuotas`;
-  private readonly adminSociosBase = `${environment.apiBaseUrl}/admin/socios`;
   private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
-  private readonly store: ReportsDashboardResponse = structuredClone(
-    reportsMock,
-  ) as ReportsDashboardResponse;
 
   /**
    * Coordinated Admin Reportes load:
    * - GET /admin/dashboard
    * - GET /admin/cuotas
-   * - GET /admin/socios?estado=ACTIVO
    */
   getAdminReports(
     params?: AdminReportQueryParams,
@@ -72,6 +62,7 @@ export class ReportService {
         return {
           report: mapAdminReportBundleToViewModel(bundle, selectedCollectedPeriod),
           cuotas: bundle.cuotas,
+          dashboard: bundle.dashboard,
         };
       }),
     );
@@ -89,6 +80,25 @@ export class ReportService {
       ...current,
       monthlyCollectedFees: mapCollectedFeesFromCuotas(cuotas, period),
     };
+  }
+
+  /**
+   * GET /admin/dashboard?año= — Swagger returns 12 months for that year only.
+   * Used by “Cobrados vs pendientes” year filter.
+   */
+  getCobranzaMensualForYear(year: number): Observable<{
+    cobranzaMensual: CobranzaMensualDto[];
+    collectionsVsPending: MonthlyPaymentsReport;
+  }> {
+    return this.fetchDashboard({ año: year }).pipe(
+      map((dashboard) => {
+        const cobranzaMensual = dashboard.cobranzaMensual ?? [];
+        return {
+          cobranzaMensual,
+          collectionsVsPending: buildCollectionsVsPending(cobranzaMensual, year),
+        };
+      }),
+    );
   }
 
   /**
@@ -116,22 +126,20 @@ export class ReportService {
         map((value) => ({ ok: true as const, value })),
         catchError(() => of({ ok: false as const, value: [] as CuotaResumenResponseDto[] })),
       ),
-      sociosActivos: this.fetchSociosActivos().pipe(
-        map((value) => ({ ok: true as const, value })),
-        catchError(() => of({ ok: false as const, value: null as number | null })),
-      ),
     }).pipe(
-      map(({ dashboard, cuotas, sociosActivos }) => ({
+      map(({ dashboard, cuotas }) => ({
         dashboard: dashboard.value,
         cuotas: cuotas.value,
-        sociosActivosCount: sociosActivos.value,
         dashboardFailed: !dashboard.ok,
         cuotasFailed: !cuotas.ok,
       })),
     );
   }
 
-  /** GET /admin/dashboard */
+  /**
+   * GET /admin/dashboard
+   * Query filters prepared (`año`, `categoria`, `tipoPersona`); Reportes UI has none yet.
+   */
   private fetchDashboard(
     params?: AdminReportQueryParams,
   ): Observable<AdminDashboardDto> {
@@ -152,79 +160,13 @@ export class ReportService {
     });
   }
 
-  /** GET /admin/cuotas (full list — no pagination in Swagger). */
+  /** GET /admin/cuotas — used only for collected-fees-by-month list. */
   private fetchCuotas(): Observable<CuotaResumenResponseDto[]> {
     return this.http
       .get<CuotaResumenResponseDto[]>(this.adminCuotasBase, {
         context: this.silentContext,
       })
       .pipe(map((items) => items ?? []));
-  }
-
-  /** GET /admin/socios?estado=ACTIVO → count for "Socios activos". */
-  private fetchSociosActivos(): Observable<number> {
-    return this.http
-      .get<SocioResumenDto[]>(this.adminSociosBase, {
-        params: new HttpParams().set('estado', 'ACTIVO'),
-        context: this.silentContext,
-      })
-      .pipe(map((items) => (items ?? []).length));
-  }
-
-  // --- Legacy (mocks / invented paths) — not used by Admin Reportes ---
-
-  /** @deprecated Admin Reportes uses getAdminReports(). */
-  getReports(): Observable<ReportsDashboardResponse> {
-    if (environment.useMocks) {
-      return mockResponse(structuredClone(this.store));
-    }
-    return this.http.get<ReportsDashboardResponse>(`${environment.apiBaseUrl}/reports`);
-  }
-
-  /** @deprecated Prefer getAdminReports() */
-  getReportSummary(_periodLabel?: string): Observable<ReportsDashboardResponse> {
-    return this.getReports();
-  }
-
-  getMetrics(): Observable<ReportMetric[]> {
-    return this.getReports().pipe(map((data) => data.metrics));
-  }
-
-  getCollectionsVsPending(): Observable<MonthlyPaymentsReport> {
-    return this.getReports().pipe(map((data) => data.collectionsVsPending));
-  }
-
-  getDebtByMember(): Observable<MemberDebtReport> {
-    return this.getReports().pipe(map((data) => data.debtByMember));
-  }
-
-  getOverdueMembers(): Observable<OverdueMemberReport> {
-    return this.getReports().pipe(map((data) => data.overdueMembers));
-  }
-
-  getMonthlyCollectedFees(): Observable<MonthlyCollectedFeesReport> {
-    return this.getReports().pipe(map((data) => data.monthlyCollectedFees));
-  }
-
-  getTopBenefits(): Observable<BenefitUsageRanking> {
-    return this.getReports().pipe(map((data) => data.topBenefits));
-  }
-
-  getBenefitsByCommerce(): Observable<CommerceBenefitUsageReport> {
-    return this.getReports().pipe(map((data) => data.benefitsByCommerce));
-  }
-
-  /** @deprecated Admin Reportes uses exportAdminReport() (PDF). */
-  exportReports(): Observable<Blob> {
-    if (environment.useMocks) {
-      const rows = this.buildExportRows(this.store);
-      const csv = this.toCsv(rows);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      return mockResponse(blob);
-    }
-    return this.http.get(`${environment.apiBaseUrl}/reports/export`, {
-      responseType: 'blob',
-    });
   }
 
   private async toExportFile(
@@ -287,81 +229,5 @@ export class ReportService {
         code: 'EXPORT_ERROR',
       };
     }
-  }
-
-  private buildExportRows(data: ReportsDashboardResponse): ExportReportRow[] {
-    const rows: ExportReportRow[] = [];
-
-    data.metrics.forEach((metric) => {
-      rows.push({
-        section: 'Métricas',
-        label: metric.label,
-        value: String(metric.value),
-      });
-    });
-
-    data.collectionsVsPending.labels.forEach((label, index) => {
-      data.collectionsVsPending.series.forEach((series) => {
-        rows.push({
-          section: data.collectionsVsPending.title,
-          label: `${label} — ${series.name}`,
-          value: String(series.values[index] ?? 0),
-        });
-      });
-    });
-
-    data.debtByMember.items.forEach((item) => {
-      rows.push({
-        section: data.debtByMember.title,
-        label: `${item.memberName} (${item.memberCode})`,
-        value: String(item.amount),
-      });
-    });
-
-    data.overdueMembers.items.forEach((item) => {
-      rows.push({
-        section: data.overdueMembers.title,
-        label: `${item.memberName} (${item.memberCode})`,
-        value: String(item.amount),
-      });
-    });
-
-    data.monthlyCollectedFees.items.forEach((item) => {
-      rows.push({
-        section: data.monthlyCollectedFees.title,
-        label: `${item.memberName} (${item.memberCode})`,
-        value: String(item.amount),
-      });
-    });
-
-    data.topBenefits.items.forEach((item) => {
-      rows.push({
-        section: data.topBenefits.title,
-        label: `${item.rank}. ${item.title} — ${item.merchantName}`,
-        value: String(item.usesPerMonth),
-      });
-    });
-
-    data.benefitsByCommerce.items.forEach((item) => {
-      rows.push({
-        section: data.benefitsByCommerce.title,
-        label: item.name,
-        value: String(item.value),
-      });
-    });
-
-    return rows;
-  }
-
-  private toCsv(rows: ExportReportRow[]): string {
-    const header = 'Sección,Etiqueta,Valor';
-    const body = rows
-      .map((row) =>
-        [row.section, row.label, row.value]
-          .map((cell) => `"${cell.replaceAll('"', '""')}"`)
-          .join(','),
-      )
-      .join('\n');
-    return `${header}\n${body}\n`;
   }
 }

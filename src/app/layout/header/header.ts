@@ -20,6 +20,8 @@ import { NotificationViewModel } from '../../core/interfaces/notification-api.in
 import { formatUnreadBadge } from '../../core/mappers/notification-api.mapper';
 import { AuthService } from '../../core/services/auth.service';
 import { NotificationApiService } from '../../core/services/notification-api.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { NotificationStreamService } from '../../core/services/notification-stream.service';
 import { USER_ROLE_LABELS, UserRole } from '../../shared/enums';
 import { AppIcon } from '../../shared/components/icon/app-icon';
 import { AppLoading } from '../../shared/components/loading/app-loading';
@@ -37,6 +39,8 @@ type HeaderPanel = 'none' | 'notifications' | 'profile';
 export class HeaderComponent {
   private readonly authService = inject(AuthService);
   private readonly notificationApi = inject(NotificationApiService);
+  private readonly notificationStream = inject(NotificationStreamService);
+  private readonly toasts = inject(NotificationService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly host = inject(ElementRef<HTMLElement>);
@@ -119,6 +123,12 @@ export class HeaderComponent {
       });
     });
 
+    this.notificationStream.notifications$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((item) => {
+        this.applyRealtimeNotification(item);
+      });
+
     this.router.events
       .pipe(
         filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -177,7 +187,10 @@ export class HeaderComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (items) => {
-          this.notificationsSignal.set(items);
+          this.notificationApi.rememberIds(items.map((item) => item.id));
+          this.notificationsSignal.update((current) =>
+            this.notificationApi.mergeNotifications(items, current),
+          );
           this.notificationsLoadingSignal.set(false);
           this.notificationsErrorSignal.set(false);
         },
@@ -243,6 +256,29 @@ export class HeaderComponent {
           /* Badge stays at last known / 0; header remains usable. */
         },
       });
+  }
+
+  private applyRealtimeNotification(item: NotificationViewModel): void {
+    if (!this.notificationApi.observeId(item.id)) {
+      return;
+    }
+
+    if (!item.read) {
+      this.notificationApi.incrementUnread();
+    }
+
+    const panelOpen = this.openPanelSignal() === 'notifications';
+    if (panelOpen) {
+      this.notificationsSignal.update((list) =>
+        this.notificationApi.mergeNotifications([item], list),
+      );
+      return;
+    }
+
+    if (!item.read) {
+      const toastText = item.subject.trim() || 'Nueva notificación';
+      this.toasts.info(toastText);
+    }
   }
 
   private closePanels(): void {

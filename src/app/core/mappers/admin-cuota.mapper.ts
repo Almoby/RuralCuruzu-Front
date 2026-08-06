@@ -1,11 +1,15 @@
 import { BadgeVariant } from '../../shared/components';
 import { formatPeriodLabel } from '../../shared/utils';
 import {
+  AdminCobranzaPorCategoriaViewModel,
   AdminCuotaDetail,
   AdminCuotaFilter,
   AdminCuotaListItem,
   AdminCuotasResumenViewModel,
   AdminDatosBancariosViewModel,
+  AdminEjecucionGeneracionViewModel,
+  AdminEstadoCuentaPeriodoOption,
+  AdminEstadoCuentaViewModel,
   AdminFeePeriodOption,
   AdminPagoViewModel,
   AdminReglaCuotaViewModel,
@@ -13,6 +17,9 @@ import {
   CuotaResponseDto,
   CuotaResumenResponseDto,
   DatosBancariosResponseDto,
+  EstadoCuentaSocioResponseDto,
+  GeneracionCuotasOrigen,
+  GeneracionCuotasResponseDto,
   MedioPagoCuota,
   PagoEstado,
   PagoResponseDto,
@@ -194,17 +201,50 @@ export function matchesAdminCuotaFilter(
 
 /**
  * Admin POST /admin/cuotas/pagos eligibility.
- * Swagger admin only says “no admite un pago en su estado actual”.
- * Socio autoservicio documenta PENDIENTE | VENCIDA | RECHAZADA;
- * for admin register we only allow unpaid open debts (PENDIENTE | VENCIDA):
- * - EN_REVISION / INFORMADA already have a payment in flight
- * - PAGADA / ANULADA are closed
- * - RECHAZADA is not documented for admin manual register
+ * Swagger admin: “alguna cuota no admite un pago en su estado actual”.
+ * Align with socio autoservicio RN-17: PENDIENTE | VENCIDA | RECHAZADA.
+ * Excludes EN_REVISION / INFORMADA (payment in flight) and PAGADA / ANULADA.
  */
 export function canRegisterPayment(
   cuota: Pick<AdminCuotaListItem, 'estado'> | { estado: CuotaEstado },
 ): boolean {
-  return cuota.estado === 'PENDIENTE' || cuota.estado === 'VENCIDA';
+  return (
+    cuota.estado === 'PENDIENTE' ||
+    cuota.estado === 'VENCIDA' ||
+    cuota.estado === 'RECHAZADA'
+  );
+}
+
+/**
+ * Admin GET /admin/cuotas/pagos/{pagoId}/comprobante:
+ * real file if attached, or generated PDF constancia when pago is APROBADO.
+ */
+export function canDownloadAdminComprobante(
+  pago:
+    | Pick<AdminPagoViewModel, 'id' | 'hasComprobantePath' | 'estado'>
+    | Pick<PagoResponseDto, 'id' | 'comprobanteRuta' | 'estado'>
+    | null
+    | undefined,
+): boolean {
+  if (!pago?.id) {
+    return false;
+  }
+  const hasPath =
+    'hasComprobantePath' in pago
+      ? pago.hasComprobantePath === true
+      : Boolean(optional(pago.comprobanteRuta));
+  return hasPath || pago.estado === 'APROBADO';
+}
+
+export function generacionOrigenLabel(origen: GeneracionCuotasOrigen | undefined): string {
+  switch (origen) {
+    case 'AUTOMATICA':
+      return 'Automática';
+    case 'MANUAL':
+      return 'Manual';
+    default:
+      return '—';
+  }
 }
 
 export function formatCuotaOptionLabel(cuota: AdminCuotaListItem): string {
@@ -221,8 +261,11 @@ function mapPagoDtoToViewModel(dto: PagoResponseDto | null | undefined): AdminPa
     return undefined;
   }
 
+  const hasComprobantePath = Boolean(optional(dto.comprobanteRuta));
+
   return {
     id: dto.id,
+    estado: dto.estado,
     importeLabel: formatCuotaImporte(asNumber(dto.importe)),
     medioPagoLabel: medioPagoLabel(dto.medioPago),
     estadoLabel: pagoEstadoLabel(dto.estado),
@@ -231,7 +274,12 @@ function mapPagoDtoToViewModel(dto: PagoResponseDto | null | undefined): AdminPa
     motivoRechazo: display(dto.motivoRechazo),
     informadoPorSocio: dto.informadoPorSocio === true,
     registradoPorAdminNombre: display(dto.registradoPorAdminNombre),
-    hasComprobantePath: Boolean(optional(dto.comprobanteRuta)),
+    hasComprobantePath,
+    canDownloadComprobante: canDownloadAdminComprobante({
+      id: dto.id,
+      hasComprobantePath,
+      estado: dto.estado,
+    }),
   };
 }
 
@@ -242,6 +290,7 @@ export function mapCuotaResumenDtoToViewModel(dto: CuotaResumenResponseDto): Adm
   const paidAt = optional(dto.pagoVigente?.fechaPago);
   const paymentMethod = dto.pagoVigente?.medioPago;
   const notes = optional(dto.pagoVigente?.observacion);
+  const pagoId = optional(dto.pagoVigente?.id);
 
   return {
     id: dto.id,
@@ -262,9 +311,11 @@ export function mapCuotaResumenDtoToViewModel(dto: CuotaResumenResponseDto): Adm
     paymentMethodLabel: medioPagoLabel(paymentMethod),
     paymentMethodIcon: medioPagoIcon(paymentMethod),
     notes,
+    pagoId,
     canReview: estado === 'EN_REVISION',
     canRegisterPayment: canRegisterPayment({ estado }),
     canAnular: estado !== 'ANULADA' && estado !== 'PAGADA',
+    canDownloadComprobante: canDownloadAdminComprobante(dto.pagoVigente),
     filterBucket: cuotaFilterBucket(estado),
   };
 }
@@ -307,8 +358,29 @@ export function mapPagoDtoToListHints(dto: PagoResponseDto): AdminPagoViewModel 
       informadoPorSocio: false,
       registradoPorAdminNombre: NOT_PROVIDED,
       hasComprobantePath: false,
+      canDownloadComprobante: false,
     }
   );
+}
+
+function mapCobranzaPorCategoria(
+  items: ResumenCuotasResponseDto['cobranzaPorCategoria'],
+): AdminCobranzaPorCategoriaViewModel[] {
+  return (items ?? [])
+    .filter(
+      (item): item is NonNullable<typeof item> & { categoria: SocioCategoriaCuota } =>
+        item?.categoria === 'ACTIVO' || item?.categoria === 'ADHERENTE',
+    )
+    .map((item) => {
+      const totalCobrado = asNumber(item.totalCobrado);
+      return {
+        categoria: item.categoria,
+        categoriaLabel: categoriaCuotaLabel(item.categoria),
+        totalCobrado,
+        totalCobradoLabel: formatCuotaImporte(totalCobrado),
+        cantidadCuotas: asNumber(item.cantidadCuotas),
+      };
+    });
 }
 
 export function mapResumenCuotasDtoToViewModel(
@@ -322,6 +394,57 @@ export function mapResumenCuotasDtoToViewModel(
     pendingCount: asNumber(dto.cantidadPendientes),
     approvedCount: asNumber(dto.cantidadAprobadas),
     rejectedCount: asNumber(dto.cantidadRechazadas),
+    cobranzaPorCategoria: mapCobranzaPorCategoria(dto.cobranzaPorCategoria),
+  };
+}
+
+export function mapEjecucionGeneracionDtoToViewModel(
+  dto: GeneracionCuotasResponseDto,
+): AdminEjecucionGeneracionViewModel {
+  const periodo = optional(dto.periodo) ?? '';
+  const origen = dto.origen ?? 'MANUAL';
+
+  return {
+    periodo,
+    periodoLabel: periodo ? formatPeriodLabel(periodo) : NO_DATA,
+    origen,
+    origenLabel: generacionOrigenLabel(origen),
+    cantidadSociosActivos: asNumber(dto.cantidadSociosActivos),
+    cantidadCuotasGeneradas: asNumber(dto.cantidadCuotasGeneradas),
+    cantidadSociosOmitidos: asNumber(dto.cantidadSociosOmitidos),
+    fechaEjecucion: optional(dto.fechaEjecucion) ?? '',
+    fechaEjecucionLabel: formatCuotaDate(dto.fechaEjecucion),
+    mensaje: display(dto.mensaje),
+  };
+}
+
+export function mapEstadoCuentaSocioDtoToViewModel(
+  dto: EstadoCuentaSocioResponseDto,
+): AdminEstadoCuentaViewModel {
+  const cuotas = (dto.cuotas ?? []).map(mapCuotaResumenDtoToViewModel);
+  const periodosPagables: AdminEstadoCuentaPeriodoOption[] = cuotas
+    .filter((item) => canRegisterPayment(item) && item.period.length > 0)
+    .map((item) => ({
+      cuotaId: item.id,
+      periodo: item.period,
+      periodoLabel: formatPeriodLabel(item.period),
+      importe: item.amount,
+      importeLabel: item.amountLabel,
+      estado: item.estado,
+      estadoLabel: item.estadoLabel,
+      dueDateLabel: item.dueDateLabel,
+    }));
+
+  const deudaTotal = asNumber(dto.deudaTotal);
+
+  return {
+    socioId: optional(dto.socioId) ?? '',
+    socioNumeroSocio: display(dto.socioNumeroSocio),
+    socioNombre: display(dto.socioNombre),
+    deudaTotal,
+    deudaTotalLabel: formatCuotaImporte(deudaTotal),
+    cuotas,
+    periodosPagables,
   };
 }
 

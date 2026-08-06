@@ -26,6 +26,12 @@ export interface MemberDebtItem {
   shortName: string;
   memberCode: string;
   amount: number;
+  /** From `sociosConDeuda.cantidadCuotasVencidas` when available. */
+  overdueCount?: number;
+  /** Payment date (`yyyy-MM-dd`) for collected-fee rows when available. */
+  paidAt?: string;
+  /** Fee period (`yyyy-MM`) for collected-fee rows. */
+  period?: string;
 }
 
 export interface MemberDebtReport {
@@ -78,12 +84,6 @@ export interface CommerceBenefitUsageReport {
   scale: number[];
 }
 
-export interface ExportReportRow {
-  section: string;
-  label: string;
-  value: string;
-}
-
 export interface ReportsDashboardResponse {
   title: string;
   subtitle: string;
@@ -95,6 +95,3 @@ export interface ReportsDashboardResponse {
   topBenefits: BenefitUsageRanking;
   benefitsByCommerce: CommerceBenefitUsageReport;
 }
-
-/** @deprecated Prefer ReportsDashboardResponse */
-export type ReportSummary = ReportsDashboardResponse;

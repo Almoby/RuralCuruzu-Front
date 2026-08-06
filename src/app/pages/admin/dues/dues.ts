@@ -42,12 +42,12 @@ import {
   AdminCuotaListItem,
   AdminCuotasResumenViewModel,
   AdminDatosBancariosViewModel,
+  AdminEjecucionGeneracionViewModel,
   AdminReglaCuotaViewModel,
   RegisterAdminPagoFormValue,
   SocioCategoriaCuota,
 } from '../../../core/interfaces/admin-cuota.interface';
 import {
-  canRegisterPayment,
   currentAdminPeriod,
   formatCuotaImporte,
   mapReglaCuotaDtoToViewModel,
@@ -130,6 +130,12 @@ export class DuesPage {
   protected readonly detailOpen = signal(false);
   protected readonly detailLoading = signal(false);
   protected readonly detail = signal<AdminCuotaDetail | null>(null);
+  protected readonly downloadBusyPagoId = signal<string | null>(null);
+
+  protected readonly ejecucionesOpen = signal(false);
+  protected readonly ejecucionesLoading = signal(false);
+  protected readonly ejecucionesError = signal(false);
+  protected readonly ejecuciones = signal<AdminEjecucionGeneracionViewModel[]>([]);
 
   protected readonly rejectOpen = signal(false);
   protected readonly rejectTarget = signal<AdminCuotaListItem | null>(null);
@@ -164,10 +170,6 @@ export class DuesPage {
     { value: 'ACTIVO', label: 'Activo' },
     { value: 'ADHERENTE', label: 'Adherente' },
   ];
-
-  protected readonly eligibleCuotas = computed(() =>
-    this.cuotas().filter((item) => canRegisterPayment(item)),
-  );
 
   protected readonly filterTabs = computed<FilterTab[]>(() => {
     const summary = this.summary();
@@ -337,37 +339,22 @@ export class DuesPage {
       return;
     }
 
-    const current = this.cuotas().find((item) => item.id === payload.cuotaId);
-    if (!current || !canRegisterPayment(current)) {
-      this.notifications.error(
-        'La cuota ya no admite registro de pago. Se actualizó el listado.',
-      );
-      this.reload$.next();
+    if (!payload.socioId || payload.periodos.length === 0) {
+      this.notifications.error('Seleccioná un socio y al menos un período.');
       return;
     }
 
     this.submitting.set(true);
     this.feeService
-      .getAdminCuotaById(payload.cuotaId)
+      .registerAdminPago({
+        socioId: payload.socioId,
+        periodos: payload.periodos,
+        fecha: payload.fecha,
+        medioPago: payload.medioPago,
+        observacion: payload.observacion,
+        comprobante: payload.comprobante,
+      })
       .pipe(
-        switchMap((detail) => {
-          if (!canRegisterPayment(detail) || !detail.socioId || !detail.period) {
-            this.notifications.error(
-              'La cuota ya no admite registro de pago. Se actualizó el listado.',
-            );
-            this.reload$.next();
-            return EMPTY;
-          }
-
-          return this.feeService.registerAdminPago({
-            socioId: detail.socioId,
-            periodos: [detail.period],
-            fecha: payload.fecha,
-            medioPago: payload.medioPago,
-            observacion: payload.observacion,
-            comprobante: payload.comprobante,
-          });
-        }),
         finalize(() => this.submitting.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -386,6 +373,36 @@ export class DuesPage {
           );
         },
       });
+  }
+
+  protected downloadComprobanteFromList(item: AdminCuotaListItem): void {
+    const pagoId = item.pagoId;
+    if (!pagoId || !item.canDownloadComprobante) {
+      return;
+    }
+    this.downloadComprobante(pagoId);
+  }
+
+  protected downloadComprobanteFromDetail(): void {
+    const pago = this.detail()?.pago;
+    if (!pago?.id || !pago.canDownloadComprobante) {
+      return;
+    }
+    this.downloadComprobante(pago.id);
+  }
+
+  protected openEjecuciones(): void {
+    this.ejecucionesOpen.set(true);
+    this.loadEjecuciones();
+  }
+
+  protected closeEjecuciones(): void {
+    this.ejecucionesOpen.set(false);
+    this.ejecucionesError.set(false);
+  }
+
+  protected retryEjecuciones(): void {
+    this.loadEjecuciones();
   }
 
   protected openDetail(item: AdminCuotaListItem): void {
@@ -669,6 +686,7 @@ export class DuesPage {
         next: (result) => {
           this.confirmOpen.set(false);
           const generated = result.cantidadCuotasGeneradas ?? 0;
+          const omitted = result.cantidadSociosOmitidos ?? 0;
           const periodoLabel = formatPeriodLabel(
             result.periodo?.trim() || this.generatePeriod(),
           );
@@ -677,17 +695,83 @@ export class DuesPage {
             this.notifications.success(
               `Se generaron correctamente ${generated} cuotas para el período ${periodoLabel}.`,
             );
-          } else {
+          } else if (omitted === 0) {
             this.notifications.info(
               `No se generaron nuevas cuotas porque las cuotas del período ${periodoLabel} ya habían sido generadas previamente.`,
+            );
+          } else {
+            this.notifications.info(
+              `No se generaron nuevas cuotas para el período ${periodoLabel}.`,
+            );
+          }
+
+          if (omitted > 0) {
+            this.notifications.info(
+              `${omitted} socios fueron omitidos por falta de configuración o regla de cuota.`,
             );
           }
 
           this.reload$.next();
+          if (this.ejecucionesOpen()) {
+            this.loadEjecuciones();
+          }
         },
         error: (error: unknown) => {
           this.notifications.error(
             isApiError(error) ? error.message : 'No se pudieron generar las cuotas',
+          );
+        },
+      });
+  }
+
+  private downloadComprobante(pagoId: string): void {
+    if (this.downloadBusyPagoId()) {
+      return;
+    }
+
+    this.downloadBusyPagoId.set(pagoId);
+    this.feeService
+      .downloadAdminComprobante(pagoId)
+      .pipe(
+        finalize(() => this.downloadBusyPagoId.set(null)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (file) => {
+          const url = URL.createObjectURL(file.blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = file.fileName;
+          anchor.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo descargar el comprobante',
+          );
+        },
+      });
+  }
+
+  private loadEjecuciones(): void {
+    this.ejecucionesLoading.set(true);
+    this.ejecucionesError.set(false);
+    this.feeService
+      .getAdminEjecuciones()
+      .pipe(
+        finalize(() => this.ejecucionesLoading.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (items) => this.ejecuciones.set(items),
+        error: (error: unknown) => {
+          this.ejecucionesError.set(true);
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo cargar el historial de generación',
           );
         },
       });

@@ -3,42 +3,25 @@ import { HttpClient, HttpContext } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { SKIP_ERROR_TOAST } from '../http/auth-http.tokens';
-import { Redemption } from '../interfaces/redemption.interface';
 import {
   ComercioQrRedemptionSuccessViewModel,
   ValidarBeneficioRequestDto,
   ValidarBeneficioResponseDto,
 } from '../interfaces/comercio-qr-redemption.interface';
-import {
-  ApprovedQrValidationResponse,
-  QrRejectionReasonCode,
-  QrValidationRequest,
-  QrValidationResponse,
-  RejectedQrValidationResponse,
-} from '../interfaces/qr-validation.interface';
 import { mapValidarBeneficioResponseToSuccessViewModel } from '../mappers/comercio-qr-redemption.mapper';
-import { mockResponse } from '../utils/mock.util';
-import redemptionsMock from '../../../assets/mock-data/redemptions.json';
-import membersMock from '../../../assets/mock-data/members.json';
-import promotionsMock from '../../../assets/mock-data/promotions.json';
-import { Member } from '../interfaces/member.interface';
-import { Promotion } from '../interfaces/promotion.interface';
-import { FeeStatus } from '../../shared/enums';
 
 /**
- * Redemptions / QR canje.
- * - Comercio Validar QR → always real backend (`POST /comercio/beneficios/canjear-beneficio`).
- * - Legacy helpers → still mocks / invented `/redemptions*` when `useMocks`.
+ * Redemptions / QR canje — Comercio Validar QR
+ * (`POST /comercio/beneficios/canjear-beneficio`).
  */
 @Injectable({ providedIn: 'root' })
 export class RedemptionService {
   private readonly http = inject(HttpClient);
   private readonly comercioCanjeUrl = `${environment.apiBaseUrl}/comercio/beneficios/canjear-beneficio`;
   private readonly silentContext = new HttpContext().set(SKIP_ERROR_TOAST, true);
-  private redemptions: Redemption[] = structuredClone(redemptionsMock) as Redemption[];
 
   /**
-   * POST /comercio/beneficios/canjear-beneficio — always hits the real API (ignores useMocks).
+   * POST /comercio/beneficios/canjear-beneficio
    */
   redeemComercioBenefit(
     body: ValidarBeneficioRequestDto,
@@ -48,155 +31,5 @@ export class RedemptionService {
         context: this.silentContext,
       })
       .pipe(map(mapValidarBeneficioResponseToSuccessViewModel));
-  }
-
-  // ---------------------------------------------------------------------------
-  // Legacy — unmigrated callers (mocks when useMocks)
-  // ---------------------------------------------------------------------------
-
-  history(filters?: {
-    memberId?: string;
-    merchantId?: string;
-  }): Observable<Redemption[]> {
-    if (environment.useMocks) {
-      let data = this.redemptions;
-      if (filters?.memberId) {
-        data = data.filter((item) => item.memberId === filters.memberId);
-      }
-      if (filters?.merchantId) {
-        data = data.filter((item) => item.merchantId === filters.merchantId);
-      }
-      return mockResponse(data);
-    }
-
-    return this.http.get<Redemption[]>(`${environment.apiBaseUrl}/redemptions`, {
-      params: {
-        ...(filters?.memberId ? { memberId: filters.memberId } : {}),
-        ...(filters?.merchantId ? { merchantId: filters.merchantId } : {}),
-      },
-    });
-  }
-
-  /**
-   * Legacy mock/invented validate path.
-   * Validar QR must use {@link redeemComercioBenefit} instead.
-   */
-  validateQr(payload: QrValidationRequest): Observable<QrValidationResponse> {
-    if (environment.useMocks) {
-      return mockResponse(this.mockValidateQr(payload));
-    }
-
-    return this.http.post<QrValidationResponse>(
-      `${environment.apiBaseUrl}/redemptions/validate-qr`,
-      payload,
-    );
-  }
-
-  private mockValidateQr(payload: QrValidationRequest): QrValidationResponse {
-    const members = membersMock as Member[];
-    const promotions = promotionsMock as Promotion[];
-    const benefitId = payload.benefitId ?? payload.promotionId ?? '';
-    const promotion = promotions.find((item) => item.id === benefitId);
-    const validatedAt = payload.validatedAt ?? new Date().toISOString();
-    const member = members.find((item) => item.qrToken === payload.qrToken);
-
-    if (!member) {
-      return this.reject({
-        reasonCode: 'QR_INVALID',
-        reasonTitle: 'QR rechazado',
-        reasonDescription: 'Código QR inválido',
-        benefitId: benefitId || undefined,
-        validatedAt,
-      });
-    }
-
-    if (payload.qrToken.includes('EXPIRED') || !member.isActive) {
-      return this.reject({
-        reasonCode: 'QR_EXPIRED',
-        reasonTitle: 'QR rechazado',
-        reasonDescription: 'El QR del socio está vencido o inactivo',
-        memberId: member.id,
-        memberNumber: member.memberCode,
-        fullName: member.fullName,
-        benefitId: benefitId || undefined,
-        validatedAt,
-      });
-    }
-
-    if (member.feeStatus === FeeStatus.Vencida || member.feeStatus === FeeStatus.Mora) {
-      return this.reject({
-        reasonCode: 'MEMBERSHIP_OVERDUE',
-        reasonTitle: 'QR rechazado',
-        reasonDescription: 'Cuota vencida — el socio no puede acceder a beneficios',
-        memberId: member.id,
-        memberNumber: member.memberCode,
-        fullName: member.fullName,
-        benefitId: benefitId || undefined,
-        validatedAt,
-      });
-    }
-
-    const benefitName = promotion?.title ?? 'Beneficio validado';
-    const benefitValue = promotion?.discountLabel ?? '—';
-    const redemptionId = `red-${String(this.redemptions.length + 1).padStart(3, '0')}`;
-
-    const redemption: Redemption = {
-      id: redemptionId,
-      memberId: member.id,
-      memberCode: member.memberCode,
-      memberName: member.fullName,
-      merchantId: payload.merchantId,
-      merchantName: 'Comercio',
-      promotionId: benefitId || undefined,
-      benefitTitle: benefitName,
-      discountApplied: benefitValue,
-      redeemedAt: validatedAt,
-      status: 'Exitosa',
-    };
-    this.redemptions = [redemption, ...this.redemptions];
-
-    const approved: ApprovedQrValidationResponse = {
-      valid: true,
-      status: 'approved',
-      memberId: member.id,
-      memberNumber: member.memberCode,
-      fullName: member.fullName,
-      initials: this.buildInitials(member.firstName, member.lastName, member.fullName),
-      category: `Socio ${member.category}`,
-      benefitId: benefitId || promotion?.id || '',
-      benefitName,
-      benefitValue,
-      validatedAt,
-      redemptionId,
-      message: '¡Beneficio aprobado!',
-    };
-
-    return approved;
-  }
-
-  private reject(
-    payload: Omit<RejectedQrValidationResponse, 'valid' | 'status' | 'message'> & {
-      reasonCode: QrRejectionReasonCode;
-    },
-  ): RejectedQrValidationResponse {
-    return {
-      valid: false,
-      status: 'rejected',
-      message: payload.reasonDescription,
-      ...payload,
-    };
-  }
-
-  private buildInitials(firstName: string, lastName: string, fullName: string): string {
-    const first = firstName.trim().charAt(0);
-    const last = lastName.trim().charAt(0);
-    if (first && last) {
-      return `${first}${last}`.toLocaleUpperCase('es-AR');
-    }
-    const parts = fullName.trim().split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toLocaleUpperCase('es-AR');
-    }
-    return (fullName.trim().charAt(0) || '?').toLocaleUpperCase('es-AR');
   }
 }

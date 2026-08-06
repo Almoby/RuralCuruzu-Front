@@ -109,7 +109,68 @@
         </div>
 
         <!-- Fila 4: beneficios por comercio -->
-        <app-card [title]="data.benefitsByCommerce.title">
+        <app-card [title]="benefitsByCommerce().title" class="dashboard__commerce-card">
+          <div cardActions class="dashboard__filters">
+            <div class="dashboard__filter">
+              <button
+                type="button"
+                class="dashboard__filter-btn"
+                aria-label="Mes de usos de beneficios"
+                [attr.aria-expanded]="openCommerceMenu() === 'benefitMonth'"
+                (click)="toggleCommerceMenu('benefitMonth')"
+              >
+                {{ selectedBenefitMonthLabel() }}
+                <span aria-hidden="true">↓</span>
+              </button>
+              @if (openCommerceMenu() === 'benefitMonth') {
+                <ul class="dashboard__filter-menu" role="listbox">
+                  @for (month of benefitMonthOptions; track month.value) {
+                    <li>
+                      <button
+                        type="button"
+                        class="dashboard__filter-option"
+                        [class.dashboard__filter-option--active]="
+                          selectedBenefitMonth() === month.value
+                        "
+                        (click)="selectBenefitMonth(month.value)"
+                      >
+                        {{ month.label }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+            <div class="dashboard__filter">
+              <button
+                type="button"
+                class="dashboard__filter-btn"
+                aria-label="Año de usos de beneficios"
+                [attr.aria-expanded]="openCommerceMenu() === 'benefitYear'"
+                (click)="toggleCommerceMenu('benefitYear')"
+              >
+                {{ selectedBenefitYear() }}
+                <span aria-hidden="true">↓</span>
+              </button>
+              @if (openCommerceMenu() === 'benefitYear') {
+                <ul class="dashboard__filter-menu" role="listbox">
+                  @for (year of benefitYearOptions(); track year) {
+                    <li>
+                      <button
+                        type="button"
+                        class="dashboard__filter-option"
+                        [class.dashboard__filter-option--active]="selectedBenefitYear() === year"
+                        (click)="selectBenefitYear(year)"
+                      >
+                        {{ year }}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+
           @if (commerceChartData(); as commerceData) {
             <div class="dashboard__chart-box dashboard__chart-box--commerce">
               <canvas
@@ -121,7 +182,9 @@
               ></canvas>
             </div>
           } @else {
-            <p class="admin-page__hint">Sin consumos registrados.</p>
+            <p class="admin-page__hint">
+              No hay usos de beneficios para el período seleccionado.
+            </p>
           }
         </app-card>
       }
