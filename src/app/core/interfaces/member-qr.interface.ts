@@ -18,6 +18,11 @@ export interface MemberQrSummary {
 export interface MemberQrPayload {
   /** Exact token from backend — encoded into the visual QR. */
   qrValue: string;
+  /**
+   * Short manual code from Swagger `codigoQr` (XXXX-XXXX-XXXX-XXXX).
+   * Never used to render the visual QR.
+   */
+  codigoQr: string;
   status: MemberQrStatus;
   statusLabel: string;
   statusIcon: string;
@@ -37,6 +42,8 @@ export interface MemberQrResponse {
   message: string;
   /** ISO date-time of token expiry for auto-refresh scheduling. */
   expiresAt: string | null;
+  /** Short manual code at top-level for easy UI binding (same as qr.codigoQr). */
+  codigoQr: string;
 }
 
 export interface RefreshMemberQrResponse {

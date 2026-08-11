@@ -47,6 +47,7 @@
                 #scannerVideo
                 class="scanner-viewport__video"
                 playsinline
+                webkit-playsinline
                 muted
                 autoplay
               ></video>
@@ -74,9 +75,11 @@
 
           <form class="scanner-card__manual" [formGroup]="form" (ngSubmit)="submitManualCode()">
             <app-input
-              label="Código del QR"
+              label="Código del socio"
               formControlName="codigoManual"
-              placeholder="Pegá el código del QR"
+              placeholder="XXXX-XXXX-XXXX-XXXX"
+              [maxLength]="19"
+              hint="Código manual corto del socio (no el token largo del QR)."
             />
             <app-button
               type="submit"
@@ -133,6 +136,13 @@
                 {{ res.validatedAtLabel }}
               </time>
             </div>
+
+            @if (res.usosInfoLabel) {
+              <div class="result-panel__time">
+                <app-icon name="loyalty" [size]="14" />
+                <span>{{ res.usosInfoLabel }}</span>
+              </div>
+            }
           </div>
 
           <button type="button" class="result-card__reset" (click)="resetScanner()">

@@ -179,6 +179,10 @@ export interface AvailableBenefitPreview {
   merchantName: string;
   categoryName: string;
   discountBadge: string;
+  /** From BeneficioResumenResponse usage fields (backend-sourced). */
+  usageAvailabilityLabel: string;
+  /** False when usosRestantes === 0 on a finite limit. */
+  hasUsesAvailable: boolean;
 }
 
 export interface UsedBenefitPreview {

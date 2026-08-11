@@ -23,6 +23,12 @@ export interface ValidarBeneficioResponseDto {
   beneficioValor?: string | null;
   montoAhorro?: number | null;
   fechaUso?: string | null;
+  /** Total uses by this member for this benefit (including this redemption). */
+  usosDelSocio?: number | null;
+  /** 0 = unlimited; positive = max uses; may be absent on older payloads. */
+  limiteUsosPorSocio?: number | null;
+  /** Remaining uses; `null` when unlimited (Swagger). */
+  usosRestantes?: number | null;
 }
 
 /** Success screen ViewModel (keeps current result-card bindings). */
@@ -39,6 +45,8 @@ export interface ComercioQrRedemptionSuccessViewModel {
   savingsLabel: string;
   validatedAt: string;
   validatedAtLabel: string;
+  /** Discrete usage line under savings when backend sends remaining/limit. */
+  usosInfoLabel: string;
 }
 
 /** Rejection / business-error ViewModel for the existing rejected card. */

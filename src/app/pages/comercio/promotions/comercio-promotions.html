@@ -1,6 +1,7 @@
 <section class="comercio-promotions">
   <app-page-header title="Mis Promociones" [subtitle]="activeSubtitle()">
-    <app-button (click)="openCreate()">
+    <!-- Never gated by catalog loading/empty/error — modal loads types itself. -->
+    <app-button type="button" (click)="openCreate()">
       <app-icon name="plus" [size]="16" />
       Nueva
     </app-button>
@@ -66,6 +67,7 @@
               <div class="promo-card__stats">
                 <p class="promo-card__uses">{{ promo.usesThisMonth }} usos este mes</p>
                 <p class="promo-card__until">{{ promo.validToLabel }}</p>
+                <p class="promo-card__limit">{{ promo.usageLimitLabel }}</p>
               </div>
 
               <div class="promo-card__actions">
@@ -73,6 +75,8 @@
                   type="button"
                   class="promo-card__action"
                   aria-label="Editar promoción"
+                  title="Editar"
+                  [disabled]="togglingId() === promo.id"
                   (click)="openEdit(promo)"
                 >
                   <app-icon name="edit" [size]="16" />
@@ -119,7 +123,11 @@
         [error]="fieldError('description')"
       />
 
-      @if (catalogState() === 'error') {
+      @if (catalogState() === 'loading') {
+        <div class="promo-form__catalog-state">
+          <app-loading message="Cargando tipos de beneficio..." />
+        </div>
+      } @else if (catalogState() === 'error') {
         <div class="promo-form__catalog-state">
           <app-alert variant="error" [message]="catalogError()" />
           <app-button
@@ -168,6 +176,15 @@
           [error]="fieldError('validTo') || dateRangeError()"
         />
       </div>
+
+      <app-input
+        label="Límite de usos por socio"
+        type="number"
+        formControlName="usageLimit"
+        placeholder="1"
+        hint="Dejá vacío para 1 uso por socio. Ingresá 0 para uso ilimitado."
+        [error]="fieldError('usageLimit')"
+      />
 
       <div class="promo-form__actions">
         <button type="button" class="promo-form__cancel" (click)="closeModal()">

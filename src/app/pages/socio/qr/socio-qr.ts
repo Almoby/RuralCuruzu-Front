@@ -62,6 +62,8 @@ export class SocioQr {
   readonly qr = computed(() => this.data()?.qr ?? null);
   readonly summary = computed(() => this.data()?.summary ?? null);
   readonly available = computed(() => this.data()?.available === true);
+  readonly codigoQr = computed(() => this.data()?.codigoQr?.trim() ?? '');
+  readonly copyingCodigo = signal(false);
 
   /**
    * Visual QR from the exact backend token.
@@ -176,6 +178,45 @@ export class SocioQr {
         this.notifications.error('No se pudo compartir el QR.');
       } finally {
         this.sharing.set(false);
+      }
+    })();
+  }
+
+  /** Copies only Swagger `codigoQr` — never the long JWT token. */
+  protected copyCodigoQr(): void {
+    const code = this.codigoQr();
+    if (!code || this.copyingCodigo()) {
+      return;
+    }
+
+    this.copyingCodigo.set(true);
+    void (async () => {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(code);
+          this.notifications.success('Código copiado.');
+          return;
+        }
+
+        // Fallback when Clipboard API is unavailable.
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (ok) {
+          this.notifications.success('Código copiado.');
+        } else {
+          this.notifications.info(code);
+        }
+      } catch {
+        this.notifications.error('No se pudo copiar el código.');
+      } finally {
+        this.copyingCodigo.set(false);
       }
     })();
   }

@@ -6,7 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormBuilder,
@@ -20,6 +20,8 @@ import {
   Subject,
   catchError,
   finalize,
+  map,
+  merge,
   startWith,
   switchMap,
   tap,
@@ -38,9 +40,12 @@ import {
   mapBenefitTypeOptionsToSelectOptions,
 } from '../../../core/mappers/benefit-type.mapper';
 import {
+  buildActivationNotEffectiveMessage,
+  limiteUsosPorSocioToFormValue,
   mapPromotionFormToCreateRequest,
   mapPromotionFormToUpdateRequest,
   mapPromotionStatusToNextEstado,
+  parseLimiteUsosPorSocioInput,
 } from '../../../core/mappers/comercio-beneficio.mapper';
 import {
   AppAlert,
@@ -74,6 +79,20 @@ const dateRangeValidator: ValidatorFn = (
     return null;
   }
   return to >= from ? null : { dateRange: true };
+};
+
+/** Empty = omit (default 1). Otherwise non-negative integer only. */
+const usageLimitValidator: ValidatorFn = (
+  control: AbstractControl,
+): ValidationErrors | null => {
+  const raw = String(control.value ?? '').trim();
+  if (!raw) {
+    return null;
+  }
+  if (parseLimiteUsosPorSocioInput(raw) === null) {
+    return { usageLimit: true };
+  }
+  return null;
 };
 
 function isApiError(error: unknown): error is ApiError {
@@ -161,12 +180,6 @@ export class ComercioPromotions {
     }
   });
 
-  readonly canSubmit = computed(() => {
-    const catalogOk = this.catalogStateSignal() === 'success';
-    const hasType = !!this.form.controls.typeId.value?.trim();
-    return catalogOk && hasType && !this.saving();
-  });
-
   readonly statusConfirmOpen = computed(() => this.statusConfirm() !== null);
 
   readonly statusConfirmTitle = computed(() =>
@@ -198,13 +211,56 @@ export class ComercioPromotions {
     {
       title: ['', [Validators.required, Validators.minLength(1)]],
       description: [''],
+      /** Stores real `tipoBeneficioId` (Mongo id), never nombre/codigo. */
       typeId: ['', [Validators.required]],
       value: ['', [Validators.required, Validators.minLength(1)]],
       validFrom: ['', [Validators.required]],
       validTo: ['', [Validators.required]],
+      usageLimit: ['', [usageLimitValidator]],
     },
     { validators: dateRangeValidator },
   );
+
+  /**
+   * Reactive snapshot of the form — required because `computed()` does not
+   * track AbstractControl value/status changes by itself.
+   * Root bug: canSubmit previously read `form.controls.typeId.value` inside a
+   * computed that only depended on `catalogState`/`saving`, so after the catalog
+   * settled the button never re-enabled when the user completed the form.
+   */
+  private readonly formProbe = toSignal(
+    merge(this.form.valueChanges, this.form.statusChanges).pipe(
+      startWith(null),
+      map(() => ({
+        value: this.form.getRawValue(),
+        status: this.form.status,
+        valid: this.form.valid,
+      })),
+    ),
+    {
+      initialValue: {
+        value: this.form.getRawValue(),
+        status: this.form.status,
+        valid: this.form.valid,
+      },
+    },
+  );
+
+  /**
+   * Submit depends on real form validity + non-empty tipoBeneficioId.
+   * Does NOT gate on catalogState once a type id is already selected.
+   */
+  readonly canSubmit = computed(() => {
+    const probe = this.formProbe();
+    if (this.saving()) {
+      return false;
+    }
+    const typeId = probe.value.typeId?.trim() ?? '';
+    if (!typeId) {
+      return false;
+    }
+    return probe.valid;
+  });
 
   constructor() {
     this.reload$
@@ -245,10 +301,12 @@ export class ComercioPromotions {
     this.editing.set(null);
     this.resetForm();
     this.modalOpen.set(true);
-    this.loadCatalog();
+    // Always open; catalog loads inside the modal (never blocks this action).
+    this.loadCatalog({ forceRefresh: true });
   }
 
   openEdit(promo: ComercioBeneficioViewModel): void {
+    // Edit is allowed for ACTIVA / INACTIVA / fuera de vigencia.
     this.editing.set(promo);
     this.form.reset({
       title: promo.title,
@@ -257,11 +315,12 @@ export class ComercioPromotions {
       value: promo.valueLabel === '—' ? '' : promo.valueLabel,
       validFrom: promo.validFrom,
       validTo: promo.validTo,
+      usageLimit: limiteUsosPorSocioToFormValue(promo.limiteUsosPorSocio),
     });
     this.form.markAsPristine();
     this.form.markAsUntouched();
     this.modalOpen.set(true);
-    this.loadCatalog();
+    this.loadCatalog({ forceRefresh: true });
   }
 
   closeModal(options?: { force?: boolean }): void {
@@ -293,7 +352,14 @@ export class ComercioPromotions {
   }
 
   fieldError(
-    controlName: 'title' | 'description' | 'typeId' | 'value' | 'validFrom' | 'validTo',
+    controlName:
+      | 'title'
+      | 'description'
+      | 'typeId'
+      | 'value'
+      | 'validFrom'
+      | 'validTo'
+      | 'usageLimit',
   ): string {
     const control = this.form.controls[controlName];
     if (!control.touched || !control.invalid) {
@@ -304,6 +370,9 @@ export class ComercioPromotions {
     }
     if (control.hasError('minlength')) {
       return 'Texto demasiado corto';
+    }
+    if (control.hasError('usageLimit')) {
+      return 'Ingresá un número entero mayor o igual a 0';
     }
     return 'Valor inválido';
   }
@@ -347,16 +416,43 @@ export class ComercioPromotions {
     this.promotionService
       .changeComercioBeneficioEstado(promo.id, nextEstado)
       .pipe(
+        switchMap(() =>
+          this.promotionService.getComercioBeneficios().pipe(
+            catchError(() => {
+              this.statusConfirm.set(null);
+              this.notifications.warning(
+                'El cambio fue enviado, pero no pudimos verificar el estado actualizado.',
+              );
+              this.reload$.next();
+              return EMPTY;
+            }),
+          ),
+        ),
         finalize(() => this.togglingId.set(null)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (updated) => {
+        next: (items) => {
           this.statusConfirm.set(null);
-          this.notifications.success(
-            updated.isActive ? 'Promoción activada' : 'Promoción desactivada',
+          this.promotions.set(items);
+          this.viewState.set(items.length === 0 ? 'empty' : 'success');
+
+          const updated = items.find((item) => item.id === promo.id);
+
+          if (nextEstado === 'INACTIVO') {
+            this.notifications.success('Promoción desactivada correctamente.');
+            return;
+          }
+
+          if (updated?.isActive) {
+            this.notifications.success('Promoción activada correctamente.');
+            return;
+          }
+
+          // PATCH accepted ACTIVO but effective GET state is still INACTIVO.
+          this.notifications.warning(
+            buildActivationNotEffectiveMessage(updated ?? promo),
           );
-          this.reload$.next();
         },
         error: (error: unknown) => {
           this.notifications.error(
@@ -369,11 +465,7 @@ export class ComercioPromotions {
   }
 
   save(): void {
-    if (
-      this.form.invalid ||
-      this.saving() ||
-      this.catalogStateSignal() !== 'success'
-    ) {
+    if (this.form.invalid || this.saving()) {
       this.form.markAllAsTouched();
       return;
     }
@@ -392,6 +484,7 @@ export class ComercioPromotions {
       value: raw.value,
       validFrom: raw.validFrom,
       validTo: raw.validTo,
+      usageLimit: raw.usageLimit,
     };
 
     const editing = this.editing();
@@ -451,24 +544,33 @@ export class ComercioPromotions {
           this.catalogOptionsSignal.set(withCurrent);
 
           if (withCurrent.length === 0) {
-            this.catalogStateSignal.set('empty');
             this.form.controls.typeId.setValue('');
+            this.catalogStateSignal.set('empty');
             return;
+          }
+
+          // Ensure form typeId is correct BEFORE catalog success is published.
+          const currentId = this.form.controls.typeId.value.trim();
+          const editingTypeId = editing?.tipoBeneficioId?.trim() ?? '';
+
+          if (currentId && withCurrent.some((item) => item.id === currentId)) {
+            // Keep existing selection (create re-open or edit already primed).
+          } else if (
+            editingTypeId &&
+            withCurrent.some((item) => item.id === editingTypeId)
+          ) {
+            this.form.controls.typeId.setValue(editingTypeId);
+          } else if (!editingTypeId) {
+            this.form.controls.typeId.setValue('');
+          } else {
+            // Edit: type ensured into withCurrent; force the real id into the form.
+            this.form.controls.typeId.setValue(editingTypeId);
           }
 
           this.catalogStateSignal.set('success');
-
-          const currentId = this.form.controls.typeId.value.trim();
-          if (currentId && withCurrent.some((item) => item.id === currentId)) {
-            return;
-          }
-          if (editing?.tipoBeneficioId) {
-            this.form.controls.typeId.setValue(editing.tipoBeneficioId);
-            return;
-          }
-          this.form.controls.typeId.setValue('');
         },
         error: (error: unknown) => {
+          this.benefitTypeService.clearCache();
           this.catalogOptionsSignal.set([]);
           this.catalogStateSignal.set('error');
           this.catalogErrorSignal.set(
@@ -488,6 +590,7 @@ export class ComercioPromotions {
       value: '',
       validFrom: '',
       validTo: '',
+      usageLimit: '',
     });
     this.form.markAsPristine();
     this.form.markAsUntouched();

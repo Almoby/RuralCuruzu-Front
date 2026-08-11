@@ -25,6 +25,12 @@ export interface SocioBeneficioResumenDto {
   tipoBeneficioNombre?: string;
   valor?: string;
   fechaFinVigencia?: string;
+  /** Max uses per member forever. 0 = unlimited. Omitted/null → treat as default 1 when needed. */
+  limiteUsosPorSocio?: number | null;
+  /** Times this authenticated member already used the benefit. */
+  usosDelSocio?: number | null;
+  /** Remaining uses for this member. null = unlimited. */
+  usosRestantes?: number | null;
 }
 
 /** GET /api/socio/beneficios/historial-beneficios item (Swagger HistorialBeneficioResponse). */

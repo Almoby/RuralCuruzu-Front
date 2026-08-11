@@ -45,6 +45,12 @@ export class BenefitTypeService {
         })
         .pipe(
           map(mapTipoBeneficiosToOptions),
+          tap({
+            // Do not keep a failed request cached for the next modal open.
+            error: () => {
+              this.activeTypes$ = undefined;
+            },
+          }),
           shareReplay({ bufferSize: 1, refCount: true }),
         );
     }

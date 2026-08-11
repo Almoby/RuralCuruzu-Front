@@ -55,7 +55,10 @@
       } @else {
         <div class="promo-grid">
           @for (benefit of promotions(); track benefit.id) {
-            <article class="promo-card">
+            <article
+              class="promo-card"
+              [class.promo-card--exhausted]="!benefit.hasUsesAvailable"
+            >
               <div class="promo-card__header">
                 <span
                   class="promo-card__icon"
@@ -73,10 +76,20 @@
               <p class="promo-card__desc">{{ benefit.description }}</p>
 
               <div class="promo-card__footer">
-                <span class="promo-card__type">
-                  <app-icon [name]="benefit.offerTypeIcon" [size]="12" />
-                  {{ benefit.offerTypeLabel }}
-                </span>
+                <div class="promo-card__meta">
+                  <span class="promo-card__type">
+                    <app-icon [name]="benefit.offerTypeIcon" [size]="12" />
+                    {{ benefit.offerTypeLabel }}
+                  </span>
+                  @if (benefit.usageAvailabilityLabel) {
+                    <span
+                      class="promo-card__usage"
+                      [class.promo-card__usage--exhausted]="!benefit.hasUsesAvailable"
+                    >
+                      {{ benefit.usageAvailabilityLabel }}
+                    </span>
+                  }
+                </div>
                 <div class="promo-card__aside">
                   <span class="promo-card__date">{{ benefit.validToLabel }}</span>
                   <span class="benefit-discount-badge">{{ benefit.badgeLabel }}</span>

@@ -21,6 +21,10 @@ import {
 } from '../interfaces/socio-panel.interface';
 import { APP_ROUTES } from '../constants/routes.constant';
 import { asDisplayableBusinessCode } from '../utils/display-identity.util';
+import {
+  formatSocioBenefitUsageLabel,
+  isSocioBenefitUsageExhausted,
+} from './socio-benefit.mapper';
 
 const PREVIEW_LIMIT = 3;
 const UNPAID_STATES: ReadonlySet<CuotaEstado> = new Set([
@@ -250,13 +254,21 @@ function buildFinancial(
 function mapAvailableBenefits(
   beneficios: SocioBeneficioResumenDto[],
 ): AvailableBenefitPreview[] {
-  return beneficios.slice(0, PREVIEW_LIMIT).map((item, index) => ({
-    id: item.id?.trim() || `beneficio-${index}`,
-    title: item.titulo?.trim() || 'Beneficio',
-    merchantName: item.comercioNombre?.trim() || 'No informado',
-    categoryName: item.comercioRubro?.trim() || 'General',
-    discountBadge: item.valor?.trim() || '—',
-  }));
+  return beneficios.slice(0, PREVIEW_LIMIT).map((item, index) => {
+    const usageDto = {
+      limiteUsosPorSocio: item.limiteUsosPorSocio,
+      usosRestantes: item.usosRestantes,
+    };
+    return {
+      id: item.id?.trim() || `beneficio-${index}`,
+      title: item.titulo?.trim() || 'Beneficio',
+      merchantName: item.comercioNombre?.trim() || 'No informado',
+      categoryName: item.comercioRubro?.trim() || 'General',
+      discountBadge: item.valor?.trim() || '—',
+      usageAvailabilityLabel: formatSocioBenefitUsageLabel(usageDto),
+      hasUsesAvailable: !isSocioBenefitUsageExhausted(usageDto),
+    };
+  });
 }
 
 function mapRecentUsage(

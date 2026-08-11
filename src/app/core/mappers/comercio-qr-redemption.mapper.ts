@@ -60,6 +60,49 @@ export function formatMontoAhorroLabel(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Formats a short manual codigoQr for display/input: XXXX-XXXX-XXXX-XXXX.
+ * Strips non-alphanumeric, uppercases, max 16 chars, groups of 4.
+ */
+export function formatManualCodigoQrInput(raw: string): string {
+  const cleaned = raw.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 16);
+  const chunks = cleaned.match(/.{1,4}/g);
+  return chunks ? chunks.join('-') : '';
+}
+
+/**
+ * Value sent in ValidarBeneficioRequest.codigoQr for manual entry.
+ * Swagger documents short format with hyphens (xxxx-xxxx-xxxx-xxxx).
+ */
+export function normalizeManualCodigoQrForRequest(raw: string): string {
+  return formatManualCodigoQrInput(raw);
+}
+
+/** Remaining-uses line for a successful canje (backend-sourced). */
+export function formatCanjeUsosInfoLabel(dto: {
+  limiteUsosPorSocio?: number | null;
+  usosRestantes?: number | null;
+}): string {
+  const restantes = dto.usosRestantes;
+  const limite = dto.limiteUsosPorSocio;
+
+  if (typeof restantes === 'number' && Number.isFinite(restantes)) {
+    if (restantes <= 0) {
+      return 'Sin usos restantes en esta promoción.';
+    }
+    if (restantes === 1) {
+      return 'Le queda 1 uso disponible en esta promoción.';
+    }
+    return `Le quedan ${restantes} usos disponibles en esta promoción.`;
+  }
+
+  if (restantes === null || limite === 0) {
+    return 'Esta promoción tiene usos ilimitados.';
+  }
+
+  return '';
+}
+
 export function mapValidarBeneficioResponseToSuccessViewModel(
   dto: ValidarBeneficioResponseDto,
 ): ComercioQrRedemptionSuccessViewModel {
@@ -83,6 +126,7 @@ export function mapValidarBeneficioResponseToSuccessViewModel(
     savingsLabel: formatMontoAhorroLabel(savings),
     validatedAt,
     validatedAtLabel: formatFechaUsoLabel(validatedAt),
+    usosInfoLabel: formatCanjeUsosInfoLabel(dto),
   };
 }
 
@@ -122,9 +166,10 @@ export function mapApiErrorToRejectedViewModel(
 
   if (status === 409) {
     return {
-      reasonTitle: 'Beneficio ya utilizado',
+      reasonTitle: 'Límite de usos alcanzado',
       reasonDescription:
-        message || 'Este socio ya utilizó este beneficio.',
+        message ||
+        'Este socio ya alcanzó el límite de usos de esta promoción.',
       clearQrToken: true,
       reloadBenefits: false,
       httpStatus: status,

@@ -107,6 +107,25 @@
           <p class="socio-qr__code">{{ panel.profile.memberNumber }}</p>
         </div>
 
+        @if (codigoQr()) {
+          <div class="socio-qr__manual">
+            <p class="socio-qr__manual-label">Código manual</p>
+            <p class="socio-qr__manual-value" aria-label="Código manual del socio">
+              {{ codigoQr() }}
+            </p>
+            <button
+              type="button"
+              class="socio-qr__manual-copy"
+              [disabled]="copyingCodigo()"
+              aria-label="Copiar código manual"
+              (click)="copyCodigoQr()"
+            >
+              <app-icon name="copy" [size]="14" />
+              <span>{{ copyingCodigo() ? 'Copiando...' : 'Copiar código' }}</span>
+            </button>
+          </div>
+        }
+
         <p class="socio-qr__helper">{{ panel.summary.helperText }}</p>
       }
     </article>

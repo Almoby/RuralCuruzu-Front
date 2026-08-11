@@ -14,6 +14,8 @@ export type SocioQrEstado =
 
 export interface MiQrResponseDto {
   token?: string;
+  /** Short manual code (Swagger `codigoQr`), e.g. XXXX-XXXX-XXXX-XXXX. */
+  codigoQr?: string;
   expiraEn?: string;
   numeroSocio?: string;
   nombre?: string;

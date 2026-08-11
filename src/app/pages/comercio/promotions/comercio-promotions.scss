@@ -166,7 +166,8 @@
   }
 
   &__uses,
-  &__until {
+  &__until,
+  &__limit {
     margin: 0;
     font-size: var(--font-size-xs);
     line-height: 1.35;

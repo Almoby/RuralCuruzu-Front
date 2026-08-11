@@ -22,6 +22,12 @@ export interface BeneficioResponseDto {
   fechaFinVigencia?: string | null;
   estado?: BeneficioEstadoDto | string | null;
   usosEsteMes?: number | null;
+  /**
+   * Max uses per member forever.
+   * Omitted/null on older records → default 1.
+   * 0 → unlimited.
+   */
+  limiteUsosPorSocio?: number | null;
   fechaCreacion?: string | null;
   fechaActualizacion?: string | null;
 }
@@ -34,6 +40,8 @@ export interface CrearBeneficioRequestDto {
   valor: string;
   fechaInicioVigencia?: string | null;
   fechaFinVigencia?: string | null;
+  /** Omit for default 1; 0 = unlimited; N > 0 = exact limit. */
+  limiteUsosPorSocio?: number;
 }
 
 /** Swagger `ActualizarBeneficioRequest` */
@@ -44,6 +52,8 @@ export interface ActualizarBeneficioRequestDto {
   valor: string;
   fechaInicioVigencia?: string | null;
   fechaFinVigencia?: string | null;
+  /** Omit for default 1; 0 = unlimited; N > 0 = exact limit. */
+  limiteUsosPorSocio?: number;
 }
 
 /** Swagger `CambiarEstadoBeneficioRequest` */
@@ -66,6 +76,11 @@ export interface ComercioBeneficioFormValue {
   value: string;
   validFrom: string;
   validTo: string;
+  /**
+   * Empty string = omit (backend default 1).
+   * "0" = unlimited. Positive integer string = exact limit.
+   */
+  usageLimit: string;
 }
 
 /** Card / list ViewModel for Mis Promociones. */
@@ -88,4 +103,11 @@ export interface ComercioBeneficioViewModel {
   validToLabel: string;
   usesThisMonth: number;
   merchantName: string;
+  /**
+   * Raw limit from GET (`null`/`undefined` = default 1 semantics).
+   * `0` = unlimited.
+   */
+  limiteUsosPorSocio: number | null;
+  /** Discrete card label, e.g. “1 uso por socio”, “Uso ilimitado”. */
+  usageLimitLabel: string;
 }

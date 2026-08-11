@@ -43,6 +43,15 @@ export interface Benefit {
   validFrom: string;
   validTo?: string;
   terms?: string;
+  /** From BeneficioResumenResponse.limiteUsosPorSocio (0 = unlimited). */
+  limiteUsosPorSocio: number | null;
+  usosDelSocio: number | null;
+  /** null = unlimited (backend). */
+  usosRestantes: number | null;
+  /** Discrete card line from backend usage fields. */
+  usageAvailabilityLabel: string;
+  /** False when backend reports 0 remaining (still listed if returned). */
+  hasUsesAvailable: boolean;
 }
 
 export interface BenefitMerchantCard {

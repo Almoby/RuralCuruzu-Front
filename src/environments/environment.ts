@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  apiBaseUrl: 'http://195.200.1.210:8080/api',
+  apiBaseUrl: 'https://ruralcuruzucuatia.com/api',
   useMocks: false,
   appName: 'Rural Curuzu - Plataforma de Beneficios',
 };

@@ -77,6 +77,68 @@ function parseDiscountPercent(valor: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function asNullableNumber(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Prefer backend `usosRestantes` (null = unlimited).
+ * Fall back to limiteUsosPorSocio === 0 → unlimited only when restantes is absent.
+ */
+export function formatSocioBenefitUsageLabel(dto: {
+  limiteUsosPorSocio?: number | null;
+  usosRestantes?: number | null;
+}): string {
+  const restantes = dto.usosRestantes;
+  const limite = dto.limiteUsosPorSocio;
+
+  if (typeof restantes === 'number' && Number.isFinite(restantes)) {
+    if (restantes <= 0) {
+      // Finite limit exhausted (null/omitted limite defaults to 1 on backend).
+      if (limite === 0) {
+        return 'Usos ilimitados';
+      }
+      return 'Límite de usos alcanzado';
+    }
+    if (restantes === 1) {
+      return '1 uso disponible';
+    }
+    return `${restantes} usos disponibles`;
+  }
+
+  if (restantes === null || limite === 0) {
+    return 'Usos ilimitados';
+  }
+
+  return '';
+}
+
+/**
+ * True when backend reports 0 remaining uses on a finite-limit benefit.
+ * `usosRestantes === null` is unlimited and never exhausted.
+ */
+export function isSocioBenefitUsageExhausted(dto: {
+  limiteUsosPorSocio?: number | null;
+  usosRestantes?: number | null;
+}): boolean {
+  const restantes = dto.usosRestantes;
+  if (restantes === null || typeof restantes !== 'number' || !Number.isFinite(restantes)) {
+    return false;
+  }
+  if (restantes > 0) {
+    return false;
+  }
+  // Unlimited config (0) must not be treated as exhausted.
+  if (dto.limiteUsosPorSocio === 0) {
+    return false;
+  }
+  // limite > 0, or omitted/null (backend default = 1).
+  return true;
+}
+
 export function mapSocioBeneficioDtoToViewModel(
   dto: SocioBeneficioResumenDto,
   index: number,
@@ -86,6 +148,25 @@ export function mapSocioBeneficioDtoToViewModel(
   const validTo = text(dto.fechaFinVigencia);
   const validToDisplay = formatLocalDateLabel(validTo);
   const categoryName = text(dto.comercioRubro, 'General');
+  const limiteUsosPorSocio = asNullableNumber(dto.limiteUsosPorSocio);
+  const usosDelSocio = asNullableNumber(dto.usosDelSocio);
+  // Preserve explicit null (unlimited) vs omitted (undefined).
+  const usosRestantesForLabel =
+    dto.usosRestantes === undefined
+      ? undefined
+      : dto.usosRestantes === null
+        ? null
+        : asNullableNumber(dto.usosRestantes);
+  const usageAvailabilityLabel = formatSocioBenefitUsageLabel({
+    limiteUsosPorSocio:
+      dto.limiteUsosPorSocio === undefined ? undefined : limiteUsosPorSocio,
+    usosRestantes: usosRestantesForLabel,
+  });
+  const hasUsesAvailable = !isSocioBenefitUsageExhausted({
+    limiteUsosPorSocio:
+      dto.limiteUsosPorSocio === undefined ? undefined : limiteUsosPorSocio,
+    usosRestantes: usosRestantesForLabel,
+  });
 
   return {
     id: text(dto.id, `beneficio-${index}`),
@@ -107,6 +188,12 @@ export function mapSocioBeneficioDtoToViewModel(
     isActive: true,
     validFrom: '',
     validTo: validTo || undefined,
+    limiteUsosPorSocio,
+    usosDelSocio,
+    usosRestantes:
+      usosRestantesForLabel === undefined ? null : usosRestantesForLabel,
+    usageAvailabilityLabel,
+    hasUsesAvailable,
   };
 }
 

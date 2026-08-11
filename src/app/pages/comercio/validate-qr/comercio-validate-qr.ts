@@ -5,18 +5,21 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  NgZone,
   OnDestroy,
   computed,
   inject,
   signal,
   viewChild,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   FormBuilder,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { BrowserQRCodeReader, IScannerControls } from '@zxing/browser';
+import { map, merge, startWith } from 'rxjs';
 import { NotificationService } from '../../../core/services/notification.service';
 import { PromotionService } from '../../../core/services/promotion.service';
 import { RedemptionService } from '../../../core/services/redemption.service';
@@ -31,6 +34,8 @@ import {
   mapApiErrorToRejectedViewModel,
   mapBeneficioToSelectLabel,
   mapValidarBeneficioFormToRequest,
+  normalizeManualCodigoQrForRequest,
+  formatManualCodigoQrInput,
   parseMontoAhorroInput,
 } from '../../../core/mappers/comercio-qr-redemption.mapper';
 import {
@@ -59,7 +64,7 @@ export type QrValidationViewState =
 const SCANNER_HINT_SCAN =
   'Apuntá la cámara hacia el código QR del socio.';
 const SCANNER_HINT_MANUAL =
-  'La lectura automática no está disponible. Pegá el código del QR debajo.';
+  'La lectura automática no está disponible. Ingresá el código manual del socio debajo.';
 
 interface BarcodeDetectorLike {
   detect(source: ImageBitmapSource): Promise<Array<{ rawValue?: string }>>;
@@ -104,6 +109,7 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly ngZone = inject(NgZone);
 
   private readonly videoRef =
     viewChild<ElementRef<HTMLVideoElement>>('scannerVideo');
@@ -111,6 +117,8 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
   private mediaStream: MediaStream | null = null;
   private detectTimer: ReturnType<typeof setInterval> | null = null;
   private barcodeDetector: BarcodeDetectorLike | null = null;
+  private zxingReader: BrowserQRCodeReader | null = null;
+  private zxingControls: IScannerControls | null = null;
   private lastHandledToken = '';
 
   readonly loadingPromos = signal(true);
@@ -127,8 +135,11 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
   readonly cameraError = signal('');
   /** True only while a live MediaStream is attached (not merely a <video> node). */
   readonly cameraStreamActive = signal(false);
-  /** True while BarcodeDetector is constructed and polling. */
-  readonly barcodeDetectorAvailable = signal(false);
+  /**
+   * True while automatic QR decoding is active
+   * (native BarcodeDetector or ZXing fallback).
+   */
+  readonly autoScanAvailable = signal(false);
   /** In-memory QR token only — never persisted. */
   readonly qrToken = signal('');
   readonly confirmOpen = signal(false);
@@ -143,25 +154,42 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
   });
 
   /**
+   * Reactive form snapshot — `computed()` does not track AbstractControl values.
+   * Without this, confirmMessage kept showing "Ahorro informado: —".
+   */
+  private readonly formProbe = toSignal(
+    merge(this.form.valueChanges, this.form.statusChanges).pipe(
+      startWith(null),
+      map(() => this.form.getRawValue()),
+    ),
+    { initialValue: this.form.getRawValue() },
+  );
+
+  /**
    * Contextual hint under the viewport:
-   * - live stream + detector → scan guidance
+   * - live stream + auto scan → scan guidance
    * - otherwise → manual paste guidance
    */
   readonly scannerHintMessage = computed(() => {
-    if (this.cameraStreamActive() && this.barcodeDetectorAvailable()) {
+    const cameraError = this.cameraError();
+    if (cameraError) {
+      return cameraError;
+    }
+    if (this.cameraStreamActive() && this.autoScanAvailable()) {
       return SCANNER_HINT_SCAN;
     }
     return SCANNER_HINT_MANUAL;
   });
 
   readonly selectedBenefit = computed((): ComercioBeneficioViewModel | null => {
-    const id = this.form.controls.promotionId.value;
+    const id = this.formProbe().promotionId;
     return this.benefits().find((item) => item.id === id) ?? null;
   });
 
   readonly confirmMessage = computed(() => {
+    const probe = this.formProbe();
     const benefit = this.selectedBenefit();
-    const amount = parseMontoAhorroInput(this.form.controls.montoAhorro.value);
+    const amount = parseMontoAhorroInput(probe.montoAhorro);
     const title = benefit?.title ?? 'Beneficio';
     const typeLabel = benefit?.typeLabel ?? '';
     const value = benefit?.valueLabel ?? '—';
@@ -192,6 +220,17 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.loadBenefits();
+
+    this.form.controls.codigoManual.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((raw) => {
+        const formatted = formatManualCodigoQrInput(raw ?? '');
+        if (formatted !== raw) {
+          this.form.controls.codigoManual.setValue(formatted, {
+            emitEvent: false,
+          });
+        }
+      });
   }
 
   ngAfterViewInit(): void {
@@ -219,12 +258,17 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
   }
 
   submitManualCode(): void {
-    const token = this.form.controls.codigoManual.value.trim();
-    if (!token) {
-      this.notifications.warning('Ingresá o pegá el código del QR del socio.');
+    const formatted = normalizeManualCodigoQrForRequest(
+      this.form.controls.codigoManual.value,
+    );
+    if (!formatted || formatted.replace(/-/g, '').length < 16) {
+      this.notifications.warning(
+        'Ingresá el código manual del socio (formato XXXX-XXXX-XXXX-XXXX).',
+      );
       return;
     }
-    this.onQrTokenCaptured(token);
+    this.form.controls.codigoManual.setValue(formatted, { emitEvent: false });
+    this.onQrTokenCaptured(formatted);
   }
 
   resetScanner(): void {
@@ -452,6 +496,7 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
     if (!navigator.mediaDevices?.getUserMedia) {
       this.cameraSupported.set(false);
       this.cameraStreamActive.set(false);
+      this.autoScanAvailable.set(false);
       this.cameraError.set(
         'Este navegador no permite acceso a la cámara. Pegá el código del QR.',
       );
@@ -478,28 +523,84 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
         );
         return;
       }
+
+      // iOS Safari/WebKit: keep playback inline (not fullscreen).
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('webkit-playsinline', 'true');
+      video.muted = true;
+      video.playsInline = true;
       video.srcObject = stream;
       await video.play();
 
-      const Detector = (
-        globalThis as unknown as { BarcodeDetector?: BarcodeDetectorCtor }
-      ).BarcodeDetector;
-
-      if (Detector) {
-        this.barcodeDetector = new Detector({ formats: ['qr_code'] });
-        this.barcodeDetectorAvailable.set(true);
-        this.detectTimer = setInterval(() => {
-          void this.detectFromVideo();
-        }, 350);
-      } else {
-        this.barcodeDetectorAvailable.set(false);
-      }
+      const started = await this.startAutoScan(stream, video);
+      this.autoScanAvailable.set(started);
     } catch {
       this.teardownCamera();
       this.cameraSupported.set(false);
       this.cameraError.set(
-        'No se pudo acceder a la cámara. Pegá el código del QR del socio.',
+        'No pudimos acceder a la cámara. Revisá los permisos del navegador.',
       );
+    }
+  }
+
+  /**
+   * Capability-based auto-scan:
+   * 1) BarcodeDetector when available (Chrome Android, etc.)
+   * 2) ZXing BrowserQRCodeReader fallback (iOS Safari / Chrome iOS)
+   */
+  private async startAutoScan(
+    stream: MediaStream,
+    video: HTMLVideoElement,
+  ): Promise<boolean> {
+    const Detector = (
+      globalThis as unknown as { BarcodeDetector?: BarcodeDetectorCtor }
+    ).BarcodeDetector;
+
+    if (Detector) {
+      try {
+        this.barcodeDetector = new Detector({ formats: ['qr_code'] });
+        this.detectTimer = setInterval(() => {
+          void this.detectFromVideo();
+        }, 350);
+        return true;
+      } catch {
+        this.barcodeDetector = null;
+        // Fall through to ZXing.
+      }
+    }
+
+    return this.startZxingFallback(stream, video);
+  }
+
+  private async startZxingFallback(
+    stream: MediaStream,
+    video: HTMLVideoElement,
+  ): Promise<boolean> {
+    try {
+      const reader = new BrowserQRCodeReader(undefined, {
+        delayBetweenScanAttempts: 350,
+        delayBetweenScanSuccess: 1500,
+      });
+      this.zxingReader = reader;
+
+      this.zxingControls = await reader.decodeFromStream(
+        stream,
+        video,
+        (result) => {
+          if (!result) {
+            return;
+          }
+          const value = result.getText();
+          if (!value) {
+            return;
+          }
+          this.ngZone.run(() => this.onQrTokenCaptured(value));
+        },
+      );
+      return true;
+    } catch {
+      this.stopZxing();
+      return false;
     }
   }
 
@@ -529,13 +630,24 @@ export class ComercioValidateQr implements AfterViewInit, OnDestroy {
     }
   }
 
+  private stopZxing(): void {
+    try {
+      this.zxingControls?.stop();
+    } catch {
+      // Ignore stop errors during teardown.
+    }
+    this.zxingControls = null;
+    this.zxingReader = null;
+  }
+
   private teardownCamera(): void {
     if (this.detectTimer !== null) {
       clearInterval(this.detectTimer);
       this.detectTimer = null;
     }
     this.barcodeDetector = null;
-    this.barcodeDetectorAvailable.set(false);
+    this.stopZxing();
+    this.autoScanAvailable.set(false);
 
     const video = this.videoRef()?.nativeElement;
     if (video) {

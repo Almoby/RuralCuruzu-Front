@@ -87,7 +87,10 @@
       } @else {
         <ul class="benefit-list">
           @for (benefit of availableBenefits(); track benefit.id) {
-            <li class="benefit-list__item">
+            <li
+              class="benefit-list__item"
+              [class.benefit-list__item--exhausted]="!benefit.hasUsesAvailable"
+            >
               <span
                 class="benefit-list__icon"
                 [attr.data-tone]="rubroTone(benefit.categoryName)"
@@ -98,6 +101,14 @@
               <div class="benefit-list__text">
                 <p class="benefit-list__title">{{ benefit.title }}</p>
                 <p class="benefit-list__merchant">{{ benefit.merchantName }}</p>
+                @if (benefit.usageAvailabilityLabel) {
+                  <p
+                    class="benefit-list__usage"
+                    [class.benefit-list__usage--exhausted]="!benefit.hasUsesAvailable"
+                  >
+                    {{ benefit.usageAvailabilityLabel }}
+                  </p>
+                }
               </div>
               <span class="benefit-discount-badge">{{ benefit.discountBadge }}</span>
             </li>

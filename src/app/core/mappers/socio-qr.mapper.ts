@@ -131,6 +131,7 @@ function buildQrPayload(dto: MiQrResponseDto): MemberQrPayload | null {
   const ui = mapUiStatus(dto.estado);
   return {
     qrValue: token,
+    codigoQr: text(dto.codigoQr),
     status: ui.status,
     statusLabel: ui.statusLabel,
     statusIcon: ui.statusIcon,
@@ -141,20 +142,22 @@ function buildQrPayload(dto: MiQrResponseDto): MemberQrPayload | null {
 
 /**
  * Maps Swagger `MiQrResponse` to the Mi QR ViewModel.
- * The visual QR must encode `token` exactly — nothing else.
+ * The visual QR must encode `token` exactly — never `codigoQr`.
  */
 export function mapMiQrDtoToViewModel(dto: MiQrResponseDto): MemberQrResponse {
   const available = dto.estado === 'ACTIVO' && !!text(dto.token);
   const profile = buildProfile(dto);
   const summary = buildSummary(dto, available);
+  const qr = available ? buildQrPayload(dto) : null;
 
   return {
     profile,
-    qr: available ? buildQrPayload(dto) : null,
+    qr,
     summary,
     available,
     message: text(dto.mensaje, summary.helperText),
     expiresAt: available ? text(dto.expiraEn) || null : null,
+    codigoQr: qr?.codigoQr ?? text(dto.codigoQr),
   };
 }
 
