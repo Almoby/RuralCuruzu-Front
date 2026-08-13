@@ -222,6 +222,53 @@
   color: $color-muted;
 }
 
+.reports__category-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 0.75rem;
+  padding: 0.2rem;
+  border-radius: var(--radius-md, 0.5rem);
+  background: #f3f5f5;
+}
+
+.reports__category-tab {
+  min-height: 1.85rem;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-md, 0.5rem) - 2px);
+  background: transparent;
+  color: $color-muted;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  &:hover {
+    color: $color-text;
+    background: rgba(255, 255, 255, 0.7);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.25);
+  }
+
+  &--active,
+  &--active:hover {
+    background: #fff;
+    border-color: #d7dede;
+    color: $color-text;
+  }
+}
+
 .reports__member-list,
 .reports__ranking {
   list-style: none;

@@ -32,6 +32,8 @@ export interface MemberDebtItem {
   paidAt?: string;
   /** Fee period (`yyyy-MM`) for collected-fee rows. */
   period?: string;
+  /** From CuotaResumenResponse.categoria for collected-fee rows. */
+  categoria?: 'ACTIVO' | 'ADHERENTE' | null;
 }
 
 export interface MemberDebtReport {

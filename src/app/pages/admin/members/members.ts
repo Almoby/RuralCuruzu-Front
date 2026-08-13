@@ -38,6 +38,7 @@ import { ApiError } from '../../../core/interfaces/api-response.interface';
 import {
   AdminMember,
   AdminMemberDetail,
+  SocioCategoria,
   SocioEstado,
 } from '../../../core/interfaces/admin-socio.interface';
 import { mapSocioDetalleDtoToViewModel } from '../../../core/mappers/admin-socio.mapper';
@@ -148,6 +149,8 @@ export class MembersPage {
   protected readonly searchTerm = signal('');
   protected readonly filterControl = new FormControl('all', { nonNullable: true });
   protected readonly filter = signal('all');
+  protected readonly categoryControl = new FormControl('all', { nonNullable: true });
+  protected readonly categoryFilter = signal('all');
 
   protected readonly createOpen = signal(false);
   protected readonly detailOpen = signal(false);
@@ -158,12 +161,19 @@ export class MembersPage {
   protected readonly editServerErrors = signal<Readonly<Record<string, string>>>({});
   protected readonly statusConfirm = signal<StatusConfirmState | null>(null);
 
-  /** Backend-supported filter only: `estado`. */
+  /** Backend-supported filter: `estado`. */
   protected readonly filterOptions: SelectOption[] = [
     { value: 'all', label: 'Todos' },
     { value: 'ACTIVO', label: 'Activos' },
     { value: 'INACTIVO', label: 'Inactivos' },
     { value: 'DADO_DE_BAJA', label: 'Dados de baja' },
+  ];
+
+  /** Backend-supported filter: `categoria`. */
+  protected readonly categoryOptions: SelectOption[] = [
+    { value: 'all', label: 'Todas' },
+    { value: 'ACTIVO', label: 'Activo' },
+    { value: 'ADHERENTE', label: 'Adherente' },
   ];
 
   protected readonly filteredMembers = computed(() => {
@@ -257,8 +267,21 @@ export class MembersPage {
         switchMap(() => {
           const filter = this.filter();
           const estado = isSocioEstado(filter) ? filter : undefined;
+          const category = this.categoryFilter();
+          const categoria =
+            category === 'ACTIVO' || category === 'ADHERENTE'
+              ? (category as SocioCategoria)
+              : undefined;
 
-          return this.memberService.getAdminSocios(estado ? { estado } : undefined).pipe(
+          const params =
+            estado || categoria
+              ? {
+                  ...(estado ? { estado } : {}),
+                  ...(categoria ? { categoria } : {}),
+                }
+              : undefined;
+
+          return this.memberService.getAdminSocios(params).pipe(
             catchError((error: unknown) => {
               this.loadError.set(true);
               this.loading.set(false);
@@ -286,6 +309,13 @@ export class MembersPage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => {
         this.filter.set(value || 'all');
+        this.reload$.next();
+      });
+
+    this.categoryControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        this.categoryFilter.set(value || 'all');
         this.reload$.next();
       });
   }

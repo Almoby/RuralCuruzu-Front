@@ -20,10 +20,10 @@
         [maxLength]="cuitMaxLength"
         [error]="fieldError('cuit')"
       />
-      <app-select
+      <app-input
         label="Rubro"
+        placeholder="Ej. Farmacia, Veterinaria, Software"
         formControlName="category"
-        [options]="categoryOptions()"
         [error]="fieldError('category')"
       />
       <app-input

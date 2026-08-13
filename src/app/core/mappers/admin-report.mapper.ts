@@ -103,7 +103,7 @@ function toMemberDebtItem(
   name: string,
   code: string,
   amount: number,
-  extras?: Pick<MemberDebtItem, 'overdueCount' | 'paidAt' | 'period'>,
+  extras?: Pick<MemberDebtItem, 'overdueCount' | 'paidAt' | 'period' | 'categoria'>,
 ): MemberDebtItem {
   return {
     memberId: key,
@@ -396,16 +396,21 @@ export function mapCollectedFeesFromCuotas(
       const paidAt = cuota.pagoVigente?.fechaPago?.trim() || '';
       const feePeriod =
         typeof cuota.periodo === 'string' ? cuota.periodo.slice(0, 7) : period;
+      const categoria =
+        cuota.categoria === 'ACTIVO' || cuota.categoria === 'ADHERENTE'
+          ? cuota.categoria
+          : null;
       return toMemberDebtItem(cuota.id, name, code, num(cuota.importe), {
         paidAt,
         period: feePeriod,
+        categoria,
       });
     })
     .filter((item) => item.amount > 0)
     .sort(compareCollectedFees);
 
   return {
-    title: 'Cuotas cobradas por mes de socios activos y adherentes',
+    title: 'Cuotas cobradas por mes',
     monthLabel: formatPeriodLabel(period),
     monthOptions,
     selectedPeriod: period,

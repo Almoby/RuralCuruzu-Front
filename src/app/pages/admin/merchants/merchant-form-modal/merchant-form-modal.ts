@@ -14,15 +14,12 @@ import {
   AppButton,
   AppInput,
   AppModal,
-  AppSelect,
-  SelectOption,
 } from '../../../../shared/components';
 import {
   AdminMerchant,
   AdminMerchantCategoryOption,
   AdminMerchantFormValue,
 } from '../../../../core/interfaces/admin-comercio.interface';
-import { MerchantCategory } from '../../../../shared/enums';
 import {
   CUIT_FORMATTED_MAX_LENGTH,
   formatCuit,
@@ -36,7 +33,7 @@ export type MerchantFormSave =
 @Component({
   selector: 'app-merchant-form-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, AppModal, AppButton, AppInput, AppSelect],
+  imports: [ReactiveFormsModule, AppModal, AppButton, AppInput],
   templateUrl: './merchant-form-modal.html',
   styleUrl: './merchant-form-modal.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -50,6 +47,7 @@ export class MerchantFormModal {
 
   readonly open = input(false);
   readonly merchant = input<AdminMerchant | null>(null);
+  /** Kept for parent compatibility; rubro is free text (Swagger string). */
   readonly categories = input<AdminMerchantCategoryOption[]>([]);
   readonly submitting = input(false);
   /** Server-side field errors keyed by control name (e.g. `cuit`). */
@@ -62,7 +60,7 @@ export class MerchantFormModal {
     tradeName: ['', [Validators.required]],
     name: ['', [Validators.required]],
     cuit: ['', [Validators.required, cuitValidator]],
-    category: [MerchantCategory.Farmacia as string, [Validators.required]],
+    category: ['', [Validators.required]],
     phone: ['', [Validators.required]],
     email: ['', [Validators.required, Validators.email]],
     address: ['', [Validators.required]],
@@ -77,14 +75,6 @@ export class MerchantFormModal {
   protected readonly submitLabel = computed(() =>
     this.isEdit() ? 'Guardar' : 'Crear comercio',
   );
-
-  protected readonly categoryOptions = computed<SelectOption[]>(() => {
-    const options = this.categories();
-    if (options.length > 0) {
-      return options.map((item) => ({ value: item.value, label: item.label }));
-    }
-    return Object.values(MerchantCategory).map((value) => ({ value, label: value }));
-  });
 
   constructor() {
     this.form.controls.cuit.valueChanges
@@ -106,15 +96,16 @@ export class MerchantFormModal {
       }
 
       if (current) {
-        const knownCategory = this.categoryOptions().some(
-          (option) => option.value === current.category,
-        );
         const rawCuit = current.cuit === 'No informado' ? '' : current.cuit;
+        const rubro =
+          !current.category || current.category === 'No informado'
+            ? ''
+            : current.category;
         this.form.reset({
           tradeName: current.tradeName === 'No informado' ? '' : current.tradeName,
           name: current.name === 'No informado' ? '' : current.name,
           cuit: formatCuit(rawCuit),
-          category: knownCategory ? current.category : MerchantCategory.Otro,
+          category: rubro,
           phone: current.phone === 'No informado' ? '' : current.phone,
           email: current.email === 'No informado' ? '' : current.email,
           address: current.address === 'No informado' ? '' : current.address,
@@ -192,12 +183,10 @@ export class MerchantFormModal {
       tradeName: '',
       name: '',
       cuit: '',
-      category: MerchantCategory.Farmacia,
+      category: '',
       phone: '',
       email: '',
       address: '',
     });
-    this.form.markAsPristine();
-    this.form.markAsUntouched();
   }
 }

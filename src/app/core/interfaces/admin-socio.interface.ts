@@ -126,6 +126,8 @@ export interface SocioCreadoResponse {
 
 export interface ListarSociosAdminParams {
   estado?: SocioEstado;
+  /** Swagger query: ACTIVO | ADHERENTE. */
+  categoria?: SocioCategoria;
 }
 
 /** Form view-model for alta manual. */

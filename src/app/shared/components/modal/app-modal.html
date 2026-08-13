@@ -19,7 +19,13 @@
             <p class="app-modal__subtitle">{{ subtitle() }}</p>
           }
         </div>
-        <button class="app-modal__close" type="button" aria-label="Cerrar" (click)="onCloseClick()">
+        <button
+          class="app-modal__close"
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="closeDisabled()"
+          (click)="onCloseClick()"
+        >
           ×
         </button>
       </header>

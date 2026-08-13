@@ -59,6 +59,8 @@ type ChartMenu =
   | 'collectedPageSize'
   | null;
 
+type CollectedCategoryTab = 'ACTIVO' | 'ADHERENTE';
+
 const DEBT_TOP_OPTIONS = [10, 20, 50] as const;
 const LIST_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
@@ -192,6 +194,7 @@ export class ReportsPage {
   protected readonly collectedFeesPageSize = signal<(typeof LIST_PAGE_SIZE_OPTIONS)[number]>(
     10,
   );
+  protected readonly collectedCategory = signal<CollectedCategoryTab>('ACTIVO');
 
   protected readonly debtTopOptions = DEBT_TOP_OPTIONS;
   protected readonly listPageSizeOptions = LIST_PAGE_SIZE_OPTIONS;
@@ -257,9 +260,12 @@ export class ReportsPage {
     return this.overdueMembersSafePage() * size < total;
   });
 
-  protected readonly sortedCollectedFees = computed(() =>
-    sortCollectedFees(this.data()?.monthlyCollectedFees.items ?? []),
-  );
+  protected readonly sortedCollectedFees = computed(() => {
+    const category = this.collectedCategory();
+    return sortCollectedFees(this.data()?.monthlyCollectedFees.items ?? []).filter(
+      (item) => item.categoria === category,
+    );
+  });
 
   protected readonly collectedFeesTotal = computed(
     () => this.sortedCollectedFees().length,
@@ -299,6 +305,12 @@ export class ReportsPage {
     const size = this.collectedFeesPageSize();
     return this.collectedFeesSafePage() * size < total;
   });
+
+  protected readonly collectedEmptyMessage = computed(() =>
+    this.collectedCategory() === 'ACTIVO'
+      ? 'No hay cuotas cobradas de socios activos para el período seleccionado.'
+      : 'No hay cuotas cobradas de socios adherentes para el período seleccionado.',
+  );
 
   protected readonly overdueRangeText = computed(() => {
     const total = this.overdueMembersTotal();
@@ -723,6 +735,14 @@ export class ReportsPage {
     this.data.set(
       this.reportService.withCollectedPeriod(current, this.rawCuotas(), period),
     );
+  }
+
+  protected selectCollectedCategory(category: CollectedCategoryTab): void {
+    if (this.collectedCategory() === category) {
+      return;
+    }
+    this.collectedCategory.set(category);
+    this.collectedFeesPage.set(1);
   }
 
   protected selectDebtTop(limit: (typeof DEBT_TOP_OPTIONS)[number]): void {

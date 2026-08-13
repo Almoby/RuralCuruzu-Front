@@ -500,4 +500,52 @@ export function currentAdminPeriod(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** Validates `yyyy-MM`. */
+export function isValidPeriodoYyyyMm(value: string): boolean {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) {
+    return false;
+  }
+  return true;
+}
+
+/** Next calendar period after `period` (`yyyy-MM`). */
+export function nextPeriodoYyyyMm(period: string): string {
+  if (!isValidPeriodoYyyyMm(period)) {
+    return period;
+  }
+  const [yearPart, monthPart] = period.split('-');
+  let year = Number(yearPart);
+  let month = Number(monthPart) + 1;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+/**
+ * Collects up to `count` periods starting at `fromPeriod`, skipping blocked ones.
+ * Continues forward (including year rollover) until enough valid months are found
+ * or `maxScan` months have been inspected.
+ */
+export function collectAvailableAdvancePeriods(
+  fromPeriod: string,
+  count: number,
+  blocked: ReadonlySet<string>,
+  maxScan = 48,
+): string[] {
+  if (!isValidPeriodoYyyyMm(fromPeriod) || !Number.isInteger(count) || count < 1) {
+    return [];
+  }
+  const result: string[] = [];
+  let cursor = fromPeriod;
+  for (let scanned = 0; scanned < maxScan && result.length < count; scanned += 1) {
+    if (!blocked.has(cursor)) {
+      result.push(cursor);
+    }
+    cursor = nextPeriodoYyyyMm(cursor);
+  }
+  return result;
+}
+
 export { NOT_PROVIDED, NO_DATA };

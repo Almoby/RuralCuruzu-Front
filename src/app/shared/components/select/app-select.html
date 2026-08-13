@@ -15,11 +15,11 @@
       (blur)="onBlur()"
     >
       @if (placeholder()) {
-        <option value="" disabled [selected]="!value()">{{ placeholder() }}</option>
+        <option value="" disabled>{{ placeholder() }}</option>
       }
 
       @for (option of options(); track option.value) {
-        <option [value]="option.value" [selected]="option.value === value()">
+        <option [value]="option.value">
           {{ option.label }}
         </option>
       }

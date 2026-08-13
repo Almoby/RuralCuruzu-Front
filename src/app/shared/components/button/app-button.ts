@@ -28,9 +28,12 @@ export class AppButton {
   readonly click = output<MouseEvent>();
 
   protected onClick(event: MouseEvent): void {
+    // Stop native bubbling: an output named `click` + bubbled DOM click on the host
+    // would invoke parent `(click)` handlers twice per physical click.
+    event.stopPropagation();
+
     if (this.disabled()) {
       event.preventDefault();
-      event.stopPropagation();
       return;
     }
 

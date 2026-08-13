@@ -268,9 +268,36 @@
               </div>
             </div>
 
+            <div
+              class="reports__category-tabs"
+              role="tablist"
+              aria-label="Categoría de socio"
+            >
+              <button
+                type="button"
+                role="tab"
+                class="reports__category-tab"
+                [class.reports__category-tab--active]="collectedCategory() === 'ACTIVO'"
+                [attr.aria-selected]="collectedCategory() === 'ACTIVO'"
+                (click)="selectCollectedCategory('ACTIVO')"
+              >
+                Activos
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="reports__category-tab"
+                [class.reports__category-tab--active]="collectedCategory() === 'ADHERENTE'"
+                [attr.aria-selected]="collectedCategory() === 'ADHERENTE'"
+                (click)="selectCollectedCategory('ADHERENTE')"
+              >
+                Adherentes
+              </button>
+            </div>
+
             @if (collectedFeesTotal() === 0) {
               <p class="reports__empty-hint">
-                No hay cuotas cobradas para el período seleccionado.
+                {{ collectedEmptyMessage() }}
               </p>
             } @else {
               <ul class="reports__member-list">

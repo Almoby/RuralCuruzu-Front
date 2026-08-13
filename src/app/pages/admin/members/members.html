@@ -15,13 +15,17 @@
       />
     </div>
     <div class="members__toolbar-filter">
-      <span class="members__filter-icon" aria-hidden="true">
-        <app-icon name="filter" [size]="16" />
-      </span>
       <app-select
-        placeholder="Filtrar..."
+        label="Estado"
         [options]="filterOptions"
         [formControl]="filterControl"
+      />
+    </div>
+    <div class="members__toolbar-filter">
+      <app-select
+        label="Categoría"
+        [options]="categoryOptions"
+        [formControl]="categoryControl"
       />
     </div>
   </div>

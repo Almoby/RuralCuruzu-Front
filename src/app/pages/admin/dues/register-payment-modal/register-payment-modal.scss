@@ -183,6 +183,88 @@
   color: var(--color-muted);
 }
 
+.register-payment__period--disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.register-payment__empty-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+.register-payment__advance {
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.register-payment__advance-help {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--color-muted);
+}
+
+.register-payment__advance-actions {
+  margin-top: var(--space-3);
+}
+
+.register-payment__advance-hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-muted);
+}
+
+.register-payment__advance-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+.register-payment__advance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.75rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-bg, #f5f6f6);
+  font-size: var(--font-size-xs);
+  color: var(--color-text);
+}
+
+.register-payment__advance-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm, 0.25rem);
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--color-danger, #b42318);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
 .register-payment__footer {
   display: grid;
   grid-template-columns: 1fr;
@@ -191,6 +273,11 @@
 
   @media (min-width: $bp-sm) {
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+  }
+
+  app-button {
+    display: block;
+    width: 100%;
   }
 }
 
@@ -207,13 +294,28 @@
   color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+  cursor: pointer;
 
-  &:hover {
-    background: var(--color-neutral-bg);
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
+}
 
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
+.register-payment__submit-spinner {
+  display: inline-block;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-right: 0.45rem;
+  border: 2px solid rgb(255 255 255 / 45%);
+  border-top-color: #fff;
+  border-radius: 999px;
+  vertical-align: -0.15em;
+  animation: register-payment-spin 0.7s linear infinite;
+}
+
+@keyframes register-payment-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

@@ -1,8 +1,10 @@
 <app-modal
   [open]="open()"
   title="Registrar pago"
-  subtitle="Seleccioná un socio y uno o varios períodos. El importe se toma de cada cuota generada."
+  subtitle="Seleccioná un socio y uno o varios períodos. El importe de las cuotas existentes se toma de cada cuota; los períodos futuros usan la regla vigente al registrar."
   size="lg"
+  [closeOnBackdrop]="!submitting()"
+  [closeDisabled]="submitting()"
   (close)="onClose()"
 >
   @if (sociosLoading()) {
@@ -36,20 +38,22 @@
           </div>
         </div>
 
-        @if (!hasPagables()) {
-          <app-empty-state
-            title="Sin períodos pagables"
-            description="Este socio no tiene cuotas pendientes, vencidas o rechazadas para registrar."
-          />
-        } @else {
-          <fieldset class="register-payment__periods">
-            <legend class="register-payment__legend">Períodos a pagar</legend>
+        <fieldset class="register-payment__periods" [disabled]="submitting()">
+          <legend class="register-payment__legend">Cuotas pendientes</legend>
+
+          @if (!hasPagables()) {
+            <p class="register-payment__empty-note">No tiene cuotas pendientes.</p>
+          } @else {
             <div class="register-payment__period-list">
               @for (option of periodosPagables(); track option.cuotaId) {
-                <label class="register-payment__period">
+                <label
+                  class="register-payment__period"
+                  [class.register-payment__period--disabled]="submitting()"
+                >
                   <input
                     type="checkbox"
                     [checked]="isPeriodoSelected(option.periodo)"
+                    [disabled]="submitting()"
                     (change)="togglePeriodo(option)"
                   />
                   <span class="register-payment__period-body">
@@ -64,15 +68,72 @@
                 </label>
               }
             </div>
-            <div class="register-payment__account-row register-payment__account-row--total">
-              <span>Total seleccionado</span>
-              <strong>{{ selectedTotalLabel() }}</strong>
+          }
+        </fieldset>
+
+        @if (showAdvanceSection()) {
+          <fieldset class="register-payment__advance" [disabled]="submitting()">
+            <legend class="register-payment__legend">Agregar meses por adelantado</legend>
+            <p class="register-payment__advance-help">
+              Elegí cuántos meses futuros consecutivos querés adelantar. Se enviarán juntos en el
+              mismo pago.
+            </p>
+
+            <app-select
+              label="Meses a adelantar"
+              formControlName="advanceCount"
+              [options]="advanceCountOptions"
+            />
+
+            <div class="register-payment__advance-actions">
+              <app-button
+                type="button"
+                variant="secondary"
+                [disabled]="!canAddAdvanceMonths()"
+                (click)="addAdvanceMonths()"
+              >
+                {{ addAdvanceLabel() }}
+              </app-button>
             </div>
+
+            @if (advanceHint()) {
+              <p class="register-payment__advance-hint">{{ advanceHint() }}</p>
+            }
+
+            @if (advanceChips().length > 0) {
+              <ul class="register-payment__advance-chips" aria-label="Meses adelantados">
+                @for (chip of advanceChips(); track chip.periodo) {
+                  <li class="register-payment__advance-chip">
+                    <span>{{ chip.periodoLabel }}</span>
+                    <button
+                      type="button"
+                      class="register-payment__advance-chip-remove"
+                      [disabled]="submitting()"
+                      [attr.aria-label]="'Quitar ' + chip.periodoLabel"
+                      (click)="removeAdvancePeriod(chip.periodo)"
+                    >
+                      ×
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
           </fieldset>
+        } @else if (showAdherenteAdvanceHint()) {
+          <p class="register-payment__advance-help">
+            Los pagos adelantados de períodos futuros están disponibles para socios activos.
+          </p>
+        }
+
+        @if (selectedPeriodos().length > 0) {
+          <div class="register-payment__account-row register-payment__account-row--total">
+            <span>Total seleccionado</span>
+            <strong>{{ selectedTotalLabel() }}</strong>
+          </div>
         }
       }
 
-      <fieldset class="register-payment__methods">
+      <fieldset class="register-payment__methods" [disabled]="submitting()">
         <legend class="register-payment__legend">Método de pago</legend>
         <div class="register-payment__method-grid" role="radiogroup" aria-label="Método de pago">
           @for (method of methodChoices; track method.value) {
@@ -81,6 +142,8 @@
               class="register-payment__method"
               role="radio"
               [attr.aria-checked]="selectedMethod() === method.value"
+              [attr.aria-disabled]="submitting()"
+              [disabled]="submitting()"
               [class.register-payment__method--active]="selectedMethod() === method.value"
               (click)="selectMethod(method.value)"
               (keydown)="onMethodKeydown($event, method.value)"
@@ -119,18 +182,24 @@
   }
 
   <div modalFooter class="register-payment__footer">
-    <button type="button" class="register-payment__cancel" (click)="onClose()">Cancelar</button>
+    <button
+      type="button"
+      class="register-payment__cancel"
+      [disabled]="submitting()"
+      (click)="onClose()"
+    >
+      Cancelar
+    </button>
     <app-button
       variant="primary"
       [disabled]="submitDisabled()"
       [fullWidth]="true"
       (click)="onSubmit()"
     >
-      @if (accountLoading() || sociosLoading()) {
-        Cargando...
-      } @else {
-        Registrar y marcar como abonado
+      @if (submitting()) {
+        <span class="register-payment__submit-spinner" aria-hidden="true"></span>
       }
+      {{ submitLabel() }}
     </app-button>
   </div>
 </app-modal>

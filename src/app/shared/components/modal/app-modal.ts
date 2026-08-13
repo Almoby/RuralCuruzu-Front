@@ -21,6 +21,8 @@ export class AppModal {
   readonly subtitle = input('');
   readonly size = input<ModalSize>('md');
   readonly closeOnBackdrop = input(true);
+  /** When true, Escape / X / backdrop cannot close the modal. */
+  readonly closeDisabled = input(false);
 
   readonly close = output<void>();
 
@@ -34,7 +36,7 @@ export class AppModal {
       document.body.style.overflow = 'hidden';
 
       const onKeyDown = (event: KeyboardEvent): void => {
-        if (event.key === 'Escape') {
+        if (event.key === 'Escape' && !this.closeDisabled()) {
           this.close.emit();
         }
       };
@@ -49,12 +51,16 @@ export class AppModal {
   }
 
   protected onBackdropClick(): void {
-    if (this.closeOnBackdrop()) {
-      this.close.emit();
+    if (this.closeDisabled() || !this.closeOnBackdrop()) {
+      return;
     }
+    this.close.emit();
   }
 
   protected onCloseClick(): void {
+    if (this.closeDisabled()) {
+      return;
+    }
     this.close.emit();
   }
 

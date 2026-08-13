@@ -9,7 +9,7 @@
 .members__toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-3);
   width: 100%;
   min-width: 0;
@@ -22,19 +22,11 @@
 
 .members__toolbar-filter {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: 0 1 15rem;
-  min-width: 11rem;
-  max-width: 18rem;
-}
-
-.members__filter-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-muted);
-  flex-shrink: 0;
+  flex-direction: column;
+  align-items: stretch;
+  flex: 0 1 12.5rem;
+  min-width: 10rem;
+  max-width: 15rem;
 }
 
 .members__state {

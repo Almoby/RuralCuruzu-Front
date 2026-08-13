@@ -32,12 +32,15 @@ export class MemberService {
 
   /**
    * GET `${apiBaseUrl}/admin/socios`
-   * Optional query: `estado` (ACTIVO | INACTIVO | DADO_DE_BAJA).
+   * Optional query: `estado`, `categoria` (ACTIVO | ADHERENTE).
    */
   getAdminSocios(params?: ListarSociosAdminParams): Observable<AdminMember[]> {
     let httpParams = new HttpParams();
     if (params?.estado) {
       httpParams = httpParams.set('estado', params.estado);
+    }
+    if (params?.categoria) {
+      httpParams = httpParams.set('categoria', params.categoria);
     }
 
     return this.http

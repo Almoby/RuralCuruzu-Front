@@ -54,11 +54,13 @@ export interface PagoResponseDto {
   fechaCreacion?: string;
 }
 
-/** GET /admin/cuotas item */
+/** GET /admin/cuotas item (Swagger CuotaResumenResponse). */
 export interface CuotaResumenResponseDto {
   id: string;
   socioNumeroSocio?: string;
   socioNombre?: string;
+  /** Swagger CuotaResumenResponse.categoria. */
+  categoria?: SocioCategoriaCuota | null;
   periodo?: string;
   importe?: number;
   estado?: CuotaEstado;

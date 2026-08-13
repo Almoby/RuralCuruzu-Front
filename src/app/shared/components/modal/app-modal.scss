@@ -49,9 +49,14 @@
     font-size: 1.5rem;
     line-height: 1;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background-color: var(--color-neutral-bg);
       color: var(--color-text);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
   }
 
