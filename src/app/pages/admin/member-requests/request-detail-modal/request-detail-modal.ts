@@ -95,6 +95,10 @@ export class RequestDetailModal {
   readonly reopen = output<string>();
   readonly observe = output<string>();
   readonly downloadFile = output<string>();
+  readonly downloadPdf = output<void>();
+
+  /** Parent sets true while PDF download is in flight. */
+  readonly pdfDownloading = input(false);
 
   protected readonly RequestStatus = RequestStatus;
   protected readonly requestStatusLabel = requestStatusLabel;
@@ -525,10 +529,17 @@ export class RequestDetailModal {
   }
 
   protected onDownload(path: string): void {
-    if (this.submitting() || this.loading()) {
+    if (this.submitting() || this.loading() || this.pdfDownloading()) {
       return;
     }
     this.downloadFile.emit(path);
+  }
+
+  protected onDownloadPdf(): void {
+    if (this.submitting() || this.loading() || this.pdfDownloading()) {
+      return;
+    }
+    this.downloadPdf.emit();
   }
 
   protected formatHistorialDate(value: string): string {

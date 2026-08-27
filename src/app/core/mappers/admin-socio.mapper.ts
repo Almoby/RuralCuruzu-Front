@@ -340,10 +340,18 @@ export function mapFormToAltaManualSocioRequest(
     direccion: trimRequired(form.address),
     telefono: trimRequired(form.phone),
     email: trimRequired(form.email).toLowerCase(),
-    nombreEstablecimiento: trimRequired(form.establishmentName),
-    direccionEstablecimiento: trimRequired(form.establishmentAddress),
     estado: form.membershipStatus,
   };
+
+  const nombreEstablecimiento = trimOptional(form.establishmentName);
+  if (nombreEstablecimiento) {
+    payload.nombreEstablecimiento = nombreEstablecimiento;
+  }
+
+  const direccionEstablecimiento = trimOptional(form.establishmentAddress);
+  if (direccionEstablecimiento) {
+    payload.direccionEstablecimiento = direccionEstablecimiento;
+  }
 
   const portal = trimOptional(form.portalFloor);
   if (portal) {

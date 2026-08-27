@@ -120,6 +120,7 @@
     [mode]="detailMode()"
     [submitting]="submitting()"
     [loading]="detailLoading()"
+    [pdfDownloading]="pdfDownloading()"
     [observationClearTick]="observationClearTick()"
     (close)="closeDetail()"
     (passToReview)="passToReview($event)"
@@ -129,5 +130,6 @@
     (reopen)="reopen($event)"
     (observe)="observe($event)"
     (downloadFile)="downloadFile($event)"
+    (downloadPdf)="downloadPdf()"
   />
 </section>

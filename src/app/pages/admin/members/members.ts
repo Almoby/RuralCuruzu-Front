@@ -82,8 +82,13 @@ function isApiError(error: unknown): error is ApiError {
   );
 }
 
-function isSocioEstado(value: string): value is SocioEstado {
-  return value === 'ACTIVO' || value === 'INACTIVO' || value === 'DADO_DE_BAJA';
+function isListadoEstadoFilter(value: string): value is 'ACTIVO' | 'INACTIVO' {
+  return value === 'ACTIVO' || value === 'INACTIVO';
+}
+
+/** Gestión de Socios shows only operative members (not logical baja). */
+function isVisibleInMembersManagement(member: AdminMember): boolean {
+  return member.membershipStatus !== 'DADO_DE_BAJA';
 }
 
 function mapSocioFieldErrors(error: ApiError): Readonly<Record<string, string>> {
@@ -161,12 +166,11 @@ export class MembersPage {
   protected readonly editServerErrors = signal<Readonly<Record<string, string>>>({});
   protected readonly statusConfirm = signal<StatusConfirmState | null>(null);
 
-  /** Backend-supported filter: `estado`. */
+  /** Listado operativo: ACTIVO + INACTIVO (DADO_DE_BAJA no se lista en esta pantalla). */
   protected readonly filterOptions: SelectOption[] = [
     { value: 'all', label: 'Todos' },
     { value: 'ACTIVO', label: 'Activos' },
     { value: 'INACTIVO', label: 'Inactivos' },
-    { value: 'DADO_DE_BAJA', label: 'Dados de baja' },
   ];
 
   /** Backend-supported filter: `categoria`. */
@@ -179,6 +183,9 @@ export class MembersPage {
   protected readonly filteredMembers = computed(() => {
     const term = this.searchTerm().trim().toLowerCase();
     return this.members().filter((member) => {
+      if (!isVisibleInMembersManagement(member)) {
+        return false;
+      }
       if (term.length === 0) {
         return true;
       }
@@ -195,7 +202,7 @@ export class MembersPage {
   });
 
   protected readonly subtitle = computed(
-    () => `${this.members().length} socios registrados`,
+    () => `${this.filteredMembers().length} socios registrados`,
   );
 
   protected readonly viewState = computed<MembersViewState>(() => {
@@ -231,20 +238,27 @@ export class MembersPage {
       case 'reactivate':
         return '¿Querés volver a activar este socio?';
       case 'baja':
-        return '¿Querés dar de baja este socio? Esta acción puede afectar su acceso y beneficios.';
+        return '¿Querés dar de baja a este socio? El socio perderá el acceso al sistema y dejará de poder utilizar sus beneficios y funcionalidades asociadas.';
       default:
         return '';
     }
   });
 
+  protected readonly statusConfirmBusy = computed(
+    () => !!this.statusConfirm() && this.statusBusyId() !== null,
+  );
+
   protected readonly confirmLabel = computed(() => {
-    switch (this.statusConfirm()?.kind) {
+    const kind = this.statusConfirm()?.kind;
+    const busy = this.statusConfirmBusy();
+
+    switch (kind) {
       case 'deactivate':
-        return 'Desactivar';
+        return busy ? 'Desactivando...' : 'Desactivar';
       case 'reactivate':
-        return 'Reactivar';
+        return busy ? 'Reactivando...' : 'Reactivar';
       case 'baja':
-        return 'Dar de baja';
+        return busy ? 'Dando de baja...' : 'Dar de baja';
       default:
         return 'Confirmar';
     }
@@ -265,8 +279,9 @@ export class MembersPage {
           this.loadError.set(false);
         }),
         switchMap(() => {
+          // Todos → sin `estado` (backend puede incluir DADO_DE_BAJA; se excluye en UI).
           const filter = this.filter();
-          const estado = isSocioEstado(filter) ? filter : undefined;
+          const estado = isListadoEstadoFilter(filter) ? filter : undefined;
           const category = this.categoryFilter();
           const categoria =
             category === 'ACTIVO' || category === 'ADHERENTE'
@@ -300,7 +315,7 @@ export class MembersPage {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((members) => {
-        this.members.set(members);
+        this.members.set(members.filter(isVisibleInMembersManagement));
         this.loading.set(false);
         this.loadError.set(false);
       });
@@ -471,8 +486,12 @@ export class MembersPage {
           this.notifications.success(
             response.mensaje?.trim() || 'Estado actualizado correctamente',
           );
+          if (pending.nuevoEstado === 'DADO_DE_BAJA') {
+            this.closeDetail();
+          } else {
+            this.refreshDetailIfOpen(pending.member.id);
+          }
           this.reload$.next();
-          this.refreshDetailIfOpen(pending.member.id);
         },
         error: (error: unknown) => {
           this.notifications.error(

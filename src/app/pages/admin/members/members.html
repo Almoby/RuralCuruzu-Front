@@ -342,6 +342,7 @@
     [confirmLabel]="confirmLabel()"
     cancelLabel="Volver"
     [danger]="statusConfirm()?.kind === 'baja'"
+    [busy]="statusConfirmBusy()"
     (confirm)="confirmStatusChange()"
     (cancel)="cancelStatusChange()"
   />

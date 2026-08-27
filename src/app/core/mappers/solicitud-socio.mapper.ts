@@ -35,10 +35,18 @@ export function mapFormToSolicitudSocioRequest(
     direccion: trimText(form.postalAddress),
     telefono: trimText(form.phone),
     email: trimText(form.email).toLowerCase(),
-    nombreEstablecimiento: trimText(form.establishmentName),
-    direccionEstablecimiento: trimText(form.establishmentAddress),
     aceptaTerminosYCondiciones: form.acceptTerms === true,
   };
+
+  const nombreEstablecimiento = normalizeOptional(form.establishmentName);
+  if (nombreEstablecimiento) {
+    payload.nombreEstablecimiento = nombreEstablecimiento;
+  }
+
+  const direccionEstablecimiento = normalizeOptional(form.establishmentAddress);
+  if (direccionEstablecimiento) {
+    payload.direccionEstablecimiento = direccionEstablecimiento;
+  }
 
   const portal = normalizeOptional(form.portalPisoDepartamento);
   if (portal) {

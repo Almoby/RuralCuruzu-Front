@@ -99,3 +99,6 @@ export interface SolicitudArchivoDownload {
   blob: Blob;
   fileName: string;
 }
+
+/** Generated adhesión PDF (GET .../pdf). */
+export type SolicitudPdfDownload = SolicitudArchivoDownload;

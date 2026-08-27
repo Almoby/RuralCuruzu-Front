@@ -29,6 +29,7 @@ const PUBLIC_API_ROUTES: readonly PublicApiRoute[] = [
   { method: 'POST', path: '/solicitudes-socio' },
   { method: 'GET', path: '/respuesta-solicitud' },
   { method: 'POST', path: '/respuesta-solicitud' },
+  { method: 'GET', path: '/reglas-cuota' },
 ] as const;
 
 let refreshRequest$: Observable<string> | null = null;

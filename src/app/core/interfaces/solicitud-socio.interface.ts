@@ -17,8 +17,10 @@ export interface SolicitudSocioRequest {
   portalPisoDepartamento?: string;
   telefono: string;
   email: string;
-  nombreEstablecimiento: string;
-  direccionEstablecimiento: string;
+  /** Optional per Swagger — omit when empty. */
+  nombreEstablecimiento?: string;
+  /** Optional per Swagger — omit when empty. */
+  direccionEstablecimiento?: string;
   nombreResponsable?: string;
   dniResponsable?: string;
   aceptaTerminosYCondiciones: boolean;

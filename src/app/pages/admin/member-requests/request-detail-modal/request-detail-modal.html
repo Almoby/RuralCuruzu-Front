@@ -17,6 +17,20 @@
         <app-badge [variant]="categoryBadge(item.category)">
           {{ membershipTypeLabel(item.category) }}
         </app-badge>
+        <button
+          type="button"
+          class="request-detail__pdf"
+          [disabled]="submitting() || loading() || pdfDownloading()"
+          (click)="onDownloadPdf()"
+        >
+          @if (pdfDownloading()) {
+            <span class="request-detail__pdf-spinner" aria-hidden="true"></span>
+            Descargando...
+          } @else {
+            <app-icon name="download" [size]="14" />
+            Descargar PDF
+          }
+        </button>
       </div>
 
       <div class="request-detail__card">

@@ -86,6 +86,7 @@ export class MemberRequestsPage {
   protected readonly viewState = signal<ViewState>('loading');
   protected readonly submitting = signal(false);
   protected readonly detailLoading = signal(false);
+  protected readonly pdfDownloading = signal(false);
   protected readonly requests = signal<MembershipRequest[]>([]);
   protected readonly filter = signal<MembershipRequestFilter>('all');
   protected readonly selected = signal<MembershipRequest | null>(null);
@@ -332,7 +333,7 @@ export class MemberRequestsPage {
 
   protected downloadFile(path: string): void {
     const request = this.selected();
-    if (!request || this.submitting()) {
+    if (!request || this.submitting() || this.pdfDownloading()) {
       return;
     }
 
@@ -345,12 +346,7 @@ export class MemberRequestsPage {
       )
       .subscribe({
         next: ({ blob, fileName }) => {
-          const url = URL.createObjectURL(blob);
-          const anchor = document.createElement('a');
-          anchor.href = url;
-          anchor.download = fileName;
-          anchor.click();
-          URL.revokeObjectURL(url);
+          this.triggerBrowserDownload(blob, fileName);
         },
         error: (error: unknown) => {
           this.notifications.error(
@@ -358,6 +354,42 @@ export class MemberRequestsPage {
           );
         },
       });
+  }
+
+  protected downloadPdf(): void {
+    const request = this.selected();
+    if (!request || this.pdfDownloading() || this.submitting()) {
+      return;
+    }
+
+    this.pdfDownloading.set(true);
+    this.requestService
+      .downloadRequestPdf(request.id)
+      .pipe(
+        finalize(() => this.pdfDownloading.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: ({ blob, fileName }) => {
+          this.triggerBrowserDownload(blob, fileName);
+        },
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No pudimos generar la solicitud en PDF.',
+          );
+        },
+      });
+  }
+
+  private triggerBrowserDownload(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   private runEstadoAction(

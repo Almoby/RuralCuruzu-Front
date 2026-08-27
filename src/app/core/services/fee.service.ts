@@ -183,6 +183,24 @@ export class FeeService {
   }
 
   /**
+   * GET `${apiBaseUrl}/reglas-cuota` (público, sin auth).
+   * Como máximo ACTIVO + ADHERENTE; categorías sin regla no aparecen.
+   */
+  getPublicFeeRules(): Observable<AdminReglaCuotaViewModel[]> {
+    return this.http
+      .get<ReglaCuotaResponseDto[]>(`${environment.apiBaseUrl}/reglas-cuota`, {
+        context: this.silentContext,
+      })
+      .pipe(
+        map((items) =>
+          (items ?? [])
+            .map(mapReglaCuotaDtoToViewModel)
+            .filter((item): item is AdminReglaCuotaViewModel => item !== null),
+        ),
+      );
+  }
+
+  /**
    * GET `${apiBaseUrl}/admin/reglas-cuota`
    */
   getAdminReglasCuota(): Observable<AdminReglaCuotaViewModel[]> {

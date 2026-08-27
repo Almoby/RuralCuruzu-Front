@@ -4,6 +4,7 @@
       class="app-confirm-dialog__dialog"
       role="alertdialog"
       aria-modal="true"
+      [attr.aria-busy]="busy() ? 'true' : null"
       [attr.aria-labelledby]="'confirm-title'"
       [attr.aria-describedby]="'confirm-message'"
       (click)="onDialogClick($event)"
@@ -12,8 +13,17 @@
       <p class="app-confirm-dialog__message" id="confirm-message">{{ message() }}</p>
 
       <div class="app-confirm-dialog__actions">
-        <app-button variant="ghost" (click)="onCancel()">{{ cancelLabel() }}</app-button>
-        <app-button [variant]="danger() ? 'danger' : 'primary'" (click)="onConfirm()">
+        <app-button variant="ghost" [disabled]="busy()" (click)="onCancel()">
+          {{ cancelLabel() }}
+        </app-button>
+        <app-button
+          [variant]="danger() ? 'danger' : 'primary'"
+          [disabled]="busy()"
+          (click)="onConfirm()"
+        >
+          @if (busy()) {
+            <span class="app-confirm-dialog__spinner" aria-hidden="true"></span>
+          }
           {{ confirmLabel() }}
         </app-button>
       </div>

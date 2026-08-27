@@ -17,14 +17,17 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { startWith } from 'rxjs';
+import { catchError, of, startWith, take } from 'rxjs';
 import { APP_ROUTES } from '../../../core/constants/routes.constant';
+import { AdminReglaCuotaViewModel } from '../../../core/interfaces/admin-cuota.interface';
 import { ApiError } from '../../../core/interfaces/api-response.interface';
 import { SolicitudSocioFormValue } from '../../../core/interfaces/solicitud-socio.interface';
+import { formatCuotaImporte } from '../../../core/mappers/admin-cuota.mapper';
 import {
   mapBackendFieldToFormControl,
   mapFormToSolicitudSocioRequest,
 } from '../../../core/mappers/solicitud-socio.mapper';
+import { FeeService } from '../../../core/services/fee.service';
 import { MembershipRequestService } from '../../../core/services/membership-request.service';
 import { MemberCategory } from '../../../shared/enums';
 import { AppAlert } from '../../../shared/components/alert/app-alert';
@@ -34,9 +37,23 @@ import { AppIcon } from '../../../shared/components/icon/app-icon';
 import { AppInput } from '../../../shared/components/input/app-input';
 import { AppSelect, SelectOption } from '../../../shared/components/select/app-select';
 
+type FeeRulesLoadState = 'idle' | 'loading' | 'ready' | 'error';
+
 function requiredTrimmed(control: AbstractControl): ValidationErrors | null {
   const value = typeof control.value === 'string' ? control.value.trim() : '';
   return value.length > 0 ? null : { required: true };
+}
+
+function optionalMinLength(min: number) {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = typeof control.value === 'string' ? control.value.trim() : '';
+    if (value.length === 0) {
+      return null;
+    }
+    return value.length >= min
+      ? null
+      : { minlength: { requiredLength: min, actualLength: value.length } };
+  };
 }
 
 function documentNumberValidator(control: AbstractControl): ValidationErrors | null {
@@ -109,6 +126,7 @@ type FormControlName =
 export class MemberRequest {
   private readonly fb = inject(FormBuilder);
   private readonly membershipRequestService = inject(MembershipRequestService);
+  private readonly feeService = inject(FeeService);
   private readonly destroyRef = inject(DestroyRef);
 
   @ViewChild('successHeading')
@@ -121,6 +139,9 @@ export class MemberRequest {
   protected readonly successRequestNumber = signal('');
   protected readonly errorMessage = signal('');
   protected readonly loginRoute = ['/', ...APP_ROUTES.auth.login.split('/')];
+
+  protected readonly feeRulesState = signal<FeeRulesLoadState>('idle');
+  protected readonly feeRules = signal<AdminReglaCuotaViewModel[]>([]);
 
   protected readonly personTypeOptions: SelectOption[] = [
     { value: 'FISICA', label: 'Persona Física' },
@@ -145,8 +166,8 @@ export class MemberRequest {
     personType: ['' as '' | 'FISICA' | 'JURIDICA', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     cuit: ['', [Validators.required, cuitValidator]],
-    establishmentName: ['', [Validators.required, requiredTrimmed, Validators.minLength(2)]],
-    establishmentAddress: ['', [Validators.required, requiredTrimmed, Validators.minLength(2)]],
+    establishmentName: ['', [optionalMinLength(2)]],
+    establishmentAddress: ['', [optionalMinLength(2)]],
     responsableName: [''],
     responsableDocument: [''],
     acceptTerms: [false, [termsAcceptedValidator]],
@@ -162,6 +183,38 @@ export class MemberRequest {
   protected readonly isPersonaFisica = computed(() => this.selectedPersonType() === 'FISICA');
   protected readonly isPersonaJuridica = computed(() => this.selectedPersonType() === 'JURIDICA');
 
+  protected readonly selectedFeeRule = computed(() => {
+    const categoria =
+      this.selectedCategory() === MemberCategory.Adherente ? 'ADHERENTE' : 'ACTIVO';
+    return this.feeRules().find((rule) => rule.categoria === categoria) ?? null;
+  });
+
+  protected readonly feeInfoMessage = computed(() => {
+    const state = this.feeRulesState();
+    if (state === 'loading' || state === 'idle') {
+      return 'Consultando valor de cuota...';
+    }
+    if (state === 'error') {
+      return 'No pudimos consultar el valor de la cuota en este momento.';
+    }
+    const rule = this.selectedFeeRule();
+    if (!rule) {
+      return 'El valor de la cuota para esta categoría todavía no está disponible.';
+    }
+    return null;
+  });
+
+  protected readonly feeAmountLabel = computed(() => {
+    if (this.feeRulesState() !== 'ready') {
+      return '';
+    }
+    const rule = this.selectedFeeRule();
+    if (!rule) {
+      return '';
+    }
+    return formatCuotaImporte(rule.importe);
+  });
+
   protected readonly nameLabel = computed(() =>
     this.isPersonaJuridica() ? 'Razón Social *' : 'Apellido y Nombre *',
   );
@@ -171,6 +224,8 @@ export class MemberRequest {
   );
 
   constructor() {
+    this.loadPublicFeeRules();
+
     this.form.controls.membershipType.valueChanges
       .pipe(
         startWith(this.form.controls.membershipType.value),
@@ -183,6 +238,32 @@ export class MemberRequest {
       .subscribe((personType) => {
         this.selectedPersonType.set(personType);
         this.syncPersonTypeValidators(personType);
+      });
+  }
+
+  protected retryFeeRules(): void {
+    this.loadPublicFeeRules();
+  }
+
+  private loadPublicFeeRules(): void {
+    this.feeRulesState.set('loading');
+    this.feeService
+      .getPublicFeeRules()
+      .pipe(
+        take(1),
+        catchError(() => {
+          this.feeRules.set([]);
+          this.feeRulesState.set('error');
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((rules) => {
+        if (rules === null) {
+          return;
+        }
+        this.feeRules.set(rules);
+        this.feeRulesState.set('ready');
       });
   }
 

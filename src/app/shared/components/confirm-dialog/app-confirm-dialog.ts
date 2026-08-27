@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  input,
+  output,
+} from '@angular/core';
 import { AppButton } from '../button/app-button';
 
 @Component({
@@ -16,19 +22,52 @@ export class AppConfirmDialog {
   readonly confirmLabel = input('Confirmar');
   readonly cancelLabel = input('Cancelar');
   readonly danger = input(false);
+  /** When true: disable actions, show spinner, block backdrop / Escape / cancel. */
+  readonly busy = input(false);
 
   readonly confirm = output<void>();
   readonly cancel = output<void>();
 
+  constructor() {
+    effect((onCleanup) => {
+      if (!this.open()) {
+        return;
+      }
+
+      const onKeyDown = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape') {
+          return;
+        }
+        // Block Escape while processing so this dialog (and any modal underneath) stay open.
+        if (this.busy()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      };
+
+      document.addEventListener('keydown', onKeyDown, true);
+      onCleanup(() => document.removeEventListener('keydown', onKeyDown, true));
+    });
+  }
+
   protected onConfirm(): void {
+    if (this.busy()) {
+      return;
+    }
     this.confirm.emit();
   }
 
   protected onCancel(): void {
+    if (this.busy()) {
+      return;
+    }
     this.cancel.emit();
   }
 
   protected onBackdropClick(): void {
+    if (this.busy()) {
+      return;
+    }
     this.cancel.emit();
   }
 

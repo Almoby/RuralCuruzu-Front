@@ -223,9 +223,27 @@ export class MembershipRequestService {
       .pipe(switchMap((response) => from(this.toArchivoDownload(response, ruta))));
   }
 
+  /**
+   * GET /admin/solicitudes-socio/{numeroSolicitud}/pdf
+   * PDF generado por backend con los datos de la solicitud.
+   */
+  downloadRequestPdf(numeroSolicitud: string): Observable<SolicitudArchivoDownload> {
+    const fallbackName = `solicitud-${numeroSolicitud}.pdf`;
+
+    return this.http
+      .get(`${this.adminBase}/${encodeURIComponent(numeroSolicitud)}/pdf`, {
+        responseType: 'blob',
+        observe: 'response',
+        context: this.silentContext,
+      })
+      .pipe(
+        switchMap((response) => from(this.toArchivoDownload(response, fallbackName))),
+      );
+  }
+
   private async toArchivoDownload(
     response: HttpResponse<Blob>,
-    ruta: string,
+    fallbackOrRuta: string,
   ): Promise<SolicitudArchivoDownload> {
     const blob = response.body;
     if (!blob) {
@@ -243,7 +261,9 @@ export class MembershipRequestService {
     const fromHeader = parseContentDispositionFileName(
       response.headers.get('Content-Disposition'),
     );
-    const fallback = ruta.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? 'archivo';
+    const fallback = fallbackOrRuta.includes('/') || fallbackOrRuta.includes('\\')
+      ? fallbackOrRuta.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? 'archivo'
+      : fallbackOrRuta;
 
     return {
       blob,

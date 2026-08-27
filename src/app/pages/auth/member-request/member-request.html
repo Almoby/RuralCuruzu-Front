@@ -80,6 +80,24 @@
             </div>
 
             <p class="member-request__type-hint">{{ categoryDescription() }}</p>
+
+            <div class="member-request__fee" aria-live="polite">
+              @if (feeAmountLabel(); as amount) {
+                <p class="member-request__fee-label">Valor actual de la cuota</p>
+                <p class="member-request__fee-amount">{{ amount }}</p>
+              } @else if (feeInfoMessage(); as info) {
+                <p class="member-request__fee-info">{{ info }}</p>
+                @if (feeRulesState() === 'error') {
+                  <button
+                    type="button"
+                    class="member-request__fee-retry"
+                    (click)="retryFeeRules()"
+                  >
+                    Reintentar
+                  </button>
+                }
+              }
+            </div>
           </section>
 
           <section class="member-request__card" aria-labelledby="personal-data-title">
@@ -192,13 +210,13 @@
               <h2 class="member-request__card-title" id="establishment-title">
                 ESTABLECIMIENTO U OCUPACIÓN
               </h2>
-              <span class="member-request__badge">Obligatorio</span>
+              <span class="member-request__badge member-request__badge--optional">Opcional</span>
             </div>
 
             <div class="member-request__fields">
               <app-input
                 class="member-request__field member-request__field--full"
-                label="Nombre del Establecimiento u Ocupación *"
+                label="Nombre del Establecimiento u Ocupación"
                 placeholder="Ej: Farmacia Central"
                 formControlName="establishmentName"
                 [error]="fieldError('establishmentName')"
@@ -206,7 +224,7 @@
 
               <app-input
                 class="member-request__field member-request__field--full"
-                label="Dirección del Establecimiento *"
+                label="Dirección del Establecimiento"
                 placeholder="Dirección del local o negocio"
                 formControlName="establishmentAddress"
                 [error]="fieldError('establishmentAddress')"

@@ -9,7 +9,56 @@
 .request-detail__badges {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem;
+}
+
+.request-detail__pdf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 1.85rem;
+  padding: 0.25rem 0.7rem;
+  margin-left: auto;
+  border: 1px solid var(--color-border, #d7dbdb);
+  border-radius: var(--radius-md, 0.5rem);
+  background: #fff;
+  color: var(--color-text, #1f2424);
+  font-size: 0.75rem;
+  font-weight: $font-weight-medium;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 639px) {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+.request-detail__pdf-spinner {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid rgb(31 36 36 / 25%);
+  border-top-color: $color-primary;
+  border-radius: 999px;
+  animation: request-detail-pdf-spin 0.7s linear infinite;
+}
+
+@keyframes request-detail-pdf-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .request-detail__card {

@@ -34,4 +34,21 @@
     justify-content: flex-end;
     gap: var(--space-2);
   }
+
+  &__spinner {
+    display: inline-block;
+    width: 0.95rem;
+    height: 0.95rem;
+    border: 2px solid rgb(255 255 255 / 45%);
+    border-top-color: #fff;
+    border-radius: 999px;
+    vertical-align: -0.15em;
+    animation: app-confirm-dialog-spin 0.7s linear infinite;
+  }
+}
+
+@keyframes app-confirm-dialog-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
