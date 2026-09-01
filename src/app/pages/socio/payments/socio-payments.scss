@@ -85,7 +85,7 @@
 
 .payment-options {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 
@@ -313,69 +313,6 @@
 
   &:hover {
     background: var(--color-primary-bg);
-  }
-}
-
-.link-modal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-
-  &__summary {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    padding: var(--space-5) var(--space-4);
-    border-radius: var(--radius-md);
-    background: var(--color-primary-bg);
-    text-align: center;
-  }
-
-  &__period {
-    margin: 0;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-    line-height: var(--line-height-tight);
-    color: var(--color-primary);
-  }
-
-  &__amount {
-    margin: var(--space-2) 0 0;
-    font-size: calc(var(--font-size-2xl) + 0.125rem);
-    font-weight: var(--font-weight-bold);
-    line-height: 1.15;
-    color: var(--color-primary);
-  }
-
-  &__member {
-    margin: var(--space-2) 0 0;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-    line-height: var(--line-height-normal);
-    color: var(--color-primary);
-    opacity: 0.85;
-  }
-
-  &__text {
-    margin: 0;
-    width: 100%;
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-    color: var(--color-muted);
-    text-align: center;
-  }
-
-  &__actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-
-  ::ng-deep .app-button--primary {
-    gap: 0.4rem;
-    min-height: 2.5rem;
-    border-radius: var(--radius-md);
   }
 }
 
@@ -687,10 +624,6 @@
 }
 
 @media (max-width: 768px) {
-  .payment-options {
-    grid-template-columns: 1fr;
-  }
-
   .fee-hero {
     padding: var(--space-6) var(--space-5);
   }

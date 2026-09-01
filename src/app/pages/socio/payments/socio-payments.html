@@ -39,25 +39,6 @@
       <div class="payment-options">
         <article class="option-card" [class.option-card--disabled]="!canPayCurrent()">
           <span class="option-card__icon" aria-hidden="true">
-            <app-icon name="link" [size]="20" />
-          </span>
-          <h3 class="option-card__title">Link de pago</h3>
-          <p class="option-card__desc">
-            Pagá online con tarjeta de crédito, débito o billetera virtual (Mercado Pago, Modo, etc.)
-          </p>
-          <button
-            type="button"
-            class="option-card__action"
-            [disabled]="!canPayCurrent()"
-            (click)="openLinkModal()"
-          >
-            <span>Ir al link de pago</span>
-            <app-icon name="external_link" [size]="13" />
-          </button>
-        </article>
-
-        <article class="option-card" [class.option-card--disabled]="!canPayCurrent()">
-          <span class="option-card__icon" aria-hidden="true">
             <app-icon name="banknote" [size]="20" />
           </span>
           <h3 class="option-card__title">Transferencia bancaria</h3>
@@ -124,44 +105,6 @@
       }
     </section>
   }
-
-  <app-modal
-    [open]="linkModalOpen()"
-    title="Link de pago"
-    (close)="closeLinkModal()"
-  >
-    <div class="link-modal">
-      @if (currentFee(); as fee) {
-        <article class="link-modal__summary">
-          <p class="link-modal__period">{{ fee.receiptTitle }}</p>
-          <p class="link-modal__amount">{{ fee.amount | currencyArs }}</p>
-          <p class="link-modal__member">{{ memberSummary() }}</p>
-        </article>
-      }
-
-      <p class="link-modal__text">
-        Se abrirá Mercado Pago para que completes el pago. Generar el link no confirma el pago:
-        el sistema solo lo marca como aprobado cuando Mercado Pago lo notifica.
-      </p>
-
-      <div class="link-modal__actions">
-        <app-button [fullWidth]="true" [disabled]="linking()" (click)="confirmPaymentLink()">
-          {{ linking() ? 'Generando link...' : 'Ir al link de pago' }}
-          @if (!linking()) {
-            <app-icon name="external_link" [size]="16" />
-          }
-        </app-button>
-        <button
-          type="button"
-          class="btn-secondary"
-          [disabled]="linking()"
-          (click)="closeLinkModal()"
-        >
-          Cancelar
-        </button>
-      </div>
-    </div>
-  </app-modal>
 
   <app-modal
     [open]="reportModalOpen()"

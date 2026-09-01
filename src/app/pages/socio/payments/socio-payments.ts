@@ -14,8 +14,6 @@ import {
   EMPTY,
   Subject,
   catchError,
-  filter,
-  fromEvent,
   forkJoin,
   map,
   of,
@@ -115,13 +113,11 @@ export class SocioPayments {
 
   readonly viewState = signal<ViewState>('loading');
   readonly submitting = signal(false);
-  readonly linking = signal(false);
   readonly downloadingId = signal<string | null>(null);
   readonly data = signal<SocioPaymentsViewModel>(EMPTY_PAYMENTS);
   readonly errorMessage = signal(
     'No pudimos cargar tus pagos. Reintentá en unos segundos.',
   );
-  readonly linkModalOpen = signal(false);
   readonly reportModalOpen = signal(false);
   readonly transferStep = signal<TransferStep>(1);
   readonly selectedFile = signal<File | null>(null);
@@ -130,8 +126,6 @@ export class SocioPayments {
   readonly successMessage = signal(
     'El equipo administrativo revisará y aprobará tu pago. Recibirás una notificación por email.',
   );
-  /** After opening Mercado Pago, reload once when the user returns to this tab. */
-  private readonly awaitingMercadoPagoReturn = signal(false);
 
   readonly reportForm = this.fb.nonNullable.group({
     notes: [''],
@@ -143,17 +137,6 @@ export class SocioPayments {
   readonly memberCode = computed(() => {
     const fromData = this.data().memberCode;
     return fromData || this.userIdentity.socioNumero() || '';
-  });
-
-  readonly memberName = computed(() => {
-    const fromData = this.data().memberName;
-    return fromData || this.auth.currentUser()?.fullName || 'Socio';
-  });
-
-  readonly memberSummary = computed(() => {
-    const code = this.memberCode();
-    const name = this.memberName();
-    return code ? `Socio ${code} — ${name}` : `Socio — ${name}`;
   });
 
   readonly transferModalSubtitle = computed(() => {
@@ -193,7 +176,7 @@ export class SocioPayments {
       return '';
     }
     if (fee.hasPendingOnlinePayment) {
-      return 'Tenés un pago con link en proceso. Todavía no está confirmado: Mercado Pago debe notificar al sistema. Si cerraste sin pagar, el estado se actualizará cuando el backend lo verifique; mientras tanto no se puede generar otro link ni informar transferencia.';
+      return 'Tenés un pago online en proceso. Todavía no está confirmado: el sistema espera la notificación del proveedor de pagos. Mientras tanto no se puede informar una transferencia.';
     }
     if (fee.estado === 'PAGADA') {
       return 'Esta cuota figura como pagada según el sistema.';
@@ -243,88 +226,10 @@ export class SocioPayments {
         this.data.set(payload);
         this.viewState.set('success');
       });
-
-    fromEvent(document, 'visibilitychange')
-      .pipe(
-        filter(() => document.visibilityState === 'visible'),
-        filter(() => this.awaitingMercadoPagoReturn()),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(() => {
-        this.awaitingMercadoPagoReturn.set(false);
-        this.reload$.next();
-      });
   }
 
   protected retry(): void {
     this.reload$.next();
-  }
-
-  openLinkModal(): void {
-    const fee = this.currentFee();
-    if (!fee?.canPayWithLink) {
-      this.notifications.error('Esta cuota no admite un nuevo link de pago en su estado actual.');
-      return;
-    }
-    this.linkModalOpen.set(true);
-  }
-
-  closeLinkModal(): void {
-    if (this.linking()) {
-      return;
-    }
-    this.linkModalOpen.set(false);
-  }
-
-  confirmPaymentLink(): void {
-    if (this.linking()) {
-      return;
-    }
-    const fee = this.currentFee();
-    if (!fee?.canPayWithLink) {
-      this.notifications.error('Esta cuota no admite un nuevo link de pago en su estado actual.');
-      return;
-    }
-
-    this.linking.set(true);
-    this.feeService
-      .createSocioPaymentLink(fee.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (response) => {
-          this.linking.set(false);
-          const url = response.linkDePago?.trim();
-          if (!url) {
-            this.notifications.error(
-              response.mensaje?.trim() || 'No se recibió el link de pago.',
-            );
-            return;
-          }
-
-          // Link creation ≠ payment confirmation. Only open Mercado Pago and sync GET state.
-          this.linkModalOpen.set(false);
-          this.notifications.info(
-            'Te abrimos Mercado Pago. El pago se confirma solo cuando Mercado Pago lo notifica al sistema.',
-          );
-
-          const opened = window.open(url, '_blank', 'noopener,noreferrer');
-          this.awaitingMercadoPagoReturn.set(true);
-          this.reload$.next();
-
-          if (!opened) {
-            // Popup blocked: last resort navigates this tab (still not a payment confirmation).
-            window.location.assign(url);
-          }
-        },
-        error: (error: unknown) => {
-          this.linking.set(false);
-          this.notifications.error(
-            isApiError(error)
-              ? error.message
-              : 'No se pudo generar el link de pago.',
-          );
-        },
-      });
   }
 
   openReportModal(): void {
