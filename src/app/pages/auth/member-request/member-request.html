@@ -169,7 +169,7 @@
 
                 <app-input
                   class="member-request__field"
-                  label="CUIT N° *"
+                  [label]="cuitLabel()"
                   placeholder="Ej: 20-28345678-9"
                   formControlName="cuit"
                   [error]="fieldError('cuit')"

@@ -9,6 +9,9 @@ export type SocioEstado = 'ACTIVO' | 'INACTIVO' | 'DADO_DE_BAJA';
 
 export type SocioCategoria = 'ACTIVO' | 'ADHERENTE';
 
+/** Swagger periodicidadPago (alta / edición / listado / detalle). */
+export type PeriodicidadPago = 'MENSUAL' | 'TRIMESTRAL' | 'SEMESTRAL' | 'ANUAL';
+
 /** GET /admin/socios item */
 export interface SocioResumenDto {
   id: string;
@@ -17,6 +20,7 @@ export interface SocioResumenDto {
   categoria: SocioCategoria;
   tipoPersona: TipoPersonaSolicitud;
   estado: SocioEstado;
+  periodicidadPago?: PeriodicidadPago;
   correoElectronico: string;
 }
 
@@ -38,6 +42,7 @@ export interface ActualizarSocioParcialRequestDto {
   portalPisoDepartamento?: string;
   nombreEstablecimiento?: string;
   direccionEstablecimiento?: string;
+  periodicidadPago?: PeriodicidadPago;
 }
 
 /** Swagger `SocioActualizadoResponse` */
@@ -94,6 +99,7 @@ export interface SocioDetalleDto {
   datosPersonaFisica?: SocioDatosPersonaFisicaDto | null;
   datosPersonaJuridica?: SocioDatosPersonaJuridicaDto | null;
   estado: SocioEstado;
+  periodicidadPago?: PeriodicidadPago;
   numeroSolicitudOrigen?: string;
   fechaAlta?: string;
   fechaActualizacion?: string;
@@ -106,7 +112,8 @@ export interface AltaManualSocioRequest {
   tipoPersona: TipoPersonaSolicitud;
   apellidoYNombre: string;
   documento?: string;
-  cuit: string;
+  /** Optional for FISICA; required for JURIDICA (backend validator). */
+  cuit?: string;
   fechaNacimiento?: string;
   direccion: string;
   portalPisoDepartamento?: string;
@@ -119,6 +126,7 @@ export interface AltaManualSocioRequest {
   nombreResponsable?: string;
   dniResponsable?: string;
   estado?: SocioEstado;
+  periodicidadPago?: PeriodicidadPago;
 }
 
 export interface SocioCreadoResponse {
@@ -149,6 +157,7 @@ export interface AdminSocioCreateFormValue {
   responsableDocument: string;
   category: MemberCategory;
   membershipStatus: SocioEstado;
+  periodicidadPago: PeriodicidadPago;
 }
 
 /**
@@ -167,6 +176,8 @@ export interface AdminMember {
   category: MemberCategory;
   membershipStatus: SocioEstado;
   personType: TipoPersonaSolicitud;
+  periodicidadPago: PeriodicidadPago;
+  periodicidadPagoLabel: string;
   isActive: boolean;
   address?: string;
   portalFloor?: string;
@@ -193,6 +204,7 @@ export interface AdminSocioEditFormValue {
   portalPisoDepartamento: string;
   nombreEstablecimiento: string;
   direccionEstablecimiento: string;
+  periodicidadPago: PeriodicidadPago;
 }
 
 export interface AdminMemberAccountCuota {

@@ -39,6 +39,7 @@ export interface ListarCuotasAdminParams {
 export interface PagoResponseDto {
   id: string;
   cuotaId?: string;
+  socioId?: string;
   socioNumeroSocio?: string;
   socioNombre?: string;
   periodo?: string;
@@ -116,6 +117,14 @@ export interface RegistrarPagoCuotaRequest {
   observacion?: string;
 }
 
+/** PATCH /admin/cuotas/pagos/{pagoId} body (Swagger EditarPagoCuotaRequest). */
+export interface EditarPagoCuotaRequest {
+  socioId?: string;
+  fecha?: string;
+  medioPago?: MedioPagoCuota;
+  observacion?: string;
+}
+
 export interface RegistrarPagoResponseDto {
   mensaje?: string;
   montoTotal?: number;
@@ -130,6 +139,8 @@ export interface GeneracionCuotasResponseDto {
   cantidadSociosActivos?: number;
   cantidadCuotasGeneradas?: number;
   cantidadSociosOmitidos?: number;
+  /** Socios activos a los que no les tocaba cuota este mes (periodicidad). */
+  cantidadSociosNoLesCorrespondia?: number;
   fechaEjecucion?: string;
 }
 
@@ -210,8 +221,13 @@ export interface AdminPaymentReceiptDownload {
 /** ViewModel: list card */
 export interface AdminCuotaListItem {
   id: string;
+  /** Socio dueño de la cuota / pago vigente (si el API lo informa). */
+  socioId: string;
   memberCode: string;
   memberName: string;
+  /** Swagger CuotaResumenResponse.categoria (para listados como pagos adelantados). */
+  categoria?: SocioCategoriaCuota | null;
+  categoriaLabel: string;
   period: string;
   amount: number;
   amountLabel: string;
@@ -230,6 +246,8 @@ export interface AdminCuotaListItem {
   pagoId?: string;
   canReview: boolean;
   canRegisterPayment: boolean;
+  /** Admin-registered APROBADO payment (not informed by socio). */
+  canEditPayment: boolean;
   canAnular: boolean;
   canDownloadComprobante: boolean;
   filterBucket: AdminCuotaFilter | 'other';
@@ -292,6 +310,7 @@ export interface AdminEjecucionGeneracionViewModel {
   cantidadSociosActivos: number;
   cantidadCuotasGeneradas: number;
   cantidadSociosOmitidos: number;
+  cantidadSociosNoLesCorrespondia: number;
   fechaEjecucion: string;
   fechaEjecucionLabel: string;
   mensaje: string;
@@ -350,6 +369,25 @@ export interface RegisterAdminPagoFormValue {
   medioPago: MedioPagoCuota;
   observacion?: string;
   comprobante?: string;
+}
+
+/** Form emit from edit-payment modal → PATCH EditarPagoCuotaRequest. */
+export interface EditAdminPagoFormValue {
+  pagoId: string;
+  socioId: string;
+  fecha: string;
+  medioPago: MedioPagoCuota;
+  observacion: string;
+}
+
+/** Prefill context for edit-payment modal. */
+export interface EditAdminPagoContext {
+  pagoId: string;
+  socioId: string;
+  fecha: string;
+  medioPago: MedioPagoCuota;
+  observacion: string;
+  memberLabel: string;
 }
 
 export interface AdminFeePeriodOption {

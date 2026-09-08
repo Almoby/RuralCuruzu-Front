@@ -38,7 +38,7 @@
         />
       }
       <app-input
-        label="CUIT / CUIL"
+        [label]="isJuridica() ? 'CUIT / CUIL' : 'CUIT / CUIL (opcional)'"
         placeholder="20-00000000-0"
         formControlName="cuit"
         [error]="fieldError('cuit')"
@@ -105,12 +105,20 @@
       </div>
     }
 
-    <app-select
-      label="Estado inicial"
-      formControlName="membershipStatus"
-      [options]="statusOptions"
-      [error]="fieldError('membershipStatus')"
-    />
+    <div class="member-create__grid">
+      <app-select
+        label="Periodicidad de pago"
+        formControlName="periodicidadPago"
+        [options]="periodicidadOptions"
+        [error]="fieldError('periodicidadPago')"
+      />
+      <app-select
+        label="Estado inicial"
+        formControlName="membershipStatus"
+        [options]="statusOptions"
+        [error]="fieldError('membershipStatus')"
+      />
+    </div>
   </form>
 
   <div modalFooter class="member-create__footer">

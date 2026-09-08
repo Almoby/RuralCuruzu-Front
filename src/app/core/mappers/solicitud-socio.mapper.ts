@@ -31,12 +31,16 @@ export function mapFormToSolicitudSocioRequest(
     categoriaSolicitada: mapCategoria(form.membershipType),
     tipoPersona,
     apellidoYNombre: trimText(form.fullNameOrBusinessName),
-    cuit: trimText(form.cuit).replace(/\s/g, ''),
     direccion: trimText(form.postalAddress),
     telefono: trimText(form.phone),
     email: trimText(form.email).toLowerCase(),
     aceptaTerminosYCondiciones: form.acceptTerms === true,
   };
+
+  const cuit = normalizeOptional(form.cuit)?.replace(/\s/g, '');
+  if (cuit) {
+    payload.cuit = cuit;
+  }
 
   const nombreEstablecimiento = normalizeOptional(form.establishmentName);
   if (nombreEstablecimiento) {

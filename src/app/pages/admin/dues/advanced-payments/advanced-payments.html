@@ -1,0 +1,63 @@
+<section class="admin-page advanced-payments">
+  <app-page-header
+    title="Pagos adelantados"
+    subtitle="Cuotas generadas por cobros adelantados (antes de la corrida mensual)"
+  />
+
+  @switch (viewState()) {
+    @case ('loading') {
+      <app-loading message="Cargando pagos adelantados..." />
+    }
+
+    @case ('error') {
+      <div class="advanced-payments__state">
+        <app-alert variant="error" [message]="errorMessage()" />
+        <app-button variant="secondary" (click)="retry()">Reintentar</app-button>
+      </div>
+    }
+
+    @case ('empty') {
+      <app-empty-state
+        title="Sin pagos adelantados"
+        description="No hay pagos adelantados registrados."
+      />
+    }
+
+    @default {
+      <div class="advanced-payments-table">
+        <div class="advanced-payments-table__scroll">
+          <table class="advanced-payments-table__table">
+            <thead>
+              <tr>
+                <th>N° de socio</th>
+                <th>Socio</th>
+                <th>Categoría</th>
+                <th>Período</th>
+                <th>Importe</th>
+                <th>Fecha de pago</th>
+                <th>Medio de pago</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of items(); track item.id) {
+                <tr>
+                  <td>
+                    <span class="advanced-payments-table__code">{{ item.memberCode }}</span>
+                  </td>
+                  <td>{{ item.memberName }}</td>
+                  <td>{{ item.categoriaLabel }}</td>
+                  <td>
+                    {{ item.period ? formatPeriodLabel(item.period) : 'Sin datos' }}
+                  </td>
+                  <td>{{ item.amountLabel }}</td>
+                  <td>{{ item.paidAtLabel }}</td>
+                  <td>{{ item.paymentMethodLabel }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+</section>

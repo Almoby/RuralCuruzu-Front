@@ -44,6 +44,7 @@ import {
   AdminDatosBancariosViewModel,
   AdminEjecucionGeneracionViewModel,
   AdminReglaCuotaViewModel,
+  EditAdminPagoContext,
   RegisterAdminPagoFormValue,
   SocioCategoriaCuota,
 } from '../../../core/interfaces/admin-cuota.interface';
@@ -52,10 +53,15 @@ import {
   formatCuotaImporte,
   mapReglaCuotaDtoToViewModel,
   matchesAdminCuotaFilter,
+  toDateInputValue,
 } from '../../../core/mappers/admin-cuota.mapper';
 import { formatPeriodLabel } from '../../../shared/utils';
 import { PaymentCard } from './payment-card/payment-card';
 import { RegisterPaymentModal } from './register-payment-modal/register-payment-modal';
+import {
+  EditPaymentModal,
+  EditPaymentSave,
+} from './edit-payment-modal/edit-payment-modal';
 
 type DuesViewState = 'loading' | 'success' | 'empty' | 'error';
 type ConfirmAction = 'generate' | 'approve';
@@ -100,6 +106,7 @@ function isApiError(error: unknown): error is ApiError {
     AppConfirmDialog,
     PaymentCard,
     RegisterPaymentModal,
+    EditPaymentModal,
   ],
   templateUrl: './dues.html',
   styleUrl: './dues.scss',
@@ -121,6 +128,8 @@ export class DuesPage {
   protected readonly filter = signal<AdminCuotaFilter>('all');
   protected readonly paymentModalOpen = signal(false);
   protected readonly preselectedCuotaId = signal<string | null>(null);
+  protected readonly editPaymentOpen = signal(false);
+  protected readonly editPaymentContext = signal<EditAdminPagoContext | null>(null);
 
   protected readonly confirmOpen = signal(false);
   protected readonly confirmAction = signal<ConfirmAction>('generate');
@@ -306,6 +315,96 @@ export class DuesPage {
     }
     this.paymentModalOpen.set(false);
     this.preselectedCuotaId.set(null);
+  }
+
+  protected openEditPayment(item: AdminCuotaListItem | AdminCuotaDetail): void {
+    if (!item.canEditPayment || !item.pagoId) {
+      return;
+    }
+
+    if (item.socioId) {
+      this.setEditPaymentContext(item);
+      return;
+    }
+
+    this.submitting.set(true);
+    this.feeService
+      .getAdminCuotaById(item.id)
+      .pipe(
+        finalize(() => this.submitting.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (detail) => {
+          if (!detail.canEditPayment || !detail.pagoId || !detail.socioId) {
+            this.notifications.error(
+              'Este pago no se puede editar o falta información del socio.',
+            );
+            return;
+          }
+          this.setEditPaymentContext(detail);
+        },
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error)
+              ? error.message
+              : 'No se pudo cargar el pago para editarlo',
+          );
+        },
+      });
+  }
+
+  private setEditPaymentContext(item: AdminCuotaListItem | AdminCuotaDetail): void {
+    if (!item.pagoId || !item.socioId) {
+      return;
+    }
+    this.editPaymentContext.set({
+      pagoId: item.pagoId,
+      socioId: item.socioId,
+      fecha: toDateInputValue(item.paidAt) || new Date().toISOString().slice(0, 10),
+      medioPago: item.paymentMethod ?? 'EFECTIVO',
+      observacion: item.notes ?? '',
+      memberLabel: `${item.memberCode} · ${item.memberName}`,
+    });
+    this.editPaymentOpen.set(true);
+  }
+
+  protected closeEditPayment(): void {
+    if (this.submitting()) {
+      return;
+    }
+    this.editPaymentOpen.set(false);
+    this.editPaymentContext.set(null);
+  }
+
+  protected saveEditPayment(event: EditPaymentSave): void {
+    if (this.submitting()) {
+      return;
+    }
+
+    this.submitting.set(true);
+    this.feeService
+      .editAdminPago(event.pagoId, event.payload)
+      .pipe(
+        finalize(() => this.submitting.set(false)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          this.editPaymentOpen.set(false);
+          this.editPaymentContext.set(null);
+          this.notifications.success('Pago actualizado correctamente');
+          if (this.detailOpen()) {
+            this.closeDetail();
+          }
+          this.reload$.next();
+        },
+        error: (error: unknown) => {
+          this.notifications.error(
+            isApiError(error) ? error.message : 'No se pudo editar el pago',
+          );
+        },
+      });
   }
 
   protected retry(): void {
@@ -687,29 +786,14 @@ export class DuesPage {
           this.confirmOpen.set(false);
           const generated = result.cantidadCuotasGeneradas ?? 0;
           const omitted = result.cantidadSociosOmitidos ?? 0;
+          const notDue = result.cantidadSociosNoLesCorrespondia ?? 0;
           const periodoLabel = formatPeriodLabel(
             result.periodo?.trim() || this.generatePeriod(),
           );
 
-          if (generated > 0) {
-            this.notifications.success(
-              `Se generaron correctamente ${generated} cuotas para el período ${periodoLabel}.`,
-            );
-          } else if (omitted === 0) {
-            this.notifications.info(
-              `No se generaron nuevas cuotas porque las cuotas del período ${periodoLabel} ya habían sido generadas previamente.`,
-            );
-          } else {
-            this.notifications.info(
-              `No se generaron nuevas cuotas para el período ${periodoLabel}.`,
-            );
-          }
-
-          if (omitted > 0) {
-            this.notifications.info(
-              `${omitted} socios fueron omitidos por falta de configuración o regla de cuota.`,
-            );
-          }
+          this.notifications.success(
+            `${generated} generadas · ${omitted} omitidas · ${notDue} no correspondían este mes (período ${periodoLabel})`,
+          );
 
           this.reload$.next();
           if (this.ejecucionesOpen()) {

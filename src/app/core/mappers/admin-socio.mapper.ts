@@ -9,6 +9,7 @@ import {
   AdminSocioEditFormValue,
   AltaManualSocioRequest,
   EstadoCuentaSocioDto,
+  PeriodicidadPago,
   SocioCategoria,
   SocioDetalleDto,
   SocioEstado,
@@ -71,6 +72,37 @@ export function socioEstadoLabel(estado: SocioEstado): string {
       return 'Dado de baja';
     default:
       return estado;
+  }
+}
+
+export function socioPeriodicidadLabel(
+  value: PeriodicidadPago | null | undefined,
+): string {
+  switch (value) {
+    case 'MENSUAL':
+      return 'Mensual';
+    case 'TRIMESTRAL':
+      return 'Trimestral';
+    case 'SEMESTRAL':
+      return 'Semestral';
+    case 'ANUAL':
+      return 'Anual';
+    default:
+      return 'Mensual';
+  }
+}
+
+function resolvePeriodicidad(
+  value: PeriodicidadPago | null | undefined,
+): PeriodicidadPago {
+  switch (value) {
+    case 'TRIMESTRAL':
+    case 'SEMESTRAL':
+    case 'ANUAL':
+    case 'MENSUAL':
+      return value;
+    default:
+      return 'MENSUAL';
   }
 }
 
@@ -148,6 +180,7 @@ export function mapSocioListItemDtoToViewModel(dto: SocioResumenDto): AdminMembe
   const fullName = display(dto.nombre);
   const { firstName, lastName } = splitName(fullName === NOT_PROVIDED ? '' : fullName);
   const estado = dto.estado ?? 'ACTIVO';
+  const periodicidadPago = resolvePeriodicidad(dto.periodicidadPago);
 
   return {
     id: dto.id,
@@ -161,6 +194,8 @@ export function mapSocioListItemDtoToViewModel(dto: SocioResumenDto): AdminMembe
     category: mapCategoria(dto.categoria),
     membershipStatus: estado,
     personType: dto.tipoPersona ?? 'FISICA',
+    periodicidadPago,
+    periodicidadPagoLabel: socioPeriodicidadLabel(periodicidadPago),
     isActive: estado === 'ACTIVO',
     joinDate: '',
     ...emptyFeeLabels(),
@@ -172,6 +207,7 @@ export function mapSocioDetalleDtoToViewModel(dto: SocioDetalleDto): AdminMember
   const nombre = display(dto.nombre);
   const names = splitName(nombre === NOT_PROVIDED ? '' : nombre);
   const accountState = mapEstadoCuentaDtoToViewModel(dto.estadoCuenta);
+  const periodicidadPago = resolvePeriodicidad(dto.periodicidadPago);
 
   const base: AdminMemberDetail = {
     id: dto.id,
@@ -185,6 +221,8 @@ export function mapSocioDetalleDtoToViewModel(dto: SocioDetalleDto): AdminMember
     category: mapCategoria(dto.categoria),
     membershipStatus: estado,
     personType: dto.tipoPersona ?? 'FISICA',
+    periodicidadPago,
+    periodicidadPagoLabel: socioPeriodicidadLabel(periodicidadPago),
     isActive: estado === 'ACTIVO',
     joinDate: optional(dto.fechaAlta) ?? '',
     updatedAt: optional(dto.fechaActualizacion),
@@ -254,6 +292,7 @@ export function mapDetailToEditFormValue(
     portalPisoDepartamento: optional(detail.portalFloor) ?? '',
     nombreEstablecimiento: optional(detail.establishmentName) ?? '',
     direccionEstablecimiento: optional(detail.establishmentAddress) ?? '',
+    periodicidadPago: detail.periodicidadPago,
   };
 }
 
@@ -310,6 +349,10 @@ export function mapEditFormToActualizarSocioRequest(
     payload.direccionEstablecimiento = dirEst;
   }
 
+  if (form.periodicidadPago !== original.periodicidadPago) {
+    payload.periodicidadPago = form.periodicidadPago;
+  }
+
   return payload;
 }
 
@@ -336,12 +379,17 @@ export function mapFormToAltaManualSocioRequest(
     categoria: form.category === MemberCategory.Adherente ? 'ADHERENTE' : 'ACTIVO',
     tipoPersona,
     apellidoYNombre: trimRequired(form.fullName),
-    cuit: trimRequired(form.cuit).replace(/\s/g, ''),
     direccion: trimRequired(form.address),
     telefono: trimRequired(form.phone),
     email: trimRequired(form.email).toLowerCase(),
     estado: form.membershipStatus,
+    periodicidadPago: form.periodicidadPago,
   };
+
+  const cuit = trimOptional(form.cuit)?.replace(/\s/g, '');
+  if (cuit) {
+    payload.cuit = cuit;
+  }
 
   const nombreEstablecimiento = trimOptional(form.establishmentName);
   if (nombreEstablecimiento) {

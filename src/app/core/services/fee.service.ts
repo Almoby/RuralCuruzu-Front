@@ -19,6 +19,7 @@ import {
   CuotaResumenResponseDto,
   DatosBancariosActualizadosResponseDto,
   DatosBancariosResponseDto,
+  EditarPagoCuotaRequest,
   EstadoCuentaSocioResponseDto,
   GeneracionCuotasResponseDto,
   ListarCuotasAdminParams,
@@ -141,6 +142,32 @@ export class FeeService {
     return this.http.post<RegistrarPagoResponseDto>(`${this.adminCuotasBase}/pagos`, body, {
       context: this.silentContext,
     });
+  }
+
+  /**
+   * PATCH `${apiBaseUrl}/admin/cuotas/pagos/{pagoId}`
+   * Edit an admin-registered APROBADO payment.
+   */
+  editAdminPago(
+    pagoId: string,
+    body: EditarPagoCuotaRequest,
+  ): Observable<CuotaResponseDto> {
+    return this.http.patch<CuotaResponseDto>(
+      `${this.adminCuotasBase}/pagos/${encodeURIComponent(pagoId)}`,
+      body,
+      { context: this.silentContext },
+    );
+  }
+
+  /**
+   * GET `${apiBaseUrl}/admin/cuotas/pagos-adelantados`
+   */
+  getAdminPagosAdelantados(): Observable<AdminCuotaListItem[]> {
+    return this.http
+      .get<CuotaResumenResponseDto[]>(`${this.adminCuotasBase}/pagos-adelantados`, {
+        context: this.silentContext,
+      })
+      .pipe(map((items) => (items ?? []).map(mapCuotaResumenDtoToViewModel)));
   }
 
   /**

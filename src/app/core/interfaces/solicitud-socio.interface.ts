@@ -11,7 +11,8 @@ export interface SolicitudSocioRequest {
   tipoPersona: TipoPersonaSolicitud;
   apellidoYNombre: string;
   documento?: string;
-  cuit: string;
+  /** Optional for FISICA; required for JURIDICA (backend validator). */
+  cuit?: string;
   fechaNacimiento?: string;
   direccion: string;
   portalPisoDepartamento?: string;

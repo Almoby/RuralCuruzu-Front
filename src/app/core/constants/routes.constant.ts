@@ -18,6 +18,7 @@ export const APP_ROUTES = {
     members: 'admin/socios',
     memberDetail: 'admin/socios/:id',
     fees: 'admin/cuotas',
+    advancedPayments: 'admin/pagos-adelantados',
     merchants: 'admin/comercios',
     reports: 'admin/reportes',
   },

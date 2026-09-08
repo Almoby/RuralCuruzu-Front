@@ -216,6 +216,28 @@ export function canRegisterPayment(
 }
 
 /**
+ * PATCH /admin/cuotas/pagos/{pagoId}: only APROBADO payments registered by admin.
+ */
+export function canEditAdminPayment(
+  pago: Pick<PagoResponseDto, 'id' | 'estado' | 'informadoPorSocio'> | null | undefined,
+): boolean {
+  return (
+    !!pago?.id &&
+    pago.estado === 'APROBADO' &&
+    pago.informadoPorSocio === false
+  );
+}
+
+/** Normalize API date / date-time to `yyyy-MM-dd` for date inputs. */
+export function toDateInputValue(value: string | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(value.trim());
+  return match?.[1] ?? '';
+}
+
+/**
  * Admin GET /admin/cuotas/pagos/{pagoId}/comprobante:
  * real file if attached, or generated PDF constancia when pago is APROBADO.
  */
@@ -291,11 +313,16 @@ export function mapCuotaResumenDtoToViewModel(dto: CuotaResumenResponseDto): Adm
   const paymentMethod = dto.pagoVigente?.medioPago;
   const notes = optional(dto.pagoVigente?.observacion);
   const pagoId = optional(dto.pagoVigente?.id);
+  const socioId = optional(dto.pagoVigente?.socioId) ?? '';
+  const categoria = dto.categoria ?? null;
 
   return {
     id: dto.id,
+    socioId,
     memberCode: display(dto.socioNumeroSocio),
     memberName: display(dto.socioNombre),
+    categoria,
+    categoriaLabel: categoriaCuotaLabel(categoria ?? undefined),
     period: optional(dto.periodo) ?? '',
     amount,
     amountLabel: formatCuotaImporte(amount),
@@ -314,6 +341,7 @@ export function mapCuotaResumenDtoToViewModel(dto: CuotaResumenResponseDto): Adm
     pagoId,
     canReview: estado === 'EN_REVISION',
     canRegisterPayment: canRegisterPayment({ estado }),
+    canEditPayment: canEditAdminPayment(dto.pagoVigente),
     canAnular: estado !== 'ANULADA' && estado !== 'PAGADA',
     canDownloadComprobante: canDownloadAdminComprobante(dto.pagoVigente),
     filterBucket: cuotaFilterBucket(estado),
@@ -325,6 +353,7 @@ export function mapCuotaDtoToViewModel(dto: CuotaResponseDto): AdminCuotaDetail 
     id: dto.id,
     socioNumeroSocio: dto.socioNumeroSocio,
     socioNombre: dto.socioNombre,
+    categoria: dto.categoria,
     periodo: dto.periodo,
     importe: dto.importe,
     estado: dto.estado,
@@ -334,7 +363,7 @@ export function mapCuotaDtoToViewModel(dto: CuotaResponseDto): AdminCuotaDetail 
 
   return {
     ...base,
-    socioId: optional(dto.socioId) ?? '',
+    socioId: optional(dto.socioId) ?? optional(dto.pagoVigente?.socioId) ?? '',
     tipoCuotaNombre: display(dto.tipoCuotaNombre),
     categoriaLabel: categoriaCuotaLabel(dto.categoria),
     motivoRechazo: display(dto.motivoRechazo),
@@ -342,6 +371,7 @@ export function mapCuotaDtoToViewModel(dto: CuotaResponseDto): AdminCuotaDetail 
     fechaGeneracionLabel: formatCuotaDate(dto.fechaGeneracion),
     fechaActualizacionLabel: formatCuotaDate(dto.fechaActualizacion),
     pago: mapPagoDtoToViewModel(dto.pagoVigente),
+    canEditPayment: canEditAdminPayment(dto.pagoVigente),
   };
 }
 
@@ -412,6 +442,7 @@ export function mapEjecucionGeneracionDtoToViewModel(
     cantidadSociosActivos: asNumber(dto.cantidadSociosActivos),
     cantidadCuotasGeneradas: asNumber(dto.cantidadCuotasGeneradas),
     cantidadSociosOmitidos: asNumber(dto.cantidadSociosOmitidos),
+    cantidadSociosNoLesCorrespondia: asNumber(dto.cantidadSociosNoLesCorrespondia),
     fechaEjecucion: optional(dto.fechaEjecucion) ?? '',
     fechaEjecucionLabel: formatCuotaDate(dto.fechaEjecucion),
     mensaje: display(dto.mensaje),

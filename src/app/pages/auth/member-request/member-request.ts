@@ -165,7 +165,7 @@ export class MemberRequest {
     phone: ['', [Validators.required, requiredTrimmed, Validators.minLength(8)]],
     personType: ['' as '' | 'FISICA' | 'JURIDICA', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    cuit: ['', [Validators.required, cuitValidator]],
+    cuit: ['', [cuitValidator]],
     establishmentName: ['', [optionalMinLength(2)]],
     establishmentAddress: ['', [optionalMinLength(2)]],
     responsableName: [''],
@@ -221,6 +221,10 @@ export class MemberRequest {
 
   protected readonly namePlaceholder = computed(() =>
     this.isPersonaJuridica() ? 'Ej: Agropecuaria Del Sol S.A.' : 'Ej: García, Juan Carlos',
+  );
+
+  protected readonly cuitLabel = computed(() =>
+    this.isPersonaJuridica() ? 'CUIT N° *' : 'CUIT N° (opcional)',
   );
 
   constructor() {
@@ -353,6 +357,7 @@ export class MemberRequest {
     const documentNumber = this.form.controls.documentNumber;
     const responsableName = this.form.controls.responsableName;
     const responsableDocument = this.form.controls.responsableDocument;
+    const cuit = this.form.controls.cuit;
 
     if (personType === 'FISICA') {
       birthDate.setValidators([Validators.required]);
@@ -361,6 +366,7 @@ export class MemberRequest {
       responsableDocument.clearValidators();
       responsableName.setValue('');
       responsableDocument.setValue('');
+      cuit.setValidators([cuitValidator]);
     } else if (personType === 'JURIDICA') {
       birthDate.clearValidators();
       documentNumber.clearValidators();
@@ -368,17 +374,20 @@ export class MemberRequest {
       documentNumber.setValue('');
       responsableName.setValidators([Validators.required, requiredTrimmed, Validators.minLength(3)]);
       responsableDocument.setValidators([Validators.required, documentNumberValidator]);
+      cuit.setValidators([Validators.required, cuitValidator]);
     } else {
       birthDate.clearValidators();
       documentNumber.clearValidators();
       responsableName.clearValidators();
       responsableDocument.clearValidators();
+      cuit.setValidators([cuitValidator]);
     }
 
     birthDate.updateValueAndValidity({ emitEvent: false });
     documentNumber.updateValueAndValidity({ emitEvent: false });
     responsableName.updateValueAndValidity({ emitEvent: false });
     responsableDocument.updateValueAndValidity({ emitEvent: false });
+    cuit.updateValueAndValidity({ emitEvent: false });
   }
 
   private applyBackendErrors(error: unknown): void {

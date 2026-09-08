@@ -58,6 +58,7 @@
                 <th>Socio</th>
                 <th>N° Socio</th>
                 <th>Categoría</th>
+                <th>Periodicidad</th>
                 <th>Estado</th>
                 <th>Cuota</th>
                 <th>Vencimiento</th>
@@ -85,6 +86,9 @@
                     <app-badge [variant]="socioCategoryBadge(member.category)">
                       {{ socioCategoryLabel(member.category) }}
                     </app-badge>
+                  </td>
+                  <td>
+                    <span class="members-table__due">{{ member.periodicidadPagoLabel }}</span>
                   </td>
                   <td>
                     <app-badge [variant]="socioEstadoBadge(member.membershipStatus)">

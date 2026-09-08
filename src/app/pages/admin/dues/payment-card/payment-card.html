@@ -56,15 +56,26 @@
           Registrar pago
         </app-button>
       </div>
-    } @else if (canDownload()) {
+    } @else if (canEdit() || canDownload()) {
       <div class="payment-card__actions" (click)="$event.stopPropagation()">
-        <app-button
-          variant="outline"
-          [disabled]="busy() || downloadBusy()"
-          (click)="onDownload($event)"
-        >
-          {{ downloadBusy() ? 'Descargando...' : 'Descargar comprobante' }}
-        </app-button>
+        @if (canEdit()) {
+          <app-button
+            variant="outline"
+            [disabled]="busy()"
+            (click)="onEditPayment($event)"
+          >
+            Editar pago
+          </app-button>
+        }
+        @if (canDownload()) {
+          <app-button
+            variant="outline"
+            [disabled]="busy() || downloadBusy()"
+            (click)="onDownload($event)"
+          >
+            {{ downloadBusy() ? 'Descargando...' : 'Descargar comprobante' }}
+          </app-button>
+        }
       </div>
     }
   </article>

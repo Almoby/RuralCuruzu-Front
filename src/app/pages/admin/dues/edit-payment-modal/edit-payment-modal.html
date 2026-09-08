@@ -1,0 +1,66 @@
+<app-modal
+  [open]="open()"
+  title="Editar pago"
+  subtitle="Corregí socio, fecha, medio u observación de un pago registrado por admin"
+  size="lg"
+  [closeDisabled]="submitting()"
+  [closeOnBackdrop]="!submitting()"
+  (close)="onClose()"
+>
+  @if (sociosLoading() && socioOptions().length === 0) {
+    <app-loading message="Cargando socios..." />
+  } @else {
+    <form class="edit-payment" [formGroup]="form" (ngSubmit)="onSubmit()">
+      @if (sociosError()) {
+        <app-alert variant="error" [message]="sociosError()" />
+      }
+
+      @if (formError()) {
+        <app-alert variant="error" [message]="formError()" />
+      }
+
+      @if (context(); as ctx) {
+        <p class="edit-payment__hint">Pago actual: {{ ctx.memberLabel }}</p>
+      }
+
+      <app-select
+        label="Socio"
+        placeholder="Seleccionar socio"
+        formControlName="socioId"
+        [options]="socioOptions()"
+        [error]="fieldError('socioId')"
+      />
+
+      <div class="edit-payment__row">
+        <app-input
+          label="Fecha de pago"
+          type="date"
+          formControlName="paidAt"
+          [error]="fieldError('paidAt')"
+        />
+        <app-select
+          label="Medio de pago"
+          formControlName="paymentMethod"
+          [options]="methodOptions"
+          [error]="fieldError('paymentMethod')"
+        />
+      </div>
+
+      <app-textarea
+        label="Observación"
+        placeholder="Opcional"
+        formControlName="notes"
+        [rows]="3"
+      />
+    </form>
+  }
+
+  <div modalFooter class="edit-payment__footer">
+    <button type="button" class="edit-payment__cancel" [disabled]="submitting()" (click)="onClose()">
+      Cancelar
+    </button>
+    <app-button variant="primary" [disabled]="submitting() || sociosLoading()" (click)="onSubmit()">
+      {{ submitting() ? 'Guardando...' : 'Guardar cambios' }}
+    </app-button>
+  </div>
+</app-modal>

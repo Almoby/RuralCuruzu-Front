@@ -274,27 +274,59 @@
 
 .dues-ejecuciones__meta {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: var(--space-3) var(--space-3);
   margin: 0;
+  align-items: start;
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
 
   dt {
     margin: 0;
+    // Reserved band so every value starts on the same horizontal line.
+    min-height: 2.7rem;
     font-size: var(--font-size-xs);
     color: var(--color-muted);
     text-transform: uppercase;
     letter-spacing: 0.02em;
+    line-height: 1.35;
   }
 
   dd {
-    margin: 0.1rem 0 0;
+    margin: 0.2rem 0 0;
     font-size: var(--font-size-sm);
     color: var(--color-text);
     font-weight: var(--font-weight-medium);
+    line-height: 1.3;
+  }
+}
+
+.dues-ejecuciones__stat--long {
+  dt {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+@media (min-width: $bp-md) {
+  // ~736px: room for 5 metrics without widening other dues modals.
+  :host ::ng-deep .app-modal__dialog:has(.dues-ejecuciones-modal) {
+    width: min(100%, 46rem);
   }
 
-  @media (min-width: $bp-sm) {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .dues-ejecuciones__meta {
+    // Extra fraction for the longest label.
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.45fr);
+    gap: var(--space-3) var(--space-2);
+
+    dt {
+      min-height: 3.05rem;
+    }
   }
 }
 

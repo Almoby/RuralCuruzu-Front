@@ -14,6 +14,11 @@ export const APP_NAVIGATION: Record<UserRole, NavItem[]> = {
     { label: 'Solicitudes', route: APP_ROUTES.admin.requests, icon: 'inbox' },
     { label: 'Gestión de Socios', route: APP_ROUTES.admin.members, icon: 'people' },
     { label: 'Gestión de Cuotas', route: APP_ROUTES.admin.fees, icon: 'payments' },
+    {
+      label: 'Pagos adelantados',
+      route: APP_ROUTES.admin.advancedPayments,
+      icon: 'payments',
+    },
     { label: 'Comercios', route: APP_ROUTES.admin.merchants, icon: 'storefront' },
     { label: 'Reportes', route: APP_ROUTES.admin.reports, icon: 'analytics' },
   ],

@@ -21,6 +21,7 @@ import {
   ActualizarSocioParcialRequestDto,
   AdminMemberDetail,
   AdminSocioEditFormValue,
+  PeriodicidadPago,
   SocioCategoria,
 } from '../../../../core/interfaces/admin-socio.interface';
 import {
@@ -72,6 +73,13 @@ export class MemberEditModal {
     { value: 'ADHERENTE', label: 'Socio Adherente' },
   ];
 
+  protected readonly periodicidadOptions: SelectOption[] = [
+    { value: 'MENSUAL', label: 'Mensual' },
+    { value: 'TRIMESTRAL', label: 'Trimestral' },
+    { value: 'SEMESTRAL', label: 'Semestral' },
+    { value: 'ANUAL', label: 'Anual' },
+  ];
+
   protected readonly form = this.fb.nonNullable.group({
     categoria: ['ACTIVO' as SocioCategoria, Validators.required],
     telefono: [''],
@@ -80,6 +88,7 @@ export class MemberEditModal {
     portalPisoDepartamento: [''],
     nombreEstablecimiento: [''],
     direccionEstablecimiento: [''],
+    periodicidadPago: ['MENSUAL' as PeriodicidadPago, Validators.required],
   });
 
   constructor() {
@@ -137,6 +146,7 @@ export class MemberEditModal {
       portalPisoDepartamento: value.portalPisoDepartamento,
       nombreEstablecimiento: value.nombreEstablecimiento,
       direccionEstablecimiento: value.direccionEstablecimiento,
+      periodicidadPago: value.periodicidadPago,
     };
 
     const payload = mapEditFormToActualizarSocioRequest(formValue, original);

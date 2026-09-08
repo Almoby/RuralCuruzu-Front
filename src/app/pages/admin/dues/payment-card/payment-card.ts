@@ -27,6 +27,7 @@ export class PaymentCard {
   readonly approve = output<AdminCuotaListItem>();
   readonly reject = output<AdminCuotaListItem>();
   readonly registerPayment = output<AdminCuotaListItem>();
+  readonly editPayment = output<AdminCuotaListItem>();
   readonly downloadComprobante = output<AdminCuotaListItem>();
 
   protected readonly methodIcon = computed(() => this.payment().paymentMethodIcon);
@@ -44,6 +45,7 @@ export class PaymentCard {
   protected readonly statusLabel = computed(() => this.payment().estadoLabel);
   protected readonly canReview = computed(() => this.payment().canReview);
   protected readonly canRegister = computed(() => canRegisterPayment(this.payment()));
+  protected readonly canEdit = computed(() => this.payment().canEditPayment);
   protected readonly canDownload = computed(() => this.payment().canDownloadComprobante);
 
   protected onOpenDetail(): void {
@@ -63,6 +65,11 @@ export class PaymentCard {
   protected onRegisterPayment(event: Event): void {
     event.stopPropagation();
     this.registerPayment.emit(this.payment());
+  }
+
+  protected onEditPayment(event: Event): void {
+    event.stopPropagation();
+    this.editPayment.emit(this.payment());
   }
 
   protected onDownload(event: Event): void {

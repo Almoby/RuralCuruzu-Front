@@ -55,6 +55,13 @@
             [error]="fieldError('categoria')"
           />
 
+          <app-select
+            label="Periodicidad de pago"
+            [options]="periodicidadOptions"
+            formControlName="periodicidadPago"
+            [error]="fieldError('periodicidadPago')"
+          />
+
           <div class="member-edit__row">
             <app-input
               label="Teléfono"

@@ -82,6 +82,7 @@
               (approve)="askApprovePayment($event)"
               (reject)="openReject($event)"
               (registerPayment)="openPaymentModal($event)"
+              (editPayment)="openEditPayment($event)"
               (downloadComprobante)="downloadComprobanteFromList($event)"
             />
           }
@@ -98,6 +99,13 @@
     (save)="registerPayment($event)"
   />
 
+  <app-edit-payment-modal
+    [open]="editPaymentOpen()"
+    [context]="editPaymentContext()"
+    [submitting]="submitting()"
+    (close)="closeEditPayment()"
+    (save)="saveEditPayment($event)"
+  />
   <app-confirm-dialog
     [open]="confirmOpen()"
     [title]="confirmTitle()"
@@ -191,6 +199,15 @@
     }
 
     <div modalFooter class="dues-modal-footer">
+      @if (detail()?.canEditPayment) {
+        <app-button
+          variant="outline"
+          [disabled]="submitting()"
+          (click)="openEditPayment(detail()!)"
+        >
+          Editar pago
+        </app-button>
+      }
       @if (detail()?.pago?.canDownloadComprobante) {
         <app-button
           variant="outline"
@@ -215,51 +232,57 @@
     size="lg"
     (close)="closeEjecuciones()"
   >
-    @if (ejecucionesLoading()) {
-      <app-loading message="Cargando historial..." />
-    } @else if (ejecucionesError()) {
-      <div class="dues__state">
-        <app-alert variant="error" message="No se pudo cargar el historial de generación." />
-        <button type="button" class="dues__retry" (click)="retryEjecuciones()">Reintentar</button>
-      </div>
-    } @else if (ejecuciones().length === 0) {
-      <app-empty-state
-        title="Sin ejecuciones"
-        description="No hay ejecuciones registradas."
-      />
-    } @else {
-      <ul class="dues-ejecuciones">
-        @for (item of ejecuciones(); track item.fechaEjecucion + item.periodo + item.origen) {
-          <li class="dues-ejecuciones__item">
-            <div class="dues-ejecuciones__head">
-              <strong>{{ item.periodoLabel }}</strong>
-              <span>{{ item.origenLabel }}</span>
-            </div>
-            <dl class="dues-ejecuciones__meta">
-              <div>
-                <dt>Fecha</dt>
-                <dd>{{ item.fechaEjecucionLabel }}</dd>
+    <div class="dues-ejecuciones-modal">
+      @if (ejecucionesLoading()) {
+        <app-loading message="Cargando historial..." />
+      } @else if (ejecucionesError()) {
+        <div class="dues__state">
+          <app-alert variant="error" message="No se pudo cargar el historial de generación." />
+          <button type="button" class="dues__retry" (click)="retryEjecuciones()">Reintentar</button>
+        </div>
+      } @else if (ejecuciones().length === 0) {
+        <app-empty-state
+          title="Sin ejecuciones"
+          description="No hay ejecuciones registradas."
+        />
+      } @else {
+        <ul class="dues-ejecuciones">
+          @for (item of ejecuciones(); track item.fechaEjecucion + item.periodo + item.origen) {
+            <li class="dues-ejecuciones__item">
+              <div class="dues-ejecuciones__head">
+                <strong>{{ item.periodoLabel }}</strong>
+                <span>{{ item.origenLabel }}</span>
               </div>
-              <div>
-                <dt>Socios activos</dt>
-                <dd>{{ item.cantidadSociosActivos }}</dd>
-              </div>
-              <div>
-                <dt>Cuotas generadas</dt>
-                <dd>{{ item.cantidadCuotasGeneradas }}</dd>
-              </div>
-              <div>
-                <dt>Socios omitidos</dt>
-                <dd>{{ item.cantidadSociosOmitidos }}</dd>
-              </div>
-            </dl>
-            @if (item.mensaje && item.mensaje !== 'No informado') {
-              <p class="dues-ejecuciones__msg">{{ item.mensaje }}</p>
-            }
-          </li>
-        }
-      </ul>
-    }
+              <dl class="dues-ejecuciones__meta">
+                <div>
+                  <dt>Fecha</dt>
+                  <dd>{{ item.fechaEjecucionLabel }}</dd>
+                </div>
+                <div>
+                  <dt>Socios activos</dt>
+                  <dd>{{ item.cantidadSociosActivos }}</dd>
+                </div>
+                <div>
+                  <dt>Cuotas generadas</dt>
+                  <dd>{{ item.cantidadCuotasGeneradas }}</dd>
+                </div>
+                <div>
+                  <dt>Socios omitidos</dt>
+                  <dd>{{ item.cantidadSociosOmitidos }}</dd>
+                </div>
+                <div class="dues-ejecuciones__stat--long">
+                  <dt>No correspondía este mes</dt>
+                  <dd>{{ item.cantidadSociosNoLesCorrespondia }}</dd>
+                </div>
+              </dl>
+              @if (item.mensaje && item.mensaje !== 'No informado') {
+                <p class="dues-ejecuciones__msg">{{ item.mensaje }}</p>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </div>
 
     <div modalFooter class="dues-modal-footer">
       <app-button variant="outline" (click)="closeEjecuciones()">Cerrar</app-button>

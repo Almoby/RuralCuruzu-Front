@@ -21,6 +21,7 @@ import {
 import {
   AdminSocioCreateFormValue,
   AltaManualSocioRequest,
+  PeriodicidadPago,
   SocioEstado,
 } from '../../../../core/interfaces/admin-socio.interface';
 import { mapFormToAltaManualSocioRequest } from '../../../../core/mappers/admin-socio.mapper';
@@ -65,6 +66,13 @@ export class MemberCreateModal {
     { value: 'DADO_DE_BAJA', label: 'Dado de baja' },
   ];
 
+  protected readonly periodicidadOptions: SelectOption[] = [
+    { value: 'MENSUAL', label: 'Mensual' },
+    { value: 'TRIMESTRAL', label: 'Trimestral' },
+    { value: 'SEMESTRAL', label: 'Semestral' },
+    { value: 'ANUAL', label: 'Anual' },
+  ];
+
   protected readonly selectedPersonType = signal<TipoPersonaSolicitud | ''>('');
 
   protected readonly form = this.fb.nonNullable.group({
@@ -76,13 +84,14 @@ export class MemberCreateModal {
     phone: ['', [Validators.required]],
     address: ['', [Validators.required]],
     portalFloor: [''],
-    cuit: ['', [Validators.required]],
+    cuit: [''],
     establishmentName: [''],
     establishmentAddress: [''],
     responsableName: [''],
     responsableDocument: [''],
     category: [MemberCategory.Activo as string, Validators.required],
     membershipStatus: ['ACTIVO' as SocioEstado, Validators.required],
+    periodicidadPago: ['MENSUAL' as PeriodicidadPago, Validators.required],
   });
 
   protected readonly isFisica = computed(() => this.selectedPersonType() === 'FISICA');
@@ -110,6 +119,7 @@ export class MemberCreateModal {
         responsableDocument: '',
         category: MemberCategory.Activo,
         membershipStatus: 'ACTIVO',
+        periodicidadPago: 'MENSUAL',
       });
       this.selectedPersonType.set('');
     });
@@ -156,6 +166,7 @@ export class MemberCreateModal {
       responsableDocument: value.responsableDocument,
       category: value.category as MemberCategory,
       membershipStatus: value.membershipStatus,
+      periodicidadPago: value.periodicidadPago,
     };
 
     this.save.emit({
@@ -181,13 +192,14 @@ export class MemberCreateModal {
   }
 
   private syncPersonTypeValidators(personType: '' | TipoPersonaSolicitud): void {
-    const { documentNumber, birthDate, responsableName, responsableDocument } =
+    const { documentNumber, birthDate, responsableName, responsableDocument, cuit } =
       this.form.controls;
 
     documentNumber.clearValidators();
     birthDate.clearValidators();
     responsableName.clearValidators();
     responsableDocument.clearValidators();
+    cuit.clearValidators();
 
     if (personType === 'FISICA') {
       documentNumber.setValidators([Validators.required]);
@@ -195,11 +207,13 @@ export class MemberCreateModal {
     } else if (personType === 'JURIDICA') {
       responsableName.setValidators([Validators.required]);
       responsableDocument.setValidators([Validators.required]);
+      cuit.setValidators([Validators.required]);
     }
 
     documentNumber.updateValueAndValidity({ emitEvent: false });
     birthDate.updateValueAndValidity({ emitEvent: false });
     responsableName.updateValueAndValidity({ emitEvent: false });
     responsableDocument.updateValueAndValidity({ emitEvent: false });
+    cuit.updateValueAndValidity({ emitEvent: false });
   }
 }

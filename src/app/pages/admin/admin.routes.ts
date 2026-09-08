@@ -29,6 +29,14 @@ export const ADMIN_ROUTES: Routes = [
     title: 'Gestión de Cuotas',
   },
   {
+    path: 'pagos-adelantados',
+    loadComponent: () =>
+      import('./dues/advanced-payments/advanced-payments').then(
+        (m) => m.AdvancedPaymentsPage,
+      ),
+    title: 'Pagos adelantados',
+  },
+  {
     path: 'comercios',
     loadComponent: () => import('./merchants/merchants').then((m) => m.MerchantsPage),
     title: 'Comercios Adheridos',

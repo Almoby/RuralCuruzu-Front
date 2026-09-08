@@ -53,6 +53,7 @@ export class MemberDetailModal {
     if (member.personType === 'JURIDICA') {
       return [
         { label: 'Tipo de persona', value: 'Persona jurídica' },
+        { label: 'Periodicidad de pago', value: member.periodicidadPagoLabel },
         { label: 'CUIT', value: this.valueOrPlaceholder(member.cuit) },
         { label: 'Teléfono', value: this.valueOrPlaceholder(member.phone) },
         { label: 'Email', value: this.valueOrPlaceholder(member.email) },
@@ -90,6 +91,7 @@ export class MemberDetailModal {
 
     return [
       { label: 'Tipo de persona', value: 'Persona física' },
+      { label: 'Periodicidad de pago', value: member.periodicidadPagoLabel },
       { label: 'DNI', value: this.valueOrPlaceholder(member.documentNumber) },
       {
         label: 'Nacimiento',
