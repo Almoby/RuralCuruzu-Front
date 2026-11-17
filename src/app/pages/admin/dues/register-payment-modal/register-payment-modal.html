@@ -1,7 +1,7 @@
 <app-modal
   [open]="open()"
   title="Registrar pago"
-  subtitle="Seleccioná un socio y uno o varios períodos. El importe de las cuotas existentes se toma de cada cuota; los períodos futuros usan la regla vigente al registrar."
+  subtitle="Seleccioná un socio y uno o varios períodos. El importe de las cuotas existentes se toma de cada cuota; los períodos sin cuota generada usan la regla vigente al registrar."
   size="lg"
   [closeOnBackdrop]="!submitting()"
   [closeDisabled]="submitting()"
@@ -70,6 +70,63 @@
             </div>
           }
         </fieldset>
+
+        @if (showPastSection()) {
+          <fieldset class="register-payment__advance" [disabled]="submitting()">
+            <legend class="register-payment__legend">Agregar meses anteriores</legend>
+            <p class="register-payment__advance-help">
+              Elegí cuántos meses anteriores al actual querés registrar. Se omiten los períodos que
+              ya tienen una cuota, en cualquier estado.
+            </p>
+            <p class="register-payment__advance-help">
+              Las cuotas que todavía no fueron generadas se crearán con la tarifa vigente.
+            </p>
+
+            <app-select
+              label="Meses anteriores"
+              formControlName="pastCount"
+              [options]="advanceCountOptions"
+            />
+
+            <div class="register-payment__advance-actions">
+              <app-button
+                type="button"
+                variant="secondary"
+                [disabled]="!canAddPastMonths()"
+                (click)="addPastMonths()"
+              >
+                {{ addPastLabel() }}
+              </app-button>
+            </div>
+
+            @if (pastHint()) {
+              <p class="register-payment__advance-hint">{{ pastHint() }}</p>
+            }
+
+            @if (pastChips().length > 0) {
+              <ul class="register-payment__advance-chips" aria-label="Meses anteriores">
+                @for (chip of pastChips(); track chip.periodo) {
+                  <li class="register-payment__advance-chip">
+                    <span>{{ chip.periodoLabel }}</span>
+                    <button
+                      type="button"
+                      class="register-payment__advance-chip-remove"
+                      [disabled]="submitting()"
+                      [attr.aria-label]="'Quitar ' + chip.periodoLabel"
+                      (click)="removePastPeriod(chip.periodo)"
+                    >
+                      ×
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </fieldset>
+        } @else if (showAdherentePastHint()) {
+          <p class="register-payment__advance-help">
+            Los meses anteriores sin cuota generada están disponibles para socios activos.
+          </p>
+        }
 
         @if (showAdvanceSection()) {
           <fieldset class="register-payment__advance" [disabled]="submitting()">

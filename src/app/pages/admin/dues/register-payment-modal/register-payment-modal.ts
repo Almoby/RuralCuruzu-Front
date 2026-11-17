@@ -46,10 +46,13 @@ import { FeeService } from '../../../../core/services/fee.service';
 import { MemberService } from '../../../../core/services/member.service';
 import {
   collectAvailableAdvancePeriods,
+  collectAvailablePastPeriods,
+  currentAdminPeriod,
   formatCuotaImporte,
   isValidPeriodoYyyyMm,
   medioPagoIcon,
   nextPeriodoYyyyMm,
+  previousPeriodoYyyyMm,
 } from '../../../../core/mappers/admin-cuota.mapper';
 import { formatPeriodLabel } from '../../../../shared/utils';
 import { MemberCategory } from '../../../../shared/enums';
@@ -84,6 +87,10 @@ function nextCalendarPeriod(): string {
 
 function addMonthsButtonLabel(count: number): string {
   return count === 1 ? 'Agregar 1 mes' : `Agregar ${count} meses`;
+}
+
+function addPastMonthsButtonLabel(count: number): string {
+  return count === 1 ? 'Agregar 1 mes anterior' : `Agregar ${count} meses anteriores`;
 }
 
 @Component({
@@ -141,9 +148,12 @@ export class RegisterPaymentModal {
   protected readonly selectedPeriodos = signal<string[]>([]);
   /** Advance months committed into the selection (shown as chips). */
   protected readonly advancePeriodos = signal<string[]>([]);
+  /** Past months without a generated cuota, committed into the selection. */
+  protected readonly pastPeriodos = signal<string[]>([]);
   protected readonly selectedSocioId = signal('');
   protected readonly activoRegla = signal<AdminReglaCuotaViewModel | null>(null);
   protected readonly advanceHint = signal('');
+  protected readonly pastHint = signal('');
   private preselectedPeriod = '';
 
   protected readonly form = this.fb.nonNullable.group({
@@ -152,6 +162,7 @@ export class RegisterPaymentModal {
     paidAt: [new Date().toISOString().slice(0, 10), Validators.required],
     notes: [''],
     advanceCount: ['1'],
+    pastCount: ['1'],
   });
 
   private readonly advanceCountValue = toSignal(
@@ -159,6 +170,13 @@ export class RegisterPaymentModal {
       startWith(this.form.controls.advanceCount.value),
     ),
     { initialValue: this.form.controls.advanceCount.value },
+  );
+
+  private readonly pastCountValue = toSignal(
+    this.form.controls.pastCount.valueChanges.pipe(
+      startWith(this.form.controls.pastCount.value),
+    ),
+    { initialValue: this.form.controls.pastCount.value },
   );
 
   protected readonly periodosPagables = computed(
@@ -180,7 +198,15 @@ export class RegisterPaymentModal {
     () => !!this.account() && this.isActivoSocio(),
   );
 
+  protected readonly showPastSection = computed(
+    () => !!this.account() && this.isActivoSocio(),
+  );
+
   protected readonly showAdherenteAdvanceHint = computed(
+    () => !!this.account() && !this.isActivoSocio() && !!this.selectedSocio(),
+  );
+
+  protected readonly showAdherentePastHint = computed(
     () => !!this.account() && !this.isActivoSocio() && !!this.selectedSocio(),
   );
 
@@ -210,8 +236,28 @@ export class RegisterPaymentModal {
 
   protected readonly canAddAdvanceMonths = computed(() => !this.submitting());
 
+  protected readonly requestedPastCount = computed(() => {
+    const parsed = this.parseAdvanceCount(this.pastCountValue());
+    return parsed > 0 ? parsed : 1;
+  });
+
+  protected readonly addPastLabel = computed(() =>
+    addPastMonthsButtonLabel(this.requestedPastCount()),
+  );
+
+  protected readonly canAddPastMonths = computed(() => !this.submitting());
+
   protected readonly advanceChips = computed((): AdvanceChip[] =>
     [...this.advancePeriodos()]
+      .sort((a, b) => a.localeCompare(b))
+      .map((periodo) => ({
+        periodo,
+        periodoLabel: formatPeriodLabel(periodo),
+      })),
+  );
+
+  protected readonly pastChips = computed((): AdvanceChip[] =>
+    [...this.pastPeriodos()]
       .sort((a, b) => a.localeCompare(b))
       .map((periodo) => ({
         periodo,
@@ -228,23 +274,34 @@ export class RegisterPaymentModal {
     const advanceCount = this.advancePeriodos().filter((periodo) =>
       selected.has(periodo),
     ).length;
+    const pastCount = this.pastPeriodos().filter((periodo) => selected.has(periodo)).length;
     const reglaImporte = this.activoRegla()?.importe;
     const hasRegla =
       typeof reglaImporte === 'number' && Number.isFinite(reglaImporte) && reglaImporte >= 0;
 
-    if (advanceCount === 0) {
+    if (advanceCount === 0 && pastCount === 0) {
       return formatCuotaImporte(pendingTotal);
     }
 
-    // Advance months use the same vigente rule the POST applies when generating
-    // missing periods (Swagger registrarPago). Show the definitive total, not an estimate.
+    // Months without a cuota use the same vigente rule the POST applies when
+    // generating missing periods (Swagger registrarPago).
     if (!hasRegla) {
+      if (pastCount === 0) {
+        return pendingTotal > 0
+          ? `${formatCuotaImporte(pendingTotal)} + períodos futuros (regla vigente)`
+          : 'Períodos futuros (monto según regla vigente)';
+      }
+      if (advanceCount === 0) {
+        return pendingTotal > 0
+          ? `${formatCuotaImporte(pendingTotal)} + períodos anteriores (regla vigente)`
+          : 'Períodos anteriores (monto según regla vigente)';
+      }
       return pendingTotal > 0
-        ? `${formatCuotaImporte(pendingTotal)} + períodos futuros (regla vigente)`
-        : 'Períodos futuros (monto según regla vigente)';
+        ? `${formatCuotaImporte(pendingTotal)} + períodos sin cuota (regla vigente)`
+        : 'Períodos sin cuota (monto según regla vigente)';
     }
 
-    const total = pendingTotal + advanceCount * reglaImporte;
+    const total = pendingTotal + (advanceCount + pastCount) * reglaImporte;
     return formatCuotaImporte(total);
   });
 
@@ -304,7 +361,9 @@ export class RegisterPaymentModal {
         this.selectedSocioId.set(socioId);
         this.selectedPeriodos.set([]);
         this.advancePeriodos.set([]);
+        this.pastPeriodos.set([]);
         this.advanceHint.set('');
+        this.pastHint.set('');
         this.socioSelected$.next(socioId);
       });
 
@@ -440,6 +499,69 @@ export class RegisterPaymentModal {
     this.advanceHint.set('');
   }
 
+  protected addPastMonths(): void {
+    if (this.submitting()) {
+      return;
+    }
+    if (!this.isActivoSocio()) {
+      this.pastHint.set(
+        'Los meses anteriores sin cuota generada están disponibles para socios activos.',
+      );
+      return;
+    }
+
+    const requested = this.parseAdvanceCount(this.form.controls.pastCount.value);
+    if (requested < 1) {
+      this.pastHint.set('Seleccioná cuántos meses anteriores querés agregar.');
+      return;
+    }
+
+    const start = previousPeriodoYyyyMm(currentAdminPeriod());
+    if (!isValidPeriodoYyyyMm(start)) {
+      this.pastHint.set('No hay meses anteriores disponibles para agregar.');
+      return;
+    }
+
+    const generated = collectAvailablePastPeriods(
+      start,
+      requested,
+      this.blockedPeriodos(),
+      ADVANCE_SCAN_LIMIT + this.pastPeriodos().length,
+    );
+
+    if (generated.length === 0) {
+      this.pastHint.set('No hay meses anteriores disponibles para agregar.');
+      return;
+    }
+
+    const nextSelected = [...this.selectedPeriodos(), ...generated].sort((a, b) =>
+      a.localeCompare(b),
+    );
+    const nextPast = [...new Set([...this.pastPeriodos(), ...generated])].sort((a, b) =>
+      a.localeCompare(b),
+    );
+
+    this.selectedPeriodos.set(nextSelected);
+    this.pastPeriodos.set(nextPast);
+
+    if (generated.length < requested) {
+      this.pastHint.set(
+        `Se agregaron ${generated.length} de los ${requested} meses seleccionados porque algunos períodos ya estaban registrados o pagados.`,
+      );
+    } else {
+      this.pastHint.set('');
+    }
+  }
+
+  protected removePastPeriod(periodo: string): void {
+    if (this.submitting()) {
+      return;
+    }
+    this.pastPeriodos.set(this.pastPeriodos().filter((item) => item !== periodo));
+    this.selectedPeriodos.set(this.selectedPeriodos().filter((item) => item !== periodo));
+    this.pastHint.set('');
+  }
+
   protected selectMethod(method: MedioPagoCuota): void {
     if (this.submitting()) {
       return;
@@ -493,6 +615,14 @@ export class RegisterPaymentModal {
       return;
     }
 
+    const pastOnly = periodos.filter((periodo) => this.pastPeriodos().includes(periodo));
+    if (pastOnly.length > 0 && !this.isActivoSocio()) {
+      this.accountError.set(
+        'Los meses anteriores sin cuota generada están disponibles para socios activos.',
+      );
+      return;
+    }
+
     this.save.emit({
       socioId: value.socioId,
       periodos,
@@ -521,6 +651,7 @@ export class RegisterPaymentModal {
    */
   private resolveFirstAdvancePeriod(): string {
     const account = this.account();
+    const pastOnly = new Set(this.pastPeriodos());
     const knownPeriods: string[] = [];
 
     for (const cuota of account?.cuotas ?? []) {
@@ -530,7 +661,8 @@ export class RegisterPaymentModal {
       }
     }
     for (const periodo of this.selectedPeriodos()) {
-      if (isValidPeriodoYyyyMm(periodo)) {
+      // Past months added in this modal are not an anchor for future advances.
+      if (isValidPeriodoYyyyMm(periodo) && !pastOnly.has(periodo)) {
         knownPeriods.push(periodo);
       }
     }
@@ -569,7 +701,9 @@ export class RegisterPaymentModal {
     this.account.set(null);
     this.selectedPeriodos.set([]);
     this.advancePeriodos.set([]);
+    this.pastPeriodos.set([]);
     this.advanceHint.set('');
+    this.pastHint.set('');
     this.selectedSocioId.set('');
     this.preselectedPeriod = '';
     this.form.reset({
@@ -578,6 +712,7 @@ export class RegisterPaymentModal {
       paidAt: new Date().toISOString().slice(0, 10),
       notes: '',
       advanceCount: '1',
+      pastCount: '1',
     });
     this.form.enable({ emitEvent: false });
   }

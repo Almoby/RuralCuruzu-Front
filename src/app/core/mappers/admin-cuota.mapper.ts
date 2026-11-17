@@ -554,6 +554,24 @@ export function nextPeriodoYyyyMm(period: string): string {
   return `${year}-${String(month).padStart(2, '0')}`;
 }
 
+/** Previous calendar period before `period` (`yyyy-MM`). */
+export function previousPeriodoYyyyMm(period: string): string {
+  if (!isValidPeriodoYyyyMm(period)) {
+    return period;
+  }
+  const [yearPart, monthPart] = period.split('-');
+  let year = Number(yearPart);
+  let month = Number(monthPart) - 1;
+  if (month < 1) {
+    month = 12;
+    year -= 1;
+  }
+  if (year < 1) {
+    return period;
+  }
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
 /**
  * Collects up to `count` periods starting at `fromPeriod`, skipping blocked ones.
  * Continues forward (including year rollover) until enough valid months are found
@@ -575,6 +593,38 @@ export function collectAvailableAdvancePeriods(
       result.push(cursor);
     }
     cursor = nextPeriodoYyyyMm(cursor);
+  }
+  return result;
+}
+
+/**
+ * Collects up to `count` periods starting at `fromPeriod`, skipping blocked ones.
+ * Continues backward (including year rollover) until enough valid months are found
+ * or `maxScan` months have been inspected.
+ */
+export function collectAvailablePastPeriods(
+  fromPeriod: string,
+  count: number,
+  blocked: ReadonlySet<string>,
+  maxScan = 48,
+): string[] {
+  if (!isValidPeriodoYyyyMm(fromPeriod) || !Number.isInteger(count) || count < 1) {
+    return [];
+  }
+  const result: string[] = [];
+  let cursor = fromPeriod;
+  for (let scanned = 0; scanned < maxScan && result.length < count; scanned += 1) {
+    if (!isValidPeriodoYyyyMm(cursor)) {
+      break;
+    }
+    if (!blocked.has(cursor)) {
+      result.push(cursor);
+    }
+    const next = previousPeriodoYyyyMm(cursor);
+    if (next === cursor) {
+      break;
+    }
+    cursor = next;
   }
   return result;
 }
