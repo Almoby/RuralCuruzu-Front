@@ -124,7 +124,8 @@
           </fieldset>
         } @else if (showAdherentePastHint()) {
           <p class="register-payment__advance-help">
-            Los meses anteriores sin cuota generada están disponibles para socios activos.
+            Los meses anteriores sin cuota generada están disponibles para socios de categoría
+            activo.
           </p>
         }
 
@@ -178,7 +179,14 @@
           </fieldset>
         } @else if (showAdherenteAdvanceHint()) {
           <p class="register-payment__advance-help">
-            Los pagos adelantados de períodos futuros están disponibles para socios activos.
+            Los pagos adelantados de períodos futuros están disponibles para socios de categoría
+            activo.
+          </p>
+        }
+
+        @if (showExistingCuotasOnlyHint()) {
+          <p class="register-payment__advance-help">
+            Este socio solo puede registrar pagos de cuotas ya generadas.
           </p>
         }
 

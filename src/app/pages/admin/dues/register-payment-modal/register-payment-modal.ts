@@ -190,24 +190,50 @@ export class RegisterPaymentModal {
     return id ? (this.sociosById().get(id) ?? null) : null;
   });
 
-  protected readonly isActivoSocio = computed(
+  /** Cuota category (Activo / Adherente), not membership status. */
+  protected readonly isCategoriaActivo = computed(
     () => this.selectedSocio()?.category === MemberCategory.Activo,
   );
 
+  /** Membership status from GET /admin/socios (`ACTIVO` | `INACTIVO` | `DADO_DE_BAJA`). */
+  protected readonly isMembresiaActiva = computed(
+    () => this.selectedSocio()?.membershipStatus === 'ACTIVO',
+  );
+
+  /**
+   * Missing periods are generated only for membresía ACTIVO and categoría Activo.
+   * Adherentes stay excluded, as before.
+   */
+  protected readonly canGenerateMissingPeriods = computed(
+    () => this.isMembresiaActiva() && this.isCategoriaActivo(),
+  );
+
   protected readonly showAdvanceSection = computed(
-    () => !!this.account() && this.isActivoSocio(),
+    () => !!this.account() && this.canGenerateMissingPeriods(),
   );
 
   protected readonly showPastSection = computed(
-    () => !!this.account() && this.isActivoSocio(),
+    () => !!this.account() && this.canGenerateMissingPeriods(),
   );
 
   protected readonly showAdherenteAdvanceHint = computed(
-    () => !!this.account() && !this.isActivoSocio() && !!this.selectedSocio(),
+    () =>
+      !!this.account() &&
+      !!this.selectedSocio() &&
+      this.isMembresiaActiva() &&
+      !this.isCategoriaActivo(),
   );
 
   protected readonly showAdherentePastHint = computed(
-    () => !!this.account() && !this.isActivoSocio() && !!this.selectedSocio(),
+    () =>
+      !!this.account() &&
+      !!this.selectedSocio() &&
+      this.isMembresiaActiva() &&
+      !this.isCategoriaActivo(),
+  );
+
+  protected readonly showExistingCuotasOnlyHint = computed(
+    () => !!this.account() && !!this.selectedSocio() && !this.isMembresiaActiva(),
   );
 
   /** Periods that already exist on the account (any state) or are already selected. */
@@ -404,6 +430,7 @@ export class RegisterPaymentModal {
         }
 
         this.account.set(account);
+        this.dropGeneratedPeriodsIfNotAllowed(account);
 
         if (
           this.preselectedPeriod &&
@@ -436,10 +463,8 @@ export class RegisterPaymentModal {
     if (this.submitting()) {
       return;
     }
-    if (!this.isActivoSocio()) {
-      this.advanceHint.set(
-        'Los pagos adelantados de períodos futuros están disponibles para socios activos.',
-      );
+    if (!this.canGenerateMissingPeriods()) {
+      this.advanceHint.set(this.missingPeriodBlockedMessage());
       return;
     }
 
@@ -503,10 +528,8 @@ export class RegisterPaymentModal {
     if (this.submitting()) {
       return;
     }
-    if (!this.isActivoSocio()) {
-      this.pastHint.set(
-        'Los meses anteriores sin cuota generada están disponibles para socios activos.',
-      );
+    if (!this.canGenerateMissingPeriods()) {
+      this.pastHint.set(this.missingPeriodBlockedMessage());
       return;
     }
 
@@ -605,21 +628,12 @@ export class RegisterPaymentModal {
       return;
     }
 
-    const advanceOnly = periodos.filter((periodo) =>
-      this.advancePeriodos().includes(periodo),
+    const generatedPeriodos = periodos.filter(
+      (periodo) =>
+        this.advancePeriodos().includes(periodo) || this.pastPeriodos().includes(periodo),
     );
-    if (advanceOnly.length > 0 && !this.isActivoSocio()) {
-      this.accountError.set(
-        'Los pagos adelantados de períodos futuros están disponibles para socios activos.',
-      );
-      return;
-    }
-
-    const pastOnly = periodos.filter((periodo) => this.pastPeriodos().includes(periodo));
-    if (pastOnly.length > 0 && !this.isActivoSocio()) {
-      this.accountError.set(
-        'Los meses anteriores sin cuota generada están disponibles para socios activos.',
-      );
+    if (generatedPeriodos.length > 0 && !this.canGenerateMissingPeriods()) {
+      this.accountError.set(this.missingPeriodBlockedMessage());
       return;
     }
 
@@ -641,6 +655,30 @@ export class RegisterPaymentModal {
       return 'Campo obligatorio';
     }
     return 'Valor inválido';
+  }
+
+  /**
+   * Drops months that would create a cuota when the selected member cannot generate one.
+   * Keeps payable cuotas that already exist (PENDIENTE, VENCIDA, RECHAZADA).
+   */
+  private dropGeneratedPeriodsIfNotAllowed(account: AdminEstadoCuentaViewModel): void {
+    if (this.canGenerateMissingPeriods()) {
+      return;
+    }
+
+    const payable = new Set(account.periodosPagables.map((item) => item.periodo));
+    this.advancePeriodos.set([]);
+    this.pastPeriodos.set([]);
+    this.selectedPeriodos.set(
+      this.selectedPeriodos().filter((periodo) => payable.has(periodo)),
+    );
+  }
+
+  private missingPeriodBlockedMessage(): string {
+    if (!this.isMembresiaActiva()) {
+      return 'Este socio solo puede registrar pagos de cuotas ya generadas.';
+    }
+    return 'Los períodos sin cuota generada están disponibles para socios de categoría activo.';
   }
 
   /**
